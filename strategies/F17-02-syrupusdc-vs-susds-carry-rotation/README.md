@@ -140,6 +140,8 @@ at 6%; syrupUSDC quoted ≈ 11.5% by Maple's UI. Curve USDS/USDC pool
   to detect a mismatched/inactive contract and report a no-op.
 
 ## Result
+Status: mechanically-reproducible
+Expected PnL: ~5.25% APY uplift (~$863 net per $200k seed over 30 days at syrupUSDC=11.5%, sUSDS=6%; rotated position earns ~11.25% vs unrotated 6%)
 
 A clean **one-way rotation PoC** demonstrating that yield-bearing stables
 are not fungible (different yield sources, different liquidity profiles)

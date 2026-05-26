@@ -104,6 +104,8 @@ briefly. Atomic exchange documented operational.
   must use private inclusion.
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~(depeg_bps - 95bp) × notional on 1.5M DAI per event (~$15,750 net at SVB-weekend 200 bp sUSD depeg; no-op below 95 bp)
 
 Three-mechanism BTC-side backstop for sUSD deep depeg. Net PnL = `depeg_bps -
 95 bp` of notional. Differentiated from F14-02 by relying on a distinct

@@ -93,6 +93,8 @@ positive-yield regime.
   needs to relax its bounds — this PoC will catch it first.
 
 ## Result
+Status: mechanically-reproducible
+Expected PnL: ~0 DAI on sub-tests 1 and 2 (within 2 wei); +1.07% (~$10,770 / +6.5% APR-equivalent) on 1M DAI over 60 days for sub-test 3
 
 A two-mechanism (DaiUsds + sUSDS-4626) round-trip probe with three asserting
 sub-tests. Establishes the wei-level cost basis under every Maker/Sky

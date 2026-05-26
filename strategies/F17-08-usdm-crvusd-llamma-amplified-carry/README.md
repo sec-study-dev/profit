@@ -121,6 +121,8 @@ crvUSD/USDC stableswap (Pool C) is deep-liquid.
   the PoC's block. The PoC's quote-gate handles this no-op cleanly.
 
 ## Result
+Status: theoretical
+Expected PnL: ~5-15 bps × notional on $100k per shot (~$30-130 net per execution after gas; ~$60-650/week assuming 2-5 executions/week at $100k notional)
 
 A pure on-chain triangular arb across Mountain's two USDM venues using
 Curve's stableswap pools as the only mechanism beyond Mountain's

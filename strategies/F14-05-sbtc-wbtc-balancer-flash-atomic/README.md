@@ -110,6 +110,8 @@ the no-arb path remains a clean research probe.
   fits historical caps but spot-check at fork block.
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~(|BTC_drift_bps| - 85bp) × notional on 200 WETH per event (~$2,500 net at 150 bp BTC CL-vs-market drift on ~$380k notional; no-op below 85 bp)
 
 Three-mechanism BTC-flavoured atomic arb. Profitable iff |Chainlink_BTC_drift|
 > 85 bp; PoC gracefully bails below that or when atomic is disabled.

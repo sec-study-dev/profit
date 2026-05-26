@@ -119,6 +119,8 @@ already listed (wOETH listing depends on AAVE governance).
   not be over-aggressive on the very first cycle.
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~7.9% APY on equity if wOETH listed (~$11.8k/yr per 50 WETH (~$150k) seed at L=3.6x, OETH APY=4%, Aave WETH borrow=2.5%); plus ~0.25 ETH (~$750) one-shot discount at 50 bp entry
 
 A three-mechanism levered carry that integrates the F17-03 depeg
 opportunity into a steady-state Aave loop, with wOETH as the connector

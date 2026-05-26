@@ -94,6 +94,8 @@ spread is solid.
   and dust-aggressive. PoC stays at 80% safety frac (HF equivalent ~1.25).
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~8.26% APY on equity (~$1,150 net per $200k seed over 30 days at DSR=6.5%, Morpho USDC borrow=5.5%, L=2.9x)
 
 A 3-mechanism (sDAI + Morpho + Curve 3pool) recursive loop demonstrating that
 the higher LLTV of permissionless Morpho markets dominates the same-DSR

@@ -144,6 +144,8 @@ compressing per public dashboards.
   unlikely at the pinned scale.
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~$4,000/yr per $200k equity (K=2x leverage × 100 bp sUSDS-vs-sUSDe APY differential; ~$190 rotation friction recovered within 30 days)
 
 A flash-loan-atomic rotation PoC for the e-mode-collateral-swap
 pattern in the yield-bearing-stable family. Asserts:

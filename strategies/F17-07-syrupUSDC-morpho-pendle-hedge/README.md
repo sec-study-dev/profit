@@ -131,6 +131,8 @@ syrupUSDC after the partnership announcement).
   on entry; exit timing is operator discretion.
 
 ## Result
+Status: theoretical
+Expected PnL: ~15.2% APY on equity (~4.2pp uplift over unlevered Maple 11%; ~$2,590 incremental net per $250k seed over 90 days at r_M=11%, r_b=6%, r_PT=12%, L=1.75x)
 
 A persistent levered carry on syrupUSDC with a Pendle fixed-rate hedge.
 Asserts (a) syrupUSDC deposit succeeds, (b) Morpho collateral + borrow

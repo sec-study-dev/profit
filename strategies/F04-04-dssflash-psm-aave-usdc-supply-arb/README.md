@@ -126,6 +126,8 @@ side legible. DssFlash and PSM both at fee = 0.
   last block, `withdraw(type(uint256).max)` returns a slightly stale figure.
 
 ## Result
+Status: mechanically-reproducible
+Expected PnL: ~$2 per 60s hold on 20M USDC at 5.5% APY; scales linearly to ~$21,900 on 200M USDC over 12h hold at 8% APY
 
 A demo of the rarest Maker composition: a strategy where *every fee is zero*.
 PoC asserts that on a one-block hold the flash-PSM-Aave-PSM-flash loop returns

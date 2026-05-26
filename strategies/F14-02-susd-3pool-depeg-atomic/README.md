@@ -116,6 +116,8 @@ exits.
   it within blocks. PoC assumes private inclusion via builder relay.
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~(depeg_bps - 85bp) × notional on 2M DAI per event (~$23,000 net at SVB-weekend 200 bp sUSD depeg; no-op below 85 bp)
 
 Captures sUSD depeg via Synthetix's atomic-exchange "fair value" exit ramp.
 Net edge = sUSD_depeg_bps - 85 bp. Profitable on SVB-weekend-class events;

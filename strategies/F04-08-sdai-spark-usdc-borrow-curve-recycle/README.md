@@ -116,6 +116,8 @@ USDC suppliers had not yet rotated to Spark). 8 pp rate gap is enormous.
   catches it.
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~29.24% APY on equity (~$4,076 net per $200k seed over 30 days at DSR=15%, Spark USDC borrow=6%, L=2.6x)
 
 A 3-mechanism (sDAI + Spark + Curve 3pool) loop that wins when the borrow
 asset is rotated from DAI to USDC at moments of large inter-asset rate gaps on

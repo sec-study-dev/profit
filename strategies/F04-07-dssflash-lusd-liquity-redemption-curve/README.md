@@ -114,6 +114,8 @@ sat at the 0.5% floor.
   family bumps Mainnet.sol.
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~228 bps × notional on 2M DAI per event (~$45,550 net at SVB-weekend LUSD ~$0.97 + 0.5% redemption fee; ~$22k at wider slippage scenario)
 
 A canonical zero-capital cross-CDP arbitrage anchored on Maker's free
 flashmint. PoC asserts that when the discovery branch passes, the tx returns

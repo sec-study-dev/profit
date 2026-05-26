@@ -100,6 +100,8 @@ DSR (currently ~5%) — i.e. V3 markets are paying their LPs at least 5% APY.
   might still pay 0 APY. Probe doesn't assert profit, only state.
 
 ## Result
+Status: theoretical
+Expected PnL: ~$0 (read-only discovery on dormant L1 V3 deployment, ~$5 gas; future-activation upside dependent on V3-on-L1 markets paying > 5% APY)
 
 Research-probe PoC. Two-mechanism reading of the Synthetix V3 mainnet state
 plus a V2x cross-check. Surfaces whether mainnet V3 has activated any

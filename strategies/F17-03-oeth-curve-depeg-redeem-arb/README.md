@@ -128,6 +128,8 @@ discount isn't present it falls back to a quote-only no-op path.
   is single-block-atomic so this is impossible by construction.
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~(discount_bps - 60bp) × notional on 1000 ETH per event (~4.95 ETH / ~$14,850 net at 1% Curve discount and ETH=$3000; ~1 ETH at 60 bp entry threshold)
 
 Atomic flash-loan arb PoC against OETH/ETH Curve pool, with a quote-gated
 execution branch and a graceful no-op when the pool is on-peg. Demonstrates

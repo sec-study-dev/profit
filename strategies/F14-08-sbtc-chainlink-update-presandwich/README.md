@@ -95,6 +95,8 @@ liquid; chosen heuristically pending a Wave 5 update-block sweep.
   distribution rather than asserting profit — failure-tolerant.
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~(BTC_drift_bps - 85bp) × notional on 300k sUSD per event (~$1,950 net at 150 bp pre-update CL BTC staleness; expected realized PnL ≤ 0 across random blocks)
 
 Two-mechanism BTC counterpart to F14-04. Condition-dependent PnL —
 profitable only on blocks where the Chainlink BTC/USD aggregator is near its
