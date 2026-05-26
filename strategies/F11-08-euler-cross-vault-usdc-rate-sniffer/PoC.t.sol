@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {StrategyBase} from "test/utils/StrategyBase.t.sol";
 import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
+import {IERC4626} from "src/interfaces/common/IERC4626.sol";
 import {IEVC} from "src/interfaces/mm/IEVC.sol";
 import {IEVault} from "src/interfaces/mm/IEVault.sol";
 
@@ -17,26 +18,26 @@ contract F11_08_EulerCrossVaultUsdcRateSnifferTest is StrategyBase {
     // Euler v2 EVC mainnet.
     // verified at
     // https://etherscan.io/address/0x0c9a3dd6b8f28529d72d7f9ce918d493519ee383
-    address internal constant LOCAL_EVC = 0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383;
+    address internal constant LOCAL_EVC = 0x0c9a3dd6b8f28529d72d7f9ce918d493519ee383;
 
     // ---- Three Euler USDC-base vaults (cluster name -> EVault address) ----
     // Euler Prime USDC (conservative cluster).
     // verified at
     // https://etherscan.io/address/0x797dd80692c3b2dadabce8e30c07fde5307d48a9
     address internal constant LOCAL_EVAULT_USDC_PRIME =
-        0x797DD80692c3b2dAdabCe8e30C07fDE5307D48a9;
+        0x797dd80692c3b2dadabce8e30c07fde5307d48a9;
 
     // Euler Yield USDC (yield cluster).
     // verified at
     // https://etherscan.io/address/0xcbc9b61177444a793b85442d3a953b90f6170b7d
     address internal constant LOCAL_EVAULT_USDC_YIELD =
-        0xcBC9B61177444A793B85442D3a953B90f6170b7D;
+        0xcbc9b61177444a793b85442d3a953b90f6170b7d;
 
     // Re7 USDC (Re7 Labs curator cluster).
     // verified at
     // https://etherscan.io/address/0x3a8992754e2ef51d8f90620d2766278af5c59b90
     address internal constant LOCAL_EVAULT_USDC_RE7 =
-        0x3A8992754E2EF51D8F90620d2766278af5C59b90;
+        0x3a8992754e2ef51d8f90620d2766278af5c59b90;
 
     uint256 internal constant DEPOSIT_USDC = 500_000e6; // 500k USDC bootstrap
 
@@ -85,7 +86,7 @@ contract F11_08_EulerCrossVaultUsdcRateSnifferTest is StrategyBase {
             targetContract: bestVault,
             onBehalfOfAccount: address(this),
             value: 0,
-            data: abi.encodeWithSelector(IEVault.deposit.selector, DEPOSIT_USDC, address(this))
+            data: abi.encodeWithSelector(IERC4626.deposit.selector, DEPOSIT_USDC, address(this))
         });
         try IEVC(LOCAL_EVC).batch(items) {
             emit log("batch_deposit_ok");

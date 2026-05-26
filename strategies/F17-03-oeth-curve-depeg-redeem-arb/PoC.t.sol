@@ -33,20 +33,20 @@ contract F17_03_OETHCurveRedeemArb is StrategyBase, IFlashLoanRecipientBalancer 
     uint256 internal constant FORK_BLOCK = 20_400_000;
 
     // ---- Hardcoded token & pool addresses (per spec) ----
-    address internal constant OETH = 0x856c4Efb76C1D1AE02e20CEB03A2A6a08b0b8dC3;
+    address internal constant OETH = 0x856c4efb76c1d1ae02e20ceb03a2a6a08b0b8dc3;
     /// @dev Origin OETH vault. Source: Origin Protocol deployments registry -
     ///      canonical OETHVaultProxy on mainnet. Exposes `redeem(uint256,uint256)`,
     ///      `redeemAll`, `redeemFeeBps()`. Runtime: `redeemFeeBps()` is called
     ///      inside `test_oethCurveRedeemArb`; if the selector is not present at
     ///      FORK_BLOCK the code defaults to 50 bps (Origin's published fee).
-    address internal constant OETH_VAULT = 0x39254033945AA2E4809Cc2977E7087BEE48bd7Ab;
+    address internal constant OETH_VAULT = 0x39254033945aa2e4809cc2977e7087bee48bd7ab;
     /// @dev Curve OETH/ETH pool (factory-crypto / 2-coin meta). coins[0]=ETH
     ///      sentinel (0xEee...EEeE) or WETH depending on factory variant;
     ///      coins[1]=OETH. Source: Origin's Curve pool registry as of Jul 2024
     ///      (this is the OETH primary venue used by all Origin docs).
     ///      Runtime: the test reads `coins(0)`/`coins(1)` at the pinned block
     ///      and short-circuits to a no-op if the layout differs.
-    address internal constant CURVE_OETH_ETH = 0x94B17476A93b3262d87B9a326965D1E91f9c13E7;
+    address internal constant CURVE_OETH_ETH = 0x94b17476a93b3262d87b9a326965d1e91f9c13e7;
 
     // ---- Sizing ----
     uint256 internal constant FLASH_WETH = 100e18; // 100 WETH probe

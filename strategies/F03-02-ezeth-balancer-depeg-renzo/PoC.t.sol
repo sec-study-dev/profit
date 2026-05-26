@@ -20,9 +20,9 @@ contract F03_02_EzETHDepegTest is StrategyBase, IFlashLoanRecipientBalancer {
         0x596192bb6e41802428ac943d2f1476c1af25cc0e000000000000000000000659;
 
     /// @dev Curve ezETH/WETH ng pool (Curve factory NG, two-coin, plain).
-    ///      Address: 0x85dE3ADd465a219EE25E04d22c39aB027cF5C12E.
+    ///      Address: 0x85de3add465a219ee25e04d22c39ab027cf5c12e.
     ///      Verified on Etherscan as "Curve.fi Factory Plain Pool: ezETH/WETH".
-    address constant CURVE_EZETH_WETH = 0x85dE3ADd465a219EE25E04d22c39aB027cF5C12E;
+    address constant CURVE_EZETH_WETH = 0x85de3add465a219ee25e04d22c39ab027cf5c12e;
 
     uint256 constant FLASH_NOTIONAL = 200 ether;
 

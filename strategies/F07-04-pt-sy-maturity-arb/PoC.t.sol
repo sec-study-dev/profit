@@ -20,7 +20,7 @@ contract F07_04_PtSyMaturityArbTest is StrategyBase {
     uint256 constant FORK_BLOCK = 20_661_000;
 
     // ---- Pendle market (PT/YT/SY-sUSDe-26SEP2024) ----
-    address constant LOCAL_MARKET = 0x19588F29f9402Bb508007FeADd415c875Ee3f19F;
+    address constant LOCAL_MARKET = 0x19588f29f9402bb508007feadd415c875ee3f19f;
 
     // ---- Equity ----
     uint256 constant EQUITY_USDC = 1_000_000e6;

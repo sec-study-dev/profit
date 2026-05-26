@@ -41,11 +41,11 @@ import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 contract F16_06_CrvUsdLlammaGhoCollateralLoop is StrategyBase {
     /// @dev crvUSD wstETH-market controller + AMM (LLAMMA). Verified across
     ///      this repo (see F05-03, F16-02).
-    address constant CRVUSD_WSTETH_CONTROLLER = 0x100dAa78fC509Db39Ef7D04DE0c1ABD299f4C6CE;
-    address constant CRVUSD_WSTETH_AMM = 0x37417B2238AA52D0DD2D6252d989E728e8f706e4;
+    address constant CRVUSD_WSTETH_CONTROLLER = 0x100daa78fc509db39ef7d04de0c1abd299f4c6ce;
+    address constant CRVUSD_WSTETH_AMM = 0x37417b2238aa52d0dd2d6252d989e728e8f706e4;
 
     /// @dev Curve GHO/crvUSD StableNG pool. Indices: 0 = GHO, 1 = crvUSD.
-    address constant CURVE_GHO_CRVUSD = 0x635EF0056A597D13863B73825CcA297236578595;
+    address constant CURVE_GHO_CRVUSD = 0x635ef0056a597d13863b73825cca297236578595;
 
     /// @dev Pinned block: late Sep 2024. At this block:
     ///        - crvUSD wstETH-market rate ~6-7% APR.

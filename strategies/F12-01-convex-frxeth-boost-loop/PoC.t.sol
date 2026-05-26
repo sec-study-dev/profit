@@ -19,12 +19,12 @@ import {IConvexBooster, IConvexBaseRewardPool} from "src/interfaces/bribe/IConve
 contract F12_01_PoC is StrategyBase {
     // ---- Curve / Convex addresses ----
     // frxETH/ETH plain pool & LP (LP == pool address).
-    address constant FRXETH_ETH_POOL = 0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577;
+    address constant FRXETH_ETH_POOL = 0xa1f8a6807c402e4a15ef4eba36528a3fed24e577;
     // Convex BaseRewardPool for PID 128 (frxETH/ETH).
-    address constant CVX_FRXETH_REWARDS = 0xbD5445402B0a287cbC77cb67B2a52e2FC635dce4;
+    address constant CVX_FRXETH_REWARDS = 0xbd5445402b0a287cbc77cb67b2a52e2fc635dce4;
     // Reward tokens streamed by this pool's BaseRewardPool.
-    address constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
-    address constant FXS = 0x3432B6A60D23Ca0dFCa7761B7ab56459D9C964D0;
+    address constant CRV = 0xd533a949740bb3306d119cc777fa900ba034cd52;
+    address constant FXS = 0x3432b6a60d23ca0dfca7761b7ab56459d9c964d0;
 
     uint256 constant PID_FRXETH = 128;
 

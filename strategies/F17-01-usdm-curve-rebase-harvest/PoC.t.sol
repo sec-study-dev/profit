@@ -35,15 +35,15 @@ contract F17_01_USDMCurveRebase is StrategyBase {
     ///      Runtime guard: the test reads `coins(0)`/`coins(1)` and falls back
     ///      cleanly via try/catch on get_dy if the layout is unexpected at the
     ///      pinned block.
-    address internal constant CURVE_CRVUSD_USDM = 0xC83b79C07ECE44b8b99fFa0E235C00aDd9124f9E;
+    address internal constant CURVE_CRVUSD_USDM = 0xc83b79c07ece44b8b99ffa0e235c00add9124f9e;
     /// @dev Alternate Stableswap-NG USDM pool (USDC/USDM variant) used by some
     ///      indexers; kept inline for reference and for an optional secondary
     ///      quote sanity-check (not used by the assertion path).
-    address internal constant CURVE_USDC_USDM = 0x39F5b252dE249790fAEd0C2F05aBead56D2088e1;
+    address internal constant CURVE_USDC_USDM = 0x39f5b252de249790faed0c2f05abead56d2088e1;
 
     // ---- Hardcoded token addresses (per spec) ----
-    address internal constant USDM = 0x59D9356E565Ab3A36dD77763Fc0d87fEaf85508C;
-    address internal constant CRVUSD = 0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E;
+    address internal constant USDM = 0x59d9356e565ab3a36dd77763fc0d87feaf85508c;
+    address internal constant CRVUSD = 0xf939e0a03fb07f59a73314e73794be0e57ac1b4e;
 
     // ---- Sizing ----
     uint256 internal constant SEED_CRVUSD = 100_000e18; // $100k

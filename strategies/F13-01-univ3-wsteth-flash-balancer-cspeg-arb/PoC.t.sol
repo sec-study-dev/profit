@@ -23,10 +23,10 @@ contract F13_01_UniV3FlashBalancerCSPArbTest is StrategyBase, IUniswapV3FlashCal
 
     /// @dev UniV3 wstETH/WETH 0.01% (fee tier 100) pool. token0 = wstETH, token1 = WETH
     ///      on mainnet (wstETH < WETH lexicographically).
-    address constant UNIV3_WSTETH_WETH_100 = 0x109830a3b59ddabe21EE0B1c34Dd4A59E3F2aC81;
+    address constant UNIV3_WSTETH_WETH_100 = 0x109830a3b59ddabe21ee0b1c34dd4a59e3f2ac81;
 
     /// @dev Balancer wstETH/WETH ComposableStable pool (current canonical "BAL wstETH-WETH-BPT").
-    address constant BAL_WSTETH_WETH_POOL = 0x93d199263632a4EF4Bb438F1feB99e57b4b5f0BD;
+    address constant BAL_WSTETH_WETH_POOL = 0x93d199263632a4ef4bb438f1feb99e57b4b5f0bd;
     bytes32 constant BAL_WSTETH_WETH_POOL_ID =
         0x93d199263632a4ef4bb438f1feb99e57b4b5f0bd0000000000000000000005c2;
 

@@ -39,7 +39,7 @@ contract F09_05_PtWeethMorphoFlashloopTest is StrategyBase, IMorphoFlashLoanCall
     uint256 constant FORK_BLOCK = 20_650_000;
 
     /// @dev Pendle V4 market for PT/YT/SY-weETH-26DEC2024.
-    address constant PENDLE_MARKET_WEETH_26DEC24 = 0x7d372819240D14fB477f17b964f95F33BeB4c704;
+    address constant PENDLE_MARKET_WEETH_26DEC24 = 0x7d372819240d14fb477f17b964f95f33beb4c704;
 
     /// @dev Morpho market id for PT-weETH-26DEC2024 / WETH 86% LLTV. The
     ///      MarketParams are recovered live via `idToMarketParams(id)` and

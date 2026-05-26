@@ -53,13 +53,13 @@ contract F15_07_KarakMultiLrtBasketVaultTest is StrategyBase {
     // label "Karak: ...Vault".
 
     /// @dev Karak wstETH vault. Largest single LST vault on Karak.
-    address constant KARAK_WSTETH_VAULT = 0xa1A300919DDF0Dc4B6cE1AcfC1f4F71be0E80f97;
+    address constant KARAK_WSTETH_VAULT = 0xa1a300919ddf0dc4b6ce1acfc1f4f71be0e80f97;
 
     /// @dev Karak pufETH vault. Active since Karak v1 (Apr 2024).
-    address constant KARAK_PUFETH_VAULT = 0xBE3cA34D0E877A1Fc889BD5231D65477779AFf4e;
+    address constant KARAK_PUFETH_VAULT = 0xbe3ca34d0e877a1fc889bd5231d65477779aff4e;
 
     /// @dev Karak weETH vault.
-    address constant KARAK_WEETH_VAULT = 0x7C22725d1E0871f0043397c9761AD99A86ffD498;
+    address constant KARAK_WEETH_VAULT = 0x7c22725d1e0871f0043397c9761ad99a86ffd498;
 
     /// @dev Sep 2024 - Karak v2 live, multi-LRT vaults all accepting deposits.
     uint256 constant FORK_BLOCK = 20_700_000;

@@ -29,14 +29,14 @@ contract F10_05_GhoCurveConvex3MechBoost is StrategyBase {
 
     /// @notice Curve GHO/USDC NG-stableswap pool (factory deployment).
     ///         coins[0] = GHO (18d), coins[1] = USDC (6d).
-    address constant CURVE_GHO_USDC_POOL = 0x635EF0056A597D13863B73825CcA297236578595;
+    address constant CURVE_GHO_USDC_POOL = 0x635ef0056a597d13863b73825cca297236578595;
 
     /// @notice CRV reward token (standard).
-    address constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
+    address constant CRV = 0xd533a949740bb3306d119cc777fa900ba034cd52;
 
     /// @notice Convex Booster - canonical mainnet. Inlined here per Wave 4
     ///         constraint #3 (also matches Mainnet.CONVEX_BOOSTER for cross-ref).
-    address constant CVX_BOOSTER = 0xF403C135812408BFbE8713b5A23a04b3D48AAE31;
+    address constant CVX_BOOSTER = 0xf403c135812408bfbe8713b5a23a04b3d48aae31;
 
     /// @notice Notional principal.
     uint256 constant PRINCIPAL_USDC = 1_000_000e6;

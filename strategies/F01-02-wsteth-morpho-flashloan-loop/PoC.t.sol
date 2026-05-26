@@ -15,8 +15,8 @@ contract F01_02_WstethMorphoFlashloanLoopTest is StrategyBase {
 
     // Morpho Blue market params for wstETH-collateral / WETH-loan @ 94.5% LLTV.
     // Verified against Morpho-Blue mainnet registry (market id 0xb323...c4f5).
-    address constant ORACLE = 0x2a01EB9496094dA03c4E364Def50f5aD1280AD72;
-    address constant IRM_ADAPTIVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
+    address constant ORACLE = 0x2a01eb9496094da03c4e364def50f5ad1280ad72;
+    address constant IRM_ADAPTIVE = 0x870ac11d48b15db9a138cf899d20f13f79ba00bc;
     uint256 constant LLTV = 945000000000000000; // 94.5%
 
     IMorpho.MarketParams marketParams;

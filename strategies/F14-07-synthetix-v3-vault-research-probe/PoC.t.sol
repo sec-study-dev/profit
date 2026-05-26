@@ -15,10 +15,10 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 // the mainnet V3 Core Proxy and logs whether a market is open at the fork.
 //
 // V2x AddressResolver (kept inline per family policy):
-//     0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83
+//     0x823be81bbf96bec0e25ca13170f5aacb5b79ba83
 // V3 Core Proxy (Synthetix V3 on mainnet, deploy address from
 // docs.synthetix.io V3 mainnet deployments page, snapshot Q4-2023):
-//     0xffffffaEff0B96Ea8e4f94b2253f31abdD875847
+//     0xffffffaeff0b96ea8e4f94b2253f31abdd875847
 // V3 USD ("snxUSD") is a permissioned token minted by the V3 system; on L1
 // its supply is intentionally tiny because the lend-vs-mint primitive lives
 // on Optimism.
@@ -64,10 +64,10 @@ interface ISynthetixV3CoreProxy {
 ///         (2) the V2x AddressResolver (sanity-checks that V2x is also still
 ///         responsive, since V3 mainnet activation status is partial).
 contract F14_07_SynthetixV3VaultProbe is StrategyBase {
-    address constant SYNTHETIX_ADDRESS_RESOLVER = 0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83;
+    address constant SYNTHETIX_ADDRESS_RESOLVER = 0x823be81bbf96bec0e25ca13170f5aacb5b79ba83;
     // Mainnet V3 CoreProxy address. Stable across V3 mainnet upgrades because
     // upgrades route through this proxy.
-    address constant SNX_V3_CORE_PROXY = 0xffffffaEff0B96Ea8e4f94b2253f31abdD875847;
+    address constant SNX_V3_CORE_PROXY = 0xffffffaeff0b96ea8e4f94b2253f31abdd875847;
 
     // Late 2024 - V3 on mainnet had at least registered markets (LegacyMarket
     // for the V2x bridge, plus a handful of perp adapters). Choose a block

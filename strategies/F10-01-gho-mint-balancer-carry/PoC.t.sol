@@ -25,13 +25,13 @@ contract F10_01_GhoMintBalancerCarry is StrategyBase {
 
     // Balancer GHO/USDC/USDT ComposableStable pool id.
     // ComposableStable layout: token0=GHO, token1=USDC, token2=USDT, token3=BPT (BPT itself).
-    // Pool id verified against Balancer subgraph (pool address 0x8353157092ED8Be69a9DF8F95af097bbF33Cb2aF).
+    // Pool id verified against Balancer subgraph (pool address 0x8353157092ed8be69a9df8f95af097bbf33cb2af).
     // Pool id format: 20-byte address || 2-byte spec (0000=Weighted/Stable) || 10-byte nonce.
     bytes32 constant BAL_GHO_USDC_USDT_POOL_ID =
         0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005be;
 
     // Pool address (also doubles as BPT token).
-    address constant BAL_GHO_USDC_USDT_POOL = 0x8353157092Ed8Be69a9DF8F95af097bbF33Cb2aF;
+    address constant BAL_GHO_USDC_USDT_POOL = 0x8353157092ed8be69a9df8f95af097bbf33cb2af;
 
     // ComposableStable JoinKind enum:
     //   INIT = 0

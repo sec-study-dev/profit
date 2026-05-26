@@ -40,7 +40,7 @@ contract F08_06_SusdeCooldownCurveArbTest is StrategyBase {
 
     /// @dev Curve USDe/USDC pool (coin 0 = USDe, coin 1 = USDC). Used as the
     ///      USDC->USDe leg before staking into sUSDe to obtain the position.
-    address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
+    address constant LOCAL_CURVE_USDE_USDC = 0x02950460e2b9529d0e00284a5fa2d7bdf3fa4d72;
 
     /// @dev Notional probe size in USDC. We buy ~1M USDe-equivalent and use
     ///      the cooldown to exit at NAV.

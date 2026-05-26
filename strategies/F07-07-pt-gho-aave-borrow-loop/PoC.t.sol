@@ -65,17 +65,17 @@ contract F07_07_PtGhoAaveBorrowLoopTest is StrategyBase {
     // ---- Pendle market (PT/YT/SY-sUSDe-26DEC2024) ----
     /// @dev Pendle Market for PT/YT/SY-sUSDe - maturity 26-DEC-2024.
     ///      Source: Pendle markets registry (sUSDe Dec-26-2024 USDe variant).
-    address constant LOCAL_MARKET = 0xa0ab94DeBB3cC9A7eA77f3205ba4AB23276feD08;
+    address constant LOCAL_MARKET = 0xa0ab94debb3cc9a7ea77f3205ba4ab23276fed08;
 
     // ---- Morpho market: PT-sUSDe-26DEC2024 / GHO ----
     /// @dev PendleSparkLinearDiscount oracle for PT-sUSDe-26DEC2024 vs GHO/USD.
-    address constant MORPHO_ORACLE_PT_SUSDE_GHO = 0x3CD8B7A0A77f6cBd8CE52CdA0C4d10b8E32fe26F;
-    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
+    address constant MORPHO_ORACLE_PT_SUSDE_GHO = 0x3cd8b7a0a77f6cbd8ce52cda0c4d10b8e32fe26f;
+    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870ac11d48b15db9a138cf899d20f13f79ba00bc;
     uint256 constant LLTV_86_5 = 0.865e18;
 
     // ---- Balancer GHO/USDC stable pool (BPT not used; only direct swap) ----
     /// @dev Balancer composable stable pool GHO/USDC/USDT.
-    address constant BAL_GHO_USDC_POOL = 0x8353157092ED8Be69a9DF8F95af097bbF33Cb2aF;
+    address constant BAL_GHO_USDC_POOL = 0x8353157092ed8be69a9df8f95af097bbf33cb2af;
     bytes32 constant BAL_GHO_USDC_POOL_ID = 0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9;
 
     // ---- Loop tuning ----

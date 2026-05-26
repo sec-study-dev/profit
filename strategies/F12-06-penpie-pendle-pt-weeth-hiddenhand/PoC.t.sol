@@ -42,26 +42,26 @@ interface IPendleMarketDepositHelper {
 ///            claim USDC + ARB-side payouts.
 contract F12_06_PoC is StrategyBase {
     // ---- Pendle market (PT-weETH-26DEC2024) ----
-    address constant PENDLE_MARKET_PT_WEETH = 0x7d372819240D14fB477f17b964f95F33BeB4c704;
+    address constant PENDLE_MARKET_PT_WEETH = 0x7d372819240d14fb477f17b964f95f33beb4c704;
 
     // ---- Penpie ----
     // MasterPenpie (yield director). Verified on Etherscan as Penpie's primary
     // staking router. Inlined per family rule.
-    address constant MASTER_PENPIE = 0x16296859C15289731521F199F0a5f762dF6347d0;
+    address constant MASTER_PENPIE = 0x16296859c15289731521f199f0a5f762df6347d0;
     // PendleMarketDepositHelper - turns Pendle LP into a Penpie deposit.
-    address constant PENDLE_MARKET_DEPOSIT_HELPER = 0x1C1Fb35334290b5ff1bF7B4c09130885b10Fc0f4;
+    address constant PENDLE_MARKET_DEPOSIT_HELPER = 0x1c1fb35334290b5ff1bf7b4c09130885b10fc0f4;
     // mPENDLE (Penpie's liquid wrapper of vePENDLE). Address has drifted
     // across Penpie redeploys; we do not _trackToken it (would revert
     // PnL snapshot if absent at the fork block) - instead query via
     // try/balanceOf and console-log inline.
-    address constant MPENDLE = 0xfDf3A4F0BC2a8b7b9c9eAa5b04eF6e10F6A6A0FA;
+    address constant MPENDLE = 0xfdf3a4f0bc2a8b7b9c9eaa5b04ef6e10f6a6a0fa;
     // PENDLE token (canonical).
-    address constant PENDLE = 0x808507121B80c02388fAd14726482e061B8da827;
+    address constant PENDLE = 0x808507121b80c02388fad14726482e061b8da827;
     // PNP token (Penpie governance). Same caveat as MPENDLE - see above.
-    address constant PNP = 0x7DEdBce5a2E31E4c75f87FeA60bF796C17718715;
+    address constant PNP = 0x7dedbce5a2e31e4c75f87fea60bf796c17718715;
 
     // ---- Hidden Hand (vePENDLE bribe arm) ----
-    address constant HIDDEN_HAND_REWARDS = 0xa9b08B4CeEC1EF29EdEC7F9C94583270337D6416;
+    address constant HIDDEN_HAND_REWARDS = 0xa9b08b4ceec1ef29edec7f9c94583270337d6416;
 
     // ---- Block ----
     // Aug 16 2024 - PT-weETH-26DEC2024 market liquid (~$60M TVL), Penpie has

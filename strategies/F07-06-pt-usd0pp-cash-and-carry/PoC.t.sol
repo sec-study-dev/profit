@@ -31,13 +31,13 @@ contract F07_06_PtUsd0ppCashAndCarryTest is StrategyBase {
     // ---- Pendle market (PT/YT/SY-USD0++-26JUN2025) ----
     /// @dev Pendle Market for PT/YT/SY-USD0++ - maturity 26-JUN-2025.
     ///      Source: Pendle markets registry (USD0++ Jun-26-2025).
-    address constant LOCAL_MARKET = 0xaFDC922d0059147486cC1F0f32e3A2354b0d35CC;
+    address constant LOCAL_MARKET = 0xafdc922d0059147486cc1f0f32e3a2354b0d35cc;
 
     // ---- USD0++ token ----
     /// @dev Usual USD0++ (4-year locked, USUAL emissions).
-    address constant USD0PP = 0x35D8949372D46B7a3D5A56006AE77B215fc69bC0;
+    address constant USD0PP = 0x35d8949372d46b7a3d5a56006ae77b215fc69bc0;
     /// @dev Usual USD0 (the unlocked / liquid version, 1:1 with USDC backing).
-    address constant USD0 = 0x73A15FeD60Bf67631dC6cd7Bc5B6e8da8190aCF5;
+    address constant USD0 = 0x73a15fed60bf67631dc6cd7bc5b6e8da8190acf5;
 
     // ---- Equity ----
     uint256 constant EQUITY_USDC = 1_000_000e6;

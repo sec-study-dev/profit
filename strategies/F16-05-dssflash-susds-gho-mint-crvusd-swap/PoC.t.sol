@@ -51,12 +51,12 @@ contract F16_05_DssFlashSusdsGhoMintCrvUsdSwap is StrategyBase, IERC3156FlashBor
 
     /// @dev Sky DaiUsds converter, deployed Sep 2024. Verified via the F04-03
     ///      and F10-04 strategies in this repo.
-    address constant SKY_DAI_USDS = 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A;
+    address constant SKY_DAI_USDS = 0x3225737a9bbb6473cb4a45b7244aca2befdb276a;
 
     /// @dev Curve GHO/crvUSD StableNG 2-coin pool - verified via Curve gov
     ///      forum `[crvUSD]: GHO Pegkeeper Review` (Feb 2026). Indices:
     ///      0 = GHO, 1 = crvUSD.
-    address constant CURVE_GHO_CRVUSD = 0x635EF0056A597D13863B73825CcA297236578595;
+    address constant CURVE_GHO_CRVUSD = 0x635ef0056a597d13863b73825cca297236578595;
 
     /// @dev Pinned block: Q1 2025. By this time sUSDS is widely listed on
     ///      Aave V3 / Spark, GHO has a deep ~$70M facilitator bucket on Aave,
@@ -102,7 +102,7 @@ contract F16_05_DssFlashSusdsGhoMintCrvUsdSwap is StrategyBase, IERC3156FlashBor
         vm.txGasPrice(20 gwei);
 
         // ---- Take the flashmint; main flow lives in onFlashLoan. ----
-        flash.flashLoan(IERC3156FlashBorrower(address(this)), Mainnet.DAI, FLASH_DAI, "");
+        flash.flashLoan(address(this), Mainnet.DAI, FLASH_DAI, "");
         require(_executed, "flash callback never ran");
 
         emit log_named_uint("flash_repaid_dai", _flashRepaidWith);
@@ -237,7 +237,7 @@ contract F16_05_DssFlashSusdsGhoMintCrvUsdSwap is StrategyBase, IERC3156FlashBor
         uint256 owed = amount + fee;
         if (IERC20(Mainnet.DAI).balanceOf(address(this)) < owed && _crvUsdAtSnapshot > 0) {
             // crvUSD -> USDC via crvUSD/USDC NG pool. Address inlined from F16-02.
-            address curveCrvUsdUsdc = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
+            address curveCrvUsdUsdc = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
             IERC20(Mainnet.CRVUSD).approve(curveCrvUsdUsdc, _crvUsdAtSnapshot);
             uint256 usdcMid = ICurveStableSwap(curveCrvUsdUsdc).exchange(
                 int128(0), int128(1), _crvUsdAtSnapshot, 0

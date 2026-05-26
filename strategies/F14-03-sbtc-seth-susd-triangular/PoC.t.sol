@@ -9,7 +9,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 
 // ============================================================================
 // Local Synthetix V2x interfaces (inline; do not modify shared interfaces).
-// AddressResolver verified at 0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83.
+// AddressResolver verified at 0x823be81bbf96bec0e25ca13170f5aacb5b79ba83.
 // ============================================================================
 
 interface ISynthetixAddressResolver {
@@ -36,11 +36,11 @@ interface ISynthetixSystemSettings {
 ///         AMM legs; just three calls through the Synthetix proxy. Profitable
 ///         iff combined Chainlink-vs-TWAP clamp deviation exceeds ~130 bp.
 contract F14_03_SynthTriangular is StrategyBase {
-    address constant SYNTHETIX_ADDRESS_RESOLVER = 0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83;
+    address constant SYNTHETIX_ADDRESS_RESOLVER = 0x823be81bbf96bec0e25ca13170f5aacb5b79ba83;
 
     // sBTC mainnet proxy. Verified on etherscan (ProxyERC20sBTC, deployed by
     // the Synthetix V2x release). Not present in Mainnet.sol so declared here.
-    address constant SBTC = 0xfE18be6b3Bd88A2D2A7f928d00292E7a9963CfC6;
+    address constant SBTC = 0xfe18be6b3bd88a2d2a7f928d00292e7a9963cfc6;
 
     bytes32 constant CK_sUSD = bytes32("sUSD");
     bytes32 constant CK_sETH = bytes32("sETH");

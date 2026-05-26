@@ -57,24 +57,24 @@ contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3
     // post-redeployment addresses come from liquity/bold contracts/addresses/1.json.
 
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_BOLD = 0x6440f144b7e50D6a8439336510312d2F54beB01D;
+    address constant LOCAL_BOLD = 0x6440f144b7e50d6a8439336510312d2f54beb01d;
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_COLLATERAL_REGISTRY = 0xf949982B91C8c61e952B3bA942cBbfaef5386684;
+    address constant LOCAL_COLLATERAL_REGISTRY = 0xf949982b91c8c61e952b3ba942cbbfaef5386684;
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_HINT_HELPERS_V2 = 0xF0CaE19C96e572234398D6665ccD1147A16CbE657;
+    address constant LOCAL_HINT_HELPERS_V2 = 0xf0cae19c96e572234398d6665cc1147a16cbe657;
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_MULTI_TROVE_GETTER = 0xfa61DB085510c64B83056Db3A7AcF3b6f631d235;
+    address constant LOCAL_MULTI_TROVE_GETTER = 0xfa61db085510c64b83056db3a7acf3b6f631d235;
 
     // ---- Per-branch TroveManagers - used to introspect basket composition ----
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_TROVE_MANAGER_ETH    = 0x7BCB64B2c9206A5b699ed43363f6F98D4776CF5a;
-    address constant LOCAL_TROVE_MANAGER_WSTETH = 0xA2895D6a3BF110561DFE4B71CA539d84e1928B22;
-    address constant LOCAL_TROVE_MANAGER_RETH   = 0xB2B2aBeb5C357A234363Ff5d180912D319e3e19E;
+    address constant LOCAL_TROVE_MANAGER_ETH    = 0x7bcb64b2c9206a5b699ed43363f6f98d4776cf5a;
+    address constant LOCAL_TROVE_MANAGER_WSTETH = 0xa2895d6a3bf110561dfe4b71ca539d84e1928b22;
+    address constant LOCAL_TROVE_MANAGER_RETH   = 0xb2b2abeb5c357a234363ff5d180912d319e3e19e;
 
     /// @dev Curve Stableswap-NG USDC/BOLD pool (from governance config in
     ///      the same deployment manifest).
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_CURVE_BOLD_USDC = 0xEFc6516323FbD28e80B85A497B65A86243a54b3E;
+    address constant LOCAL_CURVE_BOLD_USDC = 0xefc6516323fbd28e80b85a497b65a86243a54b3e;
 
     // ---- Tunables ----
 
@@ -153,7 +153,7 @@ contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3
         emit log_named_uint("v2_redemption_rate_e18", rRate);
 
         IDssFlash(Mainnet.DSS_FLASH).flashLoan(
-            IERC3156FlashBorrower(address(this)),
+            address(this),
             Mainnet.DAI,
             FLASH_DAI,
             ""

@@ -41,12 +41,12 @@ contract F08_08_SusdeSusdsFundingRotateTest is StrategyBase {
     uint256 constant FORK_BLOCK = 21_400_000;
 
     /// @dev Curve USDe/USDC pool (coin 0 = USDe, coin 1 = USDC).
-    address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
+    address constant LOCAL_CURVE_USDE_USDC = 0x02950460e2b9529d0e00284a5fa2d7bdf3fa4d72;
 
     /// @dev USDS minting from DAI: 1:1 via the MCD_LITE_PSM_USDC adapter or
     ///      via Sky's DAI -> USDS converter at the canonical address.
     ///      Inlined here as the verified Sky `DaiUsds` converter.
-    address constant LOCAL_DAI_USDS_CONVERTER = 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A;
+    address constant LOCAL_DAI_USDS_CONVERTER = 0x3225737a9bbb6473cb4a45b7244aca2befdb276a;
 
     /// @dev Initial sUSDe position to rotate (shares).
     uint256 constant POSITION_SUSDE = 1_000_000e18; // ~1M sUSDe shares

@@ -12,7 +12,7 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 
 // ============================================================================
 // Local Synthetix V2x interfaces (inline; do not modify shared interfaces).
-// AddressResolver mainnet anchor: 0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83.
+// AddressResolver mainnet anchor: 0x823be81bbf96bec0e25ca13170f5aacb5b79ba83.
 // Verified against docs.synthetix.io legacy registry.
 // ============================================================================
 
@@ -60,11 +60,11 @@ interface IUniV3RouterMinimal {
 ///         Uniswap appears only as a settle-back venue (asymmetric).
 contract F14_05_AtomicSbtcWbtc is StrategyBase, IFlashLoanRecipientBalancer {
     // ---- Synthetix V2x ----
-    address constant SYNTHETIX_ADDRESS_RESOLVER = 0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83;
+    address constant SYNTHETIX_ADDRESS_RESOLVER = 0x823be81bbf96bec0e25ca13170f5aacb5b79ba83;
 
     // Synthetix V2x synth proxies (inline per family policy).
     // sBTC mainnet proxy ProxyERC20sBTC (V2x release; verified on etherscan).
-    address constant SBTC = 0xfE18be6b3Bd88A2D2A7f928d00292E7a9963CfC6;
+    address constant SBTC = 0xfe18be6b3bd88a2d2a7f928d00292e7a9963cfc6;
 
     bytes32 constant CK_sUSD = bytes32("sUSD");
     bytes32 constant CK_sBTC = bytes32("sBTC");
@@ -75,20 +75,20 @@ contract F14_05_AtomicSbtcWbtc is StrategyBase, IFlashLoanRecipientBalancer {
     // mainnet deployment of 0x7fc77b5c715614e1533320Ea6DDc2Eb61fa00A9714:
     // 0 = renBTC, 1 = WBTC, 2 = sBTC. Verified on etherscan against the V1
     // CurveSBTC pool ABI.
-    address constant CURVE_SBTC_POOL = 0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714;
+    address constant CURVE_SBTC_POOL = 0x7fc77b5c7614e1533320ea6ddc2eb61fa00a9714;
 
     // Curve sUSD 4pool (sUSD=0, DAI=1, USDC=2, USDT=3).
-    address constant CURVE_SUSD_4POOL = 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD;
+    address constant CURVE_SUSD_4POOL = 0xa5407eae9ba41422680e2e00537571bcc53efbfd;
 
     // ---- Uniswap v3 ----
-    address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    address constant UNIV3_ROUTER = 0xe592427a0aece92de3edee1f18e0157c05861564;
     // WETH/WBTC 0.3% pool is the deepest. Use single-hop for explicit routing.
     uint24 constant UNIV3_FEE_WETH_WBTC = 3000;
     uint24 constant UNIV3_FEE_USDC_WETH = 500;
 
     // ---- WBTC ----
     // Canonical WBTC mainnet token (not in Mainnet.sol; declare locally).
-    address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+    address constant WBTC = 0x2260fac5e5542a773aa44fbcfedf7c193bc2c599;
 
     // ---- Block pin ----
     // Mid-2023; atomic exchange is documented operational and the BTC tri-pool

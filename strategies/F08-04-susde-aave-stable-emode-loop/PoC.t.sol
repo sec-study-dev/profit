@@ -37,7 +37,7 @@ contract F08_04_SusdeAaveStableEmodeLoopTest is StrategyBase {
 
     /// @dev Curve USDe/USDT factory pool. coins[0]=USDe, coins[1]=USDT.
     ///      setUp() asserts coin ordering at the fork block.
-    address constant LOCAL_CURVE_USDE_USDT = 0xa8a04E5d50e16fAFD127DbE9D5d2D5dCF4946e0C;
+    address constant LOCAL_CURVE_USDE_USDT = 0xa8a04e5d50e16fafd127dbe9d5d2d5dcf4946e0c;
 
     /// @dev Loop tuning.
     uint256 constant LOOPS = 4;

@@ -46,24 +46,24 @@ interface ICurveMeta {
 ///         contracts.
 contract F06_06_LusdTroveSpConvexBoostTest is StrategyBase {
     // ---- Liquity v1 (immutable) ----
-    address constant LOCAL_BORROWER_OPS = 0x24179CD81c9e782A4096035f7eC97fB8B783e007;
-    address constant LOCAL_TROVE_MANAGER = 0xA39739EF8b0231DbFA0DcdA07d7e29faAbCf4bb2;
-    address constant LOCAL_STABILITY_POOL = 0x66017D22b0f8556afDd19FC67041899Eb65a21bb;
+    address constant LOCAL_BORROWER_OPS = 0x24179cd81c9e782a4096035f7ec97fb8b783e007;
+    address constant LOCAL_TROVE_MANAGER = 0xa39739ef8b0231dbfa0dcda07d7e29faabcf4bb2;
+    address constant LOCAL_STABILITY_POOL = 0x66017d22b0f8556afdd19fc67041899eb65a21bb;
 
     // ---- Curve LUSD/3pool meta-pool (LP token == pool address for metapool). ----
     //
     // SOURCE: https://etherscan.io/token/0xed279fdd11ca84beef15af5d39bb4d4bee23f0ca
     //         Curve.fi Factory USD Metapool: Liquity (LUSD3CRV-f)
-    address constant LOCAL_CURVE_LUSD_META = 0xEd279fDD11ca84bEef15AF5D39BB4d4bEE23F0cA;
+    address constant LOCAL_CURVE_LUSD_META = 0xed279fdd11ca84beef15af5d39bb4d4bee23f0ca;
 
     // ---- Convex LUSD/3pool pid. ----
     //
     // SOURCE: Convex Finance pool 33 (LUSD3CRV-f).
     //   Booster.poolInfo(33) -> lptoken == LOCAL_CURVE_LUSD_META
-    //   crvRewards == 0x2ad92A7aE036a038ff02B96c88de868ddf3f8190
+    //   crvRewards == 0x2ad92a7ae036a038ff02b96c88de868ddf3f8190
     uint256 constant LOCAL_CONVEX_LUSD_PID = 33;
-    address constant LOCAL_CONVEX_LUSD_REWARDS = 0x2ad92A7aE036a038ff02B96c88de868ddf3f8190;
-    address constant LOCAL_CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
+    address constant LOCAL_CONVEX_LUSD_REWARDS = 0x2ad92a7ae036a038ff02b96c88de868ddf3f8190;
+    address constant LOCAL_CRV = 0xd533a949740bb3306d119cc777fa900ba034cd52;
 
     // ---- Tunables ----
     /// @dev Fork mid-2023: clean LUSD/3pool TVL, Convex pid 33 active.

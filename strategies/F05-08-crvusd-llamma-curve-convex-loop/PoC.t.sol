@@ -35,19 +35,19 @@ import {IConvexBooster, IConvexBaseRewardPool} from "src/interfaces/bribe/IConve
 /// positive when CRV emissions spike.
 contract F05_08_PoC is StrategyBase {
     // ---- WETH-market crvUSD primitives (verified on etherscan) ----
-    address constant CONTROLLER_WETH = 0xA920De414eA4Ab66b97dA1bFE9e6EcA7d4219635;
-    address constant LLAMMA_WETH = 0x1681195C176239ac5E72d9aeBaCf5b2492E0C4ee;
+    address constant CONTROLLER_WETH = 0xa920de414ea4ab66b97da1bfe9e6eca7d4219635;
+    address constant LLAMMA_WETH = 0x1681195c176239ac5e72d9aebacf5b2492e0c4ee;
 
     // Curve crvUSD/USDC stableswap-NG. coins[0]=crvUSD, coins[1]=USDC.
     // The LP is the pool itself (stableswap-NG pattern).
-    address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
+    address constant CURVE_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
 
     // Convex BaseRewardPool for the crvUSD/USDC LP gauge.
     // PID 182; rewards contract addr verified on etherscan.
-    address constant CVX_CRVUSD_USDC_REWARDS = 0x44D8FaB7CD8b7877D5F79974c2F501aF6E65AbBA;
+    address constant CVX_CRVUSD_USDC_REWARDS = 0x44d8fab7cd8b7877d5f79974c2f501af6e65abba;
     uint256 constant PID_CRVUSD_USDC = 182;
 
-    address constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
+    address constant CRV = 0xd533a949740bb3306d119cc777fa900ba034cd52;
 
     // ---- Sizing ----
     uint256 constant FORK_BLOCK = 20_650_000;

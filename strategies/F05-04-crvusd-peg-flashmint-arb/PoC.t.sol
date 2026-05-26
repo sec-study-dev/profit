@@ -17,15 +17,15 @@ import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.so
 ///         and sells the crvUSD into the Uni v3 premium quote (vs USDT 0.01%),
 ///         routes back to USDC and repays the PSM + flash.
 contract F05_04_PoC is StrategyBase, IERC3156FlashBorrower {
-    address constant DSS_FLASH = 0x60744434d6339a6B27d73d9Eda62b6F66a0a04FA;
-    address constant DSS_PSM_USDC = 0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A;
+    address constant DSS_FLASH = 0x60744434d6339a6b27d73d9eda62b6f66a0a04fa;
+    address constant DSS_PSM_USDC = 0x89b78cfa322f6c5de0abceecab66aee45393cc5a;
     // PSM gemJoin (where USDC actually moves to) - required only if we needed
     // to approve the join contract directly. PSM.buyGem pulls DAI from msg.sender
     // and pushes USDC; PSM.sellGem pulls USDC from msg.sender. We only need to
     // approve USDC to the gemJoin contract (queried at runtime).
 
-    address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
-    address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    address constant CURVE_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
+    address constant UNIV3_ROUTER = 0xe592427a0aece92de3edee1f18e0157c05861564;
 
     // Block where crvUSD traded > $1.005 vs USDT on Uni v3.
     uint256 constant FORK_BLOCK = 18_500_000; // Oct 26 2023

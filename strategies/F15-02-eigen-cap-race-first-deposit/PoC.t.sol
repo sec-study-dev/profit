@@ -14,7 +14,7 @@ import {console2} from "forge-std/console2.sol";
 /// before crowd-fill. Measure (a) the share of `totalShares()` we capture and
 /// (b) the time-density advantage by rolling forward 30 blocks and re-checking.
 contract F15_02_EigenCapRaceFirstDepositTest is StrategyBase {
-    address constant STETH_STRATEGY = 0x93c4b944D05dfe6df7645A86cd2206016c51564D;
+    address constant STETH_STRATEGY = 0x93c4b944d05dfe6df7645a86cd2206016c51564d;
 
     /// @dev Target block: an early-Apr 2024 cap-open. The PoC handles cap-closed
     ///      cases gracefully and falls back to a known-open block via try/catch.

@@ -40,11 +40,11 @@ contract F02_05_RsethKarakPendleYtMorphoTest is StrategyBase, IMorphoFlashLoanCa
 
     /// @dev Kelp DAO LRTDepositPool - ETH/asset -> rsETH minting.
     /// Verified: https://etherscan.io/address/0x036676389e48133b63a802f8635ad39e752d375d
-    address constant LOCAL_KELP_DEPOSIT_POOL = 0x036676389e48133B63a802f8635AD39E752D375D;
+    address constant LOCAL_KELP_DEPOSIT_POOL = 0x036676389e48133b63a802f8635ad39e752d375d;
 
     /// @dev Karak VaultSupervisor (per-asset vault registry).
     /// https://etherscan.io/address/0x54e44dbb92dba848ace27f44c0cb4268981ef1cc
-    address constant LOCAL_KARAK_VAULT_SUPERVISOR = 0x54e44dbB92dBA848ACe27F44c0CB4268981eF1CC;
+    address constant LOCAL_KARAK_VAULT_SUPERVISOR = 0x54e44dbb92dba848ace27f44c0cb4268981ef1cc;
 
     /// @dev Karak rsETH vault - deployed by VaultSupervisor for Kelp rsETH.
     /// Reachable from app.karak.network/pool/ethereum/rsETH. The Karak v0 per-
@@ -54,13 +54,13 @@ contract F02_05_RsethKarakPendleYtMorphoTest is StrategyBase, IMorphoFlashLoanCa
     /// deposit in try/catch and, on failure, leave the rsETH idle (still
     /// earns Kelp+EL pts; only Karak XP is missed).
     /// NOTE: documented placeholder; if Karak publishes a registry getter, replace.
-    address constant LOCAL_KARAK_RSETH_VAULT = 0xa791F506cD16E5Dc7E64BB9eb6f2BC4d99B1E9A1;
+    address constant LOCAL_KARAK_RSETH_VAULT = 0xa791f506cd16e5dc7e64bb9eb6f2bc4d99b1e9a1;
 
     /// @dev Pendle market token (LP) for PT-rsETH-27JUN24 / SY-rsETH.
     /// https://etherscan.io/address/0x4f43c77872db6ba177c270986cd30c3381af37ee
-    address constant LOCAL_PENDLE_RSETH_MARKET_27JUN24 = 0x4f43C77872Db6BA177c270986CD30c3381AF37EE;
+    address constant LOCAL_PENDLE_RSETH_MARKET_27JUN24 = 0x4f43c77872db6ba177c270986cd30c3381af37ee;
     /// @dev YT-rsETH-27JUN2024 - https://etherscan.io/token/0x0ed3a1d45dfdcf85bcc6c7bafdc0170a357b974c
-    address constant LOCAL_PENDLE_YT_RSETH_27JUN24 = 0x0eD3A1D45dfdcF85BcC6c7BAFDc0170A357B974C;
+    address constant LOCAL_PENDLE_YT_RSETH_27JUN24 = 0x0ed3a1d45dfdcf85bcc6c7bafdc0170a357b974c;
 
     uint256 constant EQUITY = 100 ether;
     /// @dev Spike-leg: % of equity spent on YT-rsETH for points leverage.

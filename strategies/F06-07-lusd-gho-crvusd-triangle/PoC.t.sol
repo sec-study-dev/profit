@@ -53,20 +53,20 @@ interface ICurveGenericExchange {
 ///         triangle adds materially to the LUSD-redemption alpha.
 contract F06_07_LusdGhoCrvusdTriangleTest is StrategyBase, IERC3156FlashBorrower {
     // ---- Liquity v1 (immutable since 2021) ----
-    address constant LOCAL_TROVE_MANAGER = 0xA39739EF8b0231DbFA0DcdA07d7e29faAbCf4bb2;
-    address constant LOCAL_CURVE_LUSD_META = 0xEd279fDD11ca84bEef15AF5D39BB4d4bEE23F0cA;
+    address constant LOCAL_TROVE_MANAGER = 0xa39739ef8b0231dbfa0dcda07d7e29faabcf4bb2;
+    address constant LOCAL_CURVE_LUSD_META = 0xed279fdd11ca84beef15af5d39bb4d4bee23f0ca;
 
     // ---- Curve GHO/USDC/USDT - Curve Stableswap-NG.
     //
     // SOURCE: Curve GHO/USDC/USDT Stableswap-NG. The 3-coin GHO pool exists at
-    //         0x635EF0056A597D13863B73825CcA297236578595 per Curve.
-    address constant LOCAL_CURVE_GHO_3CRV = 0x635EF0056A597D13863B73825CcA297236578595;
+    //         0x635ef0056a597d13863b73825cca297236578595 per Curve.
+    address constant LOCAL_CURVE_GHO_3CRV = 0x635ef0056a597d13863b73825cca297236578595;
 
     // ---- Curve crvUSD/USDC (canonical crvUSD pool) ----
     //
     // SOURCE: Curve crvUSD/USDC stableswap-NG at
-    //         0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E
-    address constant LOCAL_CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
+    //         0x4dece678ceceb27446b35c672dc7d61f30bad69e
+    address constant LOCAL_CURVE_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
 
     // ---- Tunables ----
     /// @dev Mid-2024 window when GHO depeg + LUSD discount lined up briefly.
@@ -106,7 +106,7 @@ contract F06_07_LusdGhoCrvusdTriangleTest is StrategyBase, IERC3156FlashBorrower
         );
 
         IDssFlash(Mainnet.DSS_FLASH).flashLoan(
-            IERC3156FlashBorrower(address(this)),
+            address(this),
             Mainnet.DAI,
             FLASH_DAI,
             ""

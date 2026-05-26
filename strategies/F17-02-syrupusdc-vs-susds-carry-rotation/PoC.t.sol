@@ -21,7 +21,7 @@ contract F17_02_SyrupVsSUSDSRotation is StrategyBase {
     uint256 internal constant PRIOR_BLOCK = 20_550_000;
 
     // ---- Hardcoded token addresses (per spec) ----
-    address internal constant SYRUPUSDC = 0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b;
+    address internal constant SYRUPUSDC = 0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b;
 
     // ---- Curve USDS/USDC pool ----
     /// @dev Curve USDS/USDC stableswap-NG factory pool. Source: Curve factory
@@ -30,7 +30,7 @@ contract F17_02_SyrupVsSUSDSRotation is StrategyBase {
     ///      Runtime: `_swapUSDSToUSDC` reads `coins(0)`/`coins(1)` and confirms
     ///      ordering before calling `exchange`; falls through to a fallback if
     ///      mismatched at the pinned block.
-    address internal constant CURVE_USDS_USDC = 0x00e6fd108C4640d21B40d02f18Dd6fE7c7F725CA;
+    address internal constant CURVE_USDS_USDC = 0x00e6fd108c4640d21b40d02f18dd6fe7c7f725ca;
 
     // ---- Sizing ----
     uint256 internal constant SEED_USDS_TO_SUSDS = 200_000e18; // $200k USDS to stake first

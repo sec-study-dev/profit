@@ -32,7 +32,7 @@ contract F01_08_WstethAavePendlePtHedgeTest is StrategyBase {
     // are tenor-rolled.
     // (Wave-5 follow-up: replace with on-chain factory enumeration.)
     address constant LOCAL_PENDLE_PT_WSTETH_MARKET =
-        0xa0193f53b9F7494c0aB5B14EDDB6F2c6c4e35c3B;
+        0xa0193f53b9f7494c0ab5b14eddb6f2c6c4e35c3b;
 
     uint8 constant EMODE_ETH_CORRELATED = 1;
     uint256 constant RATE_MODE_VARIABLE = 2;
@@ -212,7 +212,7 @@ contract F01_08_WstethAavePendlePtHedgeTest is StrategyBase {
     }
 
     function _ethUsdE8() internal view returns (uint256) {
-        (bool ok, bytes memory data) = address(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)
+        (bool ok, bytes memory data) = address(0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419)
             .staticcall(abi.encodeWithSignature("latestAnswer()"));
         if (!ok || data.length < 32) return 0;
         int256 ans = abi.decode(data, (int256));

@@ -12,7 +12,7 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
 // ============================================================================
 // Local Synthetix V2x interfaces. AddressResolver mainnet anchor:
-// 0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83.
+// 0x823be81bbf96bec0e25ca13170f5aacb5b79ba83.
 // ============================================================================
 
 interface ISynthetixAddressResolver {
@@ -60,15 +60,15 @@ interface IUniV3RouterMinimal {
 ///         executes the canonical sUSD -> sETH -> ETH -> USDC -> sUSD round
 ///         trip, logging the realized delta. Not for production.
 contract F14_04_OracleUpdateSandwich is StrategyBase {
-    address constant SYNTHETIX_ADDRESS_RESOLVER = 0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83;
+    address constant SYNTHETIX_ADDRESS_RESOLVER = 0x823be81bbf96bec0e25ca13170f5aacb5b79ba83;
 
     bytes32 constant CK_sUSD = bytes32("sUSD");
     bytes32 constant CK_sETH = bytes32("sETH");
     bytes32 constant TRACKING_CODE = bytes32("F14-04-snd");
 
-    address constant CURVE_SETH_ETH = 0xc5424B857f758E906013F3555Dad202e4bdB4567;
-    address constant CURVE_SUSD_4POOL = 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD;
-    address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    address constant CURVE_SETH_ETH = 0xc5424b857f758e906013f3555dad202e4bdb4567;
+    address constant CURVE_SUSD_4POOL = 0xa5407eae9ba41422680e2e00537571bcc53efbfd;
+    address constant UNIV3_ROUTER = 0xe592427a0aece92de3edee1f18e0157c05861564;
     uint24  constant UNIV3_FEE_USDC_WETH = 500;
 
     // Heuristic late-March 2023 block; Wave 3 should sweep around known

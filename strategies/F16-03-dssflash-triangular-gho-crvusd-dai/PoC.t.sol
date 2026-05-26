@@ -20,7 +20,7 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
     bytes32 internal constant CALLBACK_SUCCESS = keccak256("ERC3156FlashBorrower.onFlashLoan");
 
     /// @dev Curve 3pool (legacy stableswap). Underlying coins: [DAI=0, USDC=1, USDT=2].
-    address constant CURVE_3POOL = 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7;
+    address constant CURVE_3POOL = 0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7;
 
     /// @dev Curve GHO/crvUSD StableNG 2-coin pool. Verified via Curve gov
     ///      `[crvUSD]: GHO Pegkeeper Review` (gov.curve.finance/t/.../11003,
@@ -30,10 +30,10 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
     ///      original "GHO/3CRV metapool" referenced in the README does not
     ///      exist as a deployed Curve factory pool, so we route GHO via the
     ///      crvUSD bridge.
-    address constant CURVE_GHO_CRVUSD = 0x635EF0056A597D13863B73825CcA297236578595;
+    address constant CURVE_GHO_CRVUSD = 0x635ef0056a597d13863b73825cca297236578595;
 
     /// @dev Curve crvUSD/USDC stableswap-NG (index 0=crvUSD, 1=USDC).
-    address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
+    address constant CURVE_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
 
     /// @dev Mid-Sep 2024 - GHO sub-peg, crvUSD slight over-peg.
     uint256 constant FORK_BLOCK = 20_500_000;
@@ -111,7 +111,7 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
         vm.txGasPrice(20 gwei);
 
         // ---- Execute via flashmint ----
-        flash.flashLoan(IERC3156FlashBorrower(address(this)), Mainnet.DAI, FLASH_DAI, "");
+        flash.flashLoan(address(this), Mainnet.DAI, FLASH_DAI, "");
         require(_executed, "callback never ran");
 
         emit log_named_uint("dai_residual_after_repay", _residual);

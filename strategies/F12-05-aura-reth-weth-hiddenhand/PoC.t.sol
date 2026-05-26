@@ -55,11 +55,11 @@ interface IAuraBaseRewardPool {
 contract F12_05_PoC is StrategyBase {
     // ---- Balancer rETH/WETH pool ----
     // ComposableStable pool - primary LST pool on Balancer. BPT token == pool.
-    address constant BAL_RETH_WETH_BPT = 0x1E19CF2D73a72Ef1332C882F20534B6519Be0276;
+    address constant BAL_RETH_WETH_BPT = 0x1e19cf2d73a72ef1332c882f20534b6519be0276;
 
     // ---- Aura ----
     // Aura Booster (Balancer-native Convex clone). Inlined per family rule.
-    address constant AURA_BOOSTER = 0xA57b8d98dAE62B26Ec3bcC4a365338157060B234;
+    address constant AURA_BOOSTER = 0xa57b8d98dae62b26ec3bcc4a365338157060b234;
     // BaseRewardPool4626 for Aura PID 109 (rETH/WETH BPT). The exact
     // BaseRewardPool address has been re-deployed across Aura upgrade rounds
     // (PIDs are stable but the rewards contract gets bumped); to stay
@@ -67,15 +67,15 @@ contract F12_05_PoC is StrategyBase {
     // at runtime and only sanity-assert the LP token equality.
     address internal _auraRethWethRewards;
     // Aura token.
-    address constant AURA = 0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF;
+    address constant AURA = 0xc0c293ce456ff0ed870add98a0828dd4d2903dbf;
     // BAL token.
-    address constant BAL = 0xba100000625a3754423978a60c9317c58a424e3D;
+    address constant BAL = 0xba100000625a3754423978a60c9317c58a424e3d;
 
     uint256 constant AURA_PID_RETH_WETH = 109;
 
     // ---- Hidden Hand (Aura side) ----
     // Hidden Hand Bribe Vault (Redacted Cartel) - for Aura/Balancer bribes.
-    address constant HIDDEN_HAND_REWARDS = 0xa9b08B4CeEC1EF29EdEC7F9C94583270337D6416;
+    address constant HIDDEN_HAND_REWARDS = 0xa9b08b4ceec1ef29edec7f9c94583270337d6416;
 
     // ---- Block ----
     // Apr 13 2024 - Aura PID 109 live, rETH/WETH BPT TVL ~$60M, Hidden Hand

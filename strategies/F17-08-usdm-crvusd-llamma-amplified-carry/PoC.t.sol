@@ -34,22 +34,22 @@ contract F17_08_USDMCrossPoolTriangulation is StrategyBase {
     uint256 internal constant FORK_BLOCK = 20_720_000;
 
     // ---- Mountain USDM ----
-    address internal constant USDM = 0x59D9356E565Ab3A36dD77763Fc0d87fEaf85508C;
+    address internal constant USDM = 0x59d9356e565ab3a36dd77763fc0d87feaf85508c;
 
     // ---- Curve pools ----
     /// @dev Pool A: crvUSD/USDM stableswap-NG (Mountain's primary venue).
     ///      coins[0]=crvUSD, coins[1]=USDM. Source: Curve factory deployment.
-    address internal constant POOL_A_CRVUSD_USDM = 0xC83b79C07ECE44b8b99fFa0E235C00aDd9124f9E;
+    address internal constant POOL_A_CRVUSD_USDM = 0xc83b79c07ece44b8b99ffa0e235c00add9124f9e;
     /// @dev Pool B: USDC/USDM stableswap-NG (Mountain's USDC-side pool).
     ///      coins[0]=USDC, coins[1]=USDM (verified via `coins()` at runtime).
     ///      Source: Curve factory deployment, 2024 vintage.
-    address internal constant POOL_B_USDC_USDM = 0x39F5b252dE249790fAEd0C2F05aBead56D2088e1;
+    address internal constant POOL_B_USDC_USDM = 0x39f5b252de249790faed0c2f05abead56d2088e1;
     /// @dev Curve crvUSD/USDC/USDT tricryptopool-like pool used as the 3rd
     ///      leg to close the triangle (USDC -> crvUSD direct stableswap).
     ///      We use the well-known crvUSD/USDC stableswap pool instead of the
     ///      3pool meta to keep the path simple and gas-efficient.
     ///      coins[0]=USDC, coins[1]=crvUSD (or vice versa; resolved at runtime).
-    address internal constant POOL_C_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
+    address internal constant POOL_C_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
 
     // ---- Sizing ----
     uint256 internal constant SEED_CRVUSD = 100_000e18; // $100k probe

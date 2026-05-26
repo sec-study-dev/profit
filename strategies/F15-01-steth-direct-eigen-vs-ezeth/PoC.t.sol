@@ -13,7 +13,7 @@ import {console2} from "forge-std/console2.sol";
 /// @notice F15-01 - stETH direct EigenLayer deposit vs Renzo ezETH wrapper.
 ///
 /// Half of the test wallet's stETH goes into EigenLayer's per-asset stETH
-/// strategy proxy `0x93c4b944D05dfe6df7645A86cd2206016c51564D`. The other half
+/// strategy proxy `0x93c4b944d05dfe6df7645a86cd2206016c51564d`. The other half
 /// goes into Renzo's `RestakeManager` (which mints ezETH). The PoC records the
 /// shares / ezETH received and the on-chain notional. The forward-1y dollar
 /// comparison lives in the README (cannot be enforced on-chain without point
@@ -22,7 +22,7 @@ contract F15_01_StETHDirectEigenVsEzETHTest is StrategyBase {
     /// @dev EigenLayer stETH strategy proxy. Verified: this address has been
     ///      the stETH strategy since EL launch (Apr 2023). Cross-reference:
     ///      EL docs + Etherscan label "Strategy: stETH".
-    address constant STETH_STRATEGY = 0x93c4b944D05dfe6df7645A86cd2206016c51564D;
+    address constant STETH_STRATEGY = 0x93c4b944d05dfe6df7645a86cd2206016c51564d;
 
     /// @dev Apr 2024 - wstETH/stETH cap-open window. EL's stETH-strategy cap
     ///      was raised on 2024-04-09 and remained open through mid-Apr; this

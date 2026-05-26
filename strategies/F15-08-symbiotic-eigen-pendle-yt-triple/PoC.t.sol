@@ -37,18 +37,18 @@ interface ISymbioticCollateral {
 /// and KELP/RSETH or ETHFI (depending on which YT-LRT is chosen).
 contract F15_08_SymbioticEigenPendleYtTripleTest is StrategyBase {
     /// @dev EigenLayer stETH strategy proxy (same as F15-01..05).
-    address constant STETH_STRATEGY = 0x93c4b944D05dfe6df7645A86cd2206016c51564D;
+    address constant STETH_STRATEGY = 0x93c4b944d05dfe6df7645a86cd2206016c51564d;
 
     /// @dev Symbiotic wstETH DefaultCollateral vault. Verified address (same
     ///      one used in F15-04); canonical Mellow-curated mainnet vault.
-    address constant SYMBIOTIC_WSTETH_VAULT = 0xC329400492c6ff2438472D4651Ad17389fCb843a;
+    address constant SYMBIOTIC_WSTETH_VAULT = 0xc329400492c6ff2438472d4651ad17389fcb843a;
 
     /// @dev Pendle rsETH (Kelp) market with Jun-2024 maturity. Verified via
     ///      Pendle UI at FORK_BLOCK (https://app.pendle.finance/trade/markets).
     ///      If the market is past maturity or de-listed at fork, the Pendle
     ///      leg is wrapped in try/catch and the strategy degrades to
     ///      two-legs.
-    address constant PENDLE_RSETH_MARKET = 0x4f43c77872Db6BA177c270986CD30c3381AF37Ee;
+    address constant PENDLE_RSETH_MARKET = 0x4f43c77872db6ba177c270986cd30c3381af37ee;
 
     /// @dev Aug 2024 - Symbiotic live, EL caps periodically open, Pendle
     ///      rsETH market has post-Jun24 successor maturities trading.
