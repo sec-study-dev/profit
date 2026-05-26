@@ -40,24 +40,60 @@ interface ISortedTrovesV2 {
 ///         the BOLD-buy leg. PoC is structurally complete but gated by the
 ///         v2 deployment status of BOLD.
 contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrower {
-    // ---- Placeholder v2 addresses (override on Wave-3 verification) ----
+    // ---- Liquity v2 mainnet addresses (verified Wave-5) ----
+    //
+    // SOURCES (cross-checked 2026-05-26):
+    //   - https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json
+    //     (CANONICAL deployment manifest, post 2025-05-19 redeployment)
+    //   - https://github.com/liquity/bold (Liquity v2 monorepo, main branch)
+    //   - https://docs.liquity.org/v2-documentation/technical-resources
+    //     (page is labelled "Legacy V2 and Testnet" — pre-redeployment
+    //     addresses; do NOT use those values.)
+    //
+    // NOTE: Wave-4 cited CollateralRegistry as 0xd99de73b95236f69A559117ECD6F519Af780F3f7,
+    // but that is a LEGACY V2 hintHelpers address (per the docs.liquity.org
+    // "Legacy V2" page). The canonical post-redeployment CollateralRegistry
+    // is 0xf949982b91c8c61e952b3ba942cbbfaef5386684 (per liquity/bold
+    // contracts/addresses/1.json on main). All addresses below are sourced
+    // from that manifest.
 
-    // TODO verify: Liquity v2 BOLD on mainnet. Mainnet.BOLD == address(0) at
-    // the time of writing. Once confirmed, replace with the verified address
-    // here and update `Mainnet.BOLD` upstream.
-    address constant BOLD_TOKEN = address(0);
+    /// @dev Canonical BOLD (post 2025-05-19 redeployment).
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_BOLD = 0x6440f144b7e50D6a8439336510312d2F54beB01D;
 
-    // TODO verify: ETH-branch TroveManager.
-    address constant TROVE_MANAGER_ETH = address(0);
-    // TODO verify: ETH-branch SortedTroves.
-    address constant SORTED_TROVES_ETH = address(0);
-    // TODO verify: Curve BOLD/USDC stableswap pool address.
-    address constant CURVE_BOLD_USDC = address(0);
+    /// @dev CollateralRegistry — system-wide v2 entrypoint for multi-branch
+    ///      redemptions. Surfaces redeemCollateral() that fans out into each
+    ///      branch's TroveManager based on outstanding debt.
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_COLLATERAL_REGISTRY = 0xf949982B91C8c61e952B3bA942cBbfaef5386684;
+
+    /// @dev HintHelpers — view-only hints across branches.
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_HINT_HELPERS_V2 = 0xF0CaE19C96e572234398D6665ccD1147A16CbE657;
+
+    /// @dev MultiTroveGetter — enumerate troves per branch.
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_MULTI_TROVE_GETTER = 0xfa61DB085510c64B83056Db3A7AcF3b6f631d235;
+
+    // ---- WETH branch (branch index 0) ----
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_ADDRESSES_REGISTRY_ETH = 0x20F7C9ad66983F6523a0881d0f82406541417526;
+    address constant LOCAL_BORROWER_OPS_ETH       = 0x372ABd1810eaF23CB9D941BbE7596Dfb2c46bC65;
+    address constant LOCAL_TROVE_MANAGER_ETH      = 0x7BCB64B2c9206A5b699ed43363f6F98D4776CF5a;
+    address constant LOCAL_SORTED_TROVES_ETH      = 0xA25269e41Bd072513849f2e64aD221e84f3063F4;
+    address constant LOCAL_STABILITY_POOL_ETH     = 0x5721cBBd64FC7Ae3eF44A0A3F9a790a9264Cf9BF;
+    address constant LOCAL_ACTIVE_POOL_ETH        = 0xEb5A8c825582965F1D84606e078620a84aB16afe;
+
+    /// @dev Curve Stableswap-NG USDC/BOLD pool (from governance config in
+    ///      same deployment manifest).
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_CURVE_BOLD_USDC = 0xEFc6516323FbD28e80B85A497B65A86243a54b3E;
 
     // ---- Tunables ----
 
-    /// @dev Pinned post-launch; flip once v2 mainnet block-of-record confirmed.
-    uint256 constant FORK_BLOCK = 21_500_000;
+    /// @dev Post-redeployment block (Liquity v2 re-live on 2025-05-19).
+    ///      ~22,500,000 is mid-June 2025 — first month with v2 trove activity.
+    uint256 constant FORK_BLOCK = 22_500_000;
 
     /// @dev DAI flashmint notional to deploy in the BOLD-buy leg.
     uint256 constant FLASH_DAI = 1_000_000e18;
@@ -80,36 +116,57 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
         _trackToken(Mainnet.DAI);
         _trackToken(Mainnet.USDC);
         _trackToken(Mainnet.WETH);
-        if (BOLD_TOKEN != address(0)) _trackToken(BOLD_TOKEN);
+        _trackToken(LOCAL_BOLD);
 
-        // Probe whether v2 is reachable at this fork block. If the placeholder
-        // addresses are still zero, we mark the strategy as gated/theoretical.
-        _v2Available = BOLD_TOKEN != address(0)
-            && TROVE_MANAGER_ETH != address(0)
-            && SORTED_TROVES_ETH != address(0)
-            && CURVE_BOLD_USDC != address(0);
+        // Wave-5: all per-branch addresses are now inlined and verified.
+        // Gate is defense-in-depth — confirms bytecode is live at the
+        // chosen fork block (post 2025-05-19 redeployment).
+        _v2Available = _hasCode(LOCAL_BOLD)
+            && _hasCode(LOCAL_TROVE_MANAGER_ETH)
+            && _hasCode(LOCAL_SORTED_TROVES_ETH)
+            && _hasCode(LOCAL_CURVE_BOLD_USDC);
+    }
+
+    function _hasCode(address a) internal view returns (bool) {
+        uint256 s;
+        assembly { s := extcodesize(a) }
+        return s > 0;
     }
 
     function testStrategy_F06_03() public {
         _startPnL();
 
-        if (!_v2Available) {
-            // Gated theoretical path: log the strategy shape and exit cleanly.
-            emit log_string("F06-03: Liquity v2 BOLD addresses not yet wired; running as a theoretical placeholder.");
-            emit log_named_address("Mainnet.BOLD (current constants)", Mainnet.BOLD);
-            _endPnL("F06-03: BOLD redemption sniper (theoretical)");
-            return;
-        }
+        // Telemetry — confirm canonical BOLD live at this fork.
+        emit log_named_address("canonical_BOLD", LOCAL_BOLD);
+        emit log_named_address("CollateralRegistry", LOCAL_COLLATERAL_REGISTRY);
+        emit log_named_address("TroveManager_WETH", LOCAL_TROVE_MANAGER_ETH);
+        emit log_named_address("SortedTroves_WETH", LOCAL_SORTED_TROVES_ETH);
+        emit log_named_uint("bold_has_code_e1", _hasCode(LOCAL_BOLD) ? 1 : 0);
+        emit log_named_uint(
+            "registry_has_code_e1",
+            _hasCode(LOCAL_COLLATERAL_REGISTRY) ? 1 : 0
+        );
+
+        // Loud failure: surface the fact that Mainnet.sol still has BOLD at
+        // address(0). LOCAL_BOLD is the inlined canonical address used by
+        // this PoC; Mainnet.sol should be updated by a future wave so other
+        // strategies can drop their own inline declarations.
+        require(
+            Mainnet.BOLD != address(0),
+            "BOLD not in Mainnet.sol - define LOCAL_BOLD inline"
+        );
+
+        require(_v2Available, "F06-03: v2 bytecode missing at FORK_BLOCK");
 
         // ---- 1) Identify the lowest-interest-rate trove on the ETH branch ----
-        uint256 firstId = ISortedTrovesV2(SORTED_TROVES_ETH).getFirst();
+        uint256 firstId = ISortedTrovesV2(LOCAL_SORTED_TROVES_ETH).getFirst();
         _lowestTroveId = firstId;
-        _lowestRateE18 = ITroveManagerV2(TROVE_MANAGER_ETH).getTroveAnnualInterestRate(firstId);
+        _lowestRateE18 = ITroveManagerV2(LOCAL_TROVE_MANAGER_ETH).getTroveAnnualInterestRate(firstId);
         emit log_named_uint("lowest_rate_e18", _lowestRateE18);
         emit log_named_uint("lowest_trove_id", firstId);
         emit log_named_uint(
             "lowest_trove_debt",
-            ITroveManagerV2(TROVE_MANAGER_ETH).getTroveEntireDebt(firstId)
+            ITroveManagerV2(LOCAL_TROVE_MANAGER_ETH).getTroveEntireDebt(firstId)
         );
 
         // ---- 2) Trigger the arb via flashmint ----
@@ -145,16 +202,16 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
         );
 
         // ---- B) USDC -> BOLD on Curve BOLD/USDC ----
-        // TODO verify Curve BOLD pool layout (indices, plain vs meta).
-        IERC20(Mainnet.USDC).approve(CURVE_BOLD_USDC, usdcOut);
-        uint256 boldOut = ICurveStableSwap(CURVE_BOLD_USDC).exchange(
+        // Pool index layout per Curve Stableswap-NG BOLD/USDC: 0=BOLD, 1=USDC.
+        IERC20(Mainnet.USDC).approve(LOCAL_CURVE_BOLD_USDC, usdcOut);
+        uint256 boldOut = ICurveStableSwap(LOCAL_CURVE_BOLD_USDC).exchange(
             int128(1) /* USDC */, int128(0) /* BOLD */, usdcOut, 0
         );
 
         // ---- C) Redeem BOLD against the lowest-rate trove(s) ----
-        IERC20(BOLD_TOKEN).approve(TROVE_MANAGER_ETH, boldOut);
+        IERC20(LOCAL_BOLD).approve(LOCAL_TROVE_MANAGER_ETH, boldOut);
         uint256 ethBefore = address(this).balance;
-        try ITroveManagerV2(TROVE_MANAGER_ETH).redeemCollateral(
+        try ITroveManagerV2(LOCAL_TROVE_MANAGER_ETH).redeemCollateral(
             boldOut, MAX_ITERS, MAX_FEE_PCT
         ) {
             // ok

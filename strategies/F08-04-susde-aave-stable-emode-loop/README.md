@@ -52,8 +52,9 @@ Aave + Curve + Ethena sUSDe form a closed loop where:
 
 - Mainnet fork at a block *after* AIP-369 activated sUSDe e-mode
   (~Jul 2024). PoC uses block `20_400_000` (Aug 2024).
-- Aave v3 sUSDe e-mode category id correctly set to `3` (or whatever
-  AIP-369 chose at activation — `TODO verify` in code).
+- Aave v3 sUSDe stablecoin e-mode category id set to `8` — the
+  category created by AIP-369 in summer 2024, layered on top of the
+  pre-existing ETH/USD-correlated categories 1-7.
 - Aave USDT variable-borrow APY < sUSDe trailing yield. At the pinned
   block this holds (~8% borrow vs ~14% sUSDe).
 - Curve USDe/USDT pool depth > 1M USDT at < 30 bps slippage.
@@ -63,7 +64,7 @@ Aave + Curve + Ethena sUSDe form a closed loop where:
 1. Receive `1_000_000e18` USDe via `deal()`.
 2. `sUSDe.deposit(USDe, this)` -> initial shares.
 3. `AavePool.supply(sUSDe, shares)`.
-4. `AavePool.setUserEMode(3)` to switch to stablecoin e-mode.
+4. `AavePool.setUserEMode(8)` to switch to stablecoin e-mode.
 5. Loop 4 times:
    a. Read `getUserAccountData().availableBorrowsBase`.
    b. `AavePool.borrow(USDT, availableBase * 0.87 / 1e2)`.

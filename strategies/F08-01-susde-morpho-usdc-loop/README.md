@@ -30,14 +30,19 @@ With per-loop LTV `L` and N rounds, total collateral converges to
 
 ### Why we do *not* call EthenaMinting directly
 
-`Mainnet.ETHENA_MINTING` is a placeholder address in the central
-constants file (`0x9D39A5DE30e57443BfF2A8307A4256c8797A3497`, which is
-actually the sUSDe vault) and the real Ethena minting contract gates
-mint/redeem on an off-chain signed RFQ workflow that cannot be replayed
-in a forge fork. So we acquire fresh USDe from **Curve USDe/USDC
-stableswap** (the canonical secondary venue, ~$200M TVL in mid-2024).
-At a peg of $1.0000 ± 5 bps the swap is functionally equivalent to a
-mint with a few-bp Curve fee.
+The canonical EthenaMinting v2 contract lives at
+`0xE3490297a08d6fC8Da46Edb7B6142E4F461b62D3` (verified via Etherscan
+tags + Ethena docs) — note the central constants file
+`Mainnet.ETHENA_MINTING` was historically a placeholder pointing at the
+sUSDe vault and so this strategy inlines the v2 address locally
+(`LOCAL_ETHENA_MINTING_V2`). The real EthenaMinting contract gates
+mint/redeem on an EIP-712 signed RFQ workflow co-signed by an Ethena
+whitelisted market maker, which cannot be replayed in a forge fork. So
+we acquire fresh USDe from **Curve USDe/USDC stableswap** (the
+canonical secondary venue, ~$200M TVL in mid-2024). At a peg of
+$1.0000 ± 5 bps the swap is functionally equivalent to a mint with a
+few-bp Curve fee. F08-09 implements the structural Ethena-mint arb
+that does call into EthenaMinting (with a simulated signature path).
 
 ## Why it composes
 

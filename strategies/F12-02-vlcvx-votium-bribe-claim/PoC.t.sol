@@ -147,6 +147,15 @@ contract F12_02_PoC is StrategyBase {
     /// @dev Probe storage slots 0..5 for the `merkleRoot[token]` mapping.
     ///      Returns the slot whose `mapping(address=>bytes32)` lookup matches
     ///      the public getter's return value. Falls back to `type(uint256).max`.
+    ///
+    /// @dev TASK A (informational, Wave 4): the slot probe below is **purely
+    ///      diagnostic** — Votium's MultiMerkleStash is unverified-Vyper-style
+    ///      Solidity in places and we cannot derive the layout statically. The
+    ///      probe is wrapped in try/catch-equivalent semantics (it returns
+    ///      `type(uint256).max` rather than reverting on no-match), and the
+    ///      caller `require`s a sentinel so a future re-deployment of the stash
+    ///      with a different slot layout fails loudly here rather than silently
+    ///      corrupting storage. Verified on the Apr 2024 fork: slot 1.
     function _findMerkleRootSlot(address token) internal view returns (uint256) {
         bytes32 expected = IVotium(Mainnet.VOTIUM_MULTI_MERKLE_STASH).merkleRoot(token);
         // Even if `expected == 0` (no root yet for this token on this fork),

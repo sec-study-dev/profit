@@ -119,6 +119,8 @@ profit. This is intentional so the test stays runnable on any block.
   point where the post-trade 3pool ratio is still in the money.
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: +5-30 bps × notional on 1-5M DAI per event (~$15,000 gross on 5M DAI at 30 bp depeg, ~$14,978 net of gas)
 
 Atomic, capital-free arb that monetizes any > ~5 bp DAI/USDC 3pool depeg using
 Maker primitives only. PnL = depeg_spread × notional − gas. On the pinned

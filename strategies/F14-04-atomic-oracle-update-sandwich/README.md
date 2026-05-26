@@ -116,6 +116,8 @@ sweep can immediately rank blocks by recency.
   most recent update and pick the matching sUSD/sETH leg.
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~(update_step_bps - 45bp) × notional on 200k sUSD per event (~$110 at 50 bp Chainlink deviation step, ~$1,100 at 100 bp; condition-dependent on update direction)
 
 Captures the Chainlink-vs-TWAP wedge during the half-life immediately after
 a Chainlink ETH/USD update. PoC mainly probes mechanics and logs the

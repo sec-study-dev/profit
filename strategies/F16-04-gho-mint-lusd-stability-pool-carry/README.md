@@ -8,8 +8,9 @@ This strategy stacks two CDP yield mechanics that are denominated in
 1. **Borrow GHO from Aave V3** at the governance-set variable rate (~9% APR
    in mid-2024). The collateral is USDC (or any Aave V3 supported asset).
    The borrower pays ~9% APR on the GHO debt.
-2. **Swap the GHO into LUSD** via Curve (GHO -> USDC -> LUSD route through
-   the GHO/3CRV meta and the LUSD/3pool meta).
+2. **Swap the GHO into LUSD** via Curve (GHO -> crvUSD -> USDC -> LUSD route
+   through the GHO/crvUSD StableNG pool, crvUSD/USDC NG, and the LUSD/3pool
+   meta — no deep GHO/3CRV metapool exists on-chain).
 3. **Deposit the LUSD into the Liquity v1 Stability Pool**. The Stability
    Pool earns:
    - **LQTY token emissions** — historically 30-50% APR equivalent,
@@ -70,7 +71,8 @@ carry is positive on a USD-denominated basis.
 
 - Mainnet block with Aave V3 GHO live, USDC supply enabled, GHO bucket has
   headroom.
-- Curve GHO/3CRV and LUSD/3pool live with non-trivial depth.
+- Curve GHO/crvUSD (0x635EF0056A597D13863B73825CcA297236578595), crvUSD/USDC
+  NG, and LUSD/3pool live with non-trivial depth.
 - Liquity v1 Stability Pool live (it has been since trove genesis in 2021).
 - LQTY emissions still flowing — they do not expire until ~2054.
 
@@ -81,7 +83,8 @@ PoC pins block **20_500_000** — Sep 12 2024.
 1. Fund test contract with USDC collateral.
 2. `supply` USDC to Aave V3 Pool.
 3. `borrow` GHO at variable rate (rate mode = 2). Maintain LTV ~50%.
-4. Swap GHO -> USDC via Curve GHO/3CRV meta `exchange_underlying(0, 2, ...)`.
+4. Swap GHO -> crvUSD via Curve GHO/crvUSD StableNG `exchange(0, 1, ...)`,
+   then crvUSD -> USDC via crvUSD/USDC NG `exchange(0, 1, ...)`.
 5. Swap USDC -> LUSD via Curve LUSD/3pool meta `exchange_underlying(2, 0, ...)`.
 6. Approve LUSD to Liquity Stability Pool; `provideToSP(lusdAmount,
    frontEndTag=address(0))`.

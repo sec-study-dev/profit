@@ -142,6 +142,8 @@ Gas: 2 Curve swaps + 2 wrap/unwrap + 2 Aave supply/borrow + loop iterations
   direct OUSD-on-Aave.
 
 ## Result
+Status: theoretical
+Expected PnL: ~8.12% APY on equity if wOUSD listed (~$69 uplift over $334 gross per $50k seed over 30 days at OUSD APY=6.5%, Aave USDC borrow=5%, L=2.08x); $0 if unlisted (dominant mainnet state)
 
 A diagnostic-and-loop PoC that (a) measures the actual capability of Aave
 to integrate Origin OUSD via wOUSD at the pinned block, (b) executes a

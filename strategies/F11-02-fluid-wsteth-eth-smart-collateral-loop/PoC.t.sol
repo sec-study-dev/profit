@@ -8,6 +8,7 @@ import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {IStETH} from "src/interfaces/lst/IStETH.sol";
 import {IWstETH} from "src/interfaces/lst/IWstETH.sol";
 import {IFluidVault, IFluidVaultFactory} from "src/interfaces/mm/IFluidVault.sol";
+import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
 /// @title F11-02 Fluid wstETH/ETH smart-collateral leveraged loop
 /// @notice Open a Fluid wstETH/ETH smart-collateral NFT vault and lever it.
@@ -85,16 +86,16 @@ contract F11_02_FluidWstEthEthSmartCollateralLoopTest is StrategyBase {
                 // as additional collateral (Fluid will rebalance internally).
                 uint256 bal = IERC20(Mainnet.WSTETH).balanceOf(address(this));
                 if (bal == 0) break;
-                // Compute ETH equivalent (1:1 stETH/ETH peg assumption).
-                uint256 ethEquiv = IWstETH(Mainnet.WSTETH).getStETHByWstETH(bal);
-                // We need an ETH balance for the ETH leg. Unwrap half of bal:
+                // We need an ETH balance for the ETH leg. Unwrap half of bal,
+                // then swap stETH -> ETH on Curve's stETH/ETH pool (idx 1 -> 0).
+                // This is the realistic atomic path: Lido's withdrawal queue is
+                // multi-day, so production strategies route through Curve.
                 uint256 halfWst = bal / 2;
                 IERC20(Mainnet.WSTETH).approve(Mainnet.WSTETH, halfWst);
                 uint256 stOut = IWstETH(Mainnet.WSTETH).unwrap(halfWst);
-                // stETH is rebasing - we cannot withdraw to ETH atomically without the
-                // Lido withdrawal queue (multi-day). For PoC, we simulate the ETH leg
-                // by using vm.deal to top up.
-                vm.deal(address(this), address(this).balance + stOut);
+                IERC20(Mainnet.STETH).approve(Mainnet.CURVE_STETH_POOL, stOut);
+                // Curve stETH/ETH pool indices: 0=ETH, 1=stETH.
+                ICurveStableSwap(Mainnet.CURVE_STETH_POOL).exchange(int128(1), int128(0), stOut, 0);
 
                 uint256 wstRemaining = IERC20(Mainnet.WSTETH).balanceOf(address(this));
                 uint256 ethAvail = address(this).balance;
@@ -109,7 +110,6 @@ contract F11_02_FluidWstEthEthSmartCollateralLoopTest is StrategyBase {
                     // fails we exit the loop with what we have.
                     break;
                 }
-                ethEquiv; // silence
             } catch {
                 break;
             }

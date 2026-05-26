@@ -157,6 +157,8 @@ this block, the PoC logs the revert reason and exits cleanly (`no_arb`).
   computes both directions and picks the profitable one (or bails).
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~(drift_bps - 50bp) × notional on 100 WETH per event (~$1,900 net at 100 bp drift on ETH=$1,900; condition-dependent, gated on atomic-pair live)
 
 Atomic 5-leg sandwich monetizing Chainlink-Uniswap ETH/USD price drift through
 Synthetix's atomic exchanger. PoC is gated on the atomic pair being live at

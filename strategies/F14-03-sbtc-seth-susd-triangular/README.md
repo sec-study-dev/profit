@@ -128,6 +128,8 @@ sufficient liquidity per Synthetix dashboards of the era.
   sizes.
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~(clamp_spread_bps - 130bp) × notional on 500k sUSD per event (~$3,500 net at 200 bp combined clamp deviation; profitable only in oracle-update tails)
 
 Pure-synth triangular probe of Synthetix's dual-oracle clamp. PoC samples the
 delta and surfaces it for Wave 3 cross-block sweeps; profitability requires

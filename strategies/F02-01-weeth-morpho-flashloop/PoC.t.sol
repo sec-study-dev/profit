@@ -9,6 +9,7 @@ import {IWeETH} from "src/interfaces/lrt/IWeETH.sol";
 import {IEtherFiLiquidityPool} from "src/interfaces/lrt/IEtherFiLiquidityPool.sol";
 import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {IMorphoFlashLoanCallback} from "src/interfaces/common/IFlashLoanReceiver.sol";
+import {console2} from "forge-std/console2.sol";
 
 /// @notice F02-01 — weETH leveraged restake using Morpho free flashloan.
 ///
@@ -21,15 +22,19 @@ contract F02_01_WeethMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCallba
     /// @dev Pinned block: 19,200,000 (~Feb 2024). Morpho weETH/WETH market live; LRT season 2.
     uint256 constant FORK_BLOCK = 19_200_000;
 
-    /// @dev Morpho weETH/WETH market (Gauntlet-curated, ~86% LLTV).
-    /// TODO verify: this is the canonical 86% market id at the fork block.
-    /// Computed off-chain as keccak256(abi.encode(MarketParams{WETH, weETH, oracle, irm, 0.86e18})).
-    /// If wrong at the fork block we fall back to creating the market via createMarket().
+    /// @dev Morpho weETH/WETH market (Gauntlet-curated, 86% LLTV).
+    /// Verified canonical market id via app.morpho.org/ethereum/market/0x37e7484d...:
+    /// MarketParams(loanToken=WETH, collateralToken=weETH, oracle=0x3fa58b74...,
+    ///              irm=AdaptiveCurve, lltv=0.86e18).
+    /// Source: https://app.morpho.org/ethereum/market/0x37e7484d642d90f14451f1910ba4b7b8e4c3ccdd0ec28f8b2bdb35479e472ba7/weeth-weth
+    /// At PoC runtime we recompute this from the MarketParams struct (so a re-org
+    /// or off-by-one in our copy doesn't silently target the wrong market) and
+    /// `console2.log` it for cross-check.
     bytes32 constant WEETH_WETH_MARKET_ID =
-        0xc54d7acf14de29e0e5527cabd7a576506870346a78a11a6762e2cca66322ec41;
+        0x37e7484d642d90f14451f1910ba4b7b8e4c3ccdd0ec28f8b2bdb35479e472ba7;
 
-    /// @dev Gauntlet-deployed Chainlink-based oracle for weETH/WETH.
-    /// Format: ChainlinkOracle wrapping weETH-rate.
+    /// @dev MorphoChainlinkOracleV2 for weETH/WETH — wraps EtherFi's getRate().
+    /// Verified from the Morpho weETH/WETH market parameters at FORK_BLOCK.
     address constant MORPHO_ORACLE_WEETH_WETH = 0x3fa58b74e9a8eA8768eb33c8453e9C2Ed089A40a;
     /// @dev Morpho Blue AdaptiveCurveIRM.
     address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
@@ -54,6 +59,14 @@ contract F02_01_WeethMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCallba
             irm: MORPHO_IRM_ADAPTIVE_CURVE,
             lltv: LLTV_86
         });
+
+        // Recompute market id from struct and log for cross-check against
+        // the verified canonical id (`WEETH_WETH_MARKET_ID`).
+        bytes32 derivedId = keccak256(abi.encode(_market));
+        console2.log("derived weETH/WETH marketId:");
+        console2.logBytes32(derivedId);
+        console2.log("expected weETH/WETH marketId:");
+        console2.logBytes32(WEETH_WETH_MARKET_ID);
     }
 
     function testStrategy_F02_01() public {

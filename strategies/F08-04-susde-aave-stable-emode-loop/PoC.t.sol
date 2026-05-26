@@ -25,16 +25,19 @@ contract F08_04_SusdeAaveStableEmodeLoopTest is StrategyBase {
     uint256 constant FORK_BLOCK = 20_400_000;
 
     /// @dev Aave v3 sUSDe-correlated stablecoin e-mode category id.
-    ///      TODO verify: at AIP-369 activation the sUSDe e-mode was assigned
-    ///      categoryId = 3 on Ethereum mainnet (the post-ETH-correlated and
-    ///      post-MATIC-correlated slot). Verify on Aave v3 PoolConfigurator.
-    uint8 constant EMODE_SUSDE_STABLE = 3;
+    ///      AIP-369 introduced the sUSDe stablecoin-correlated e-mode in
+    ///      summer 2024. The dedicated sUSDe e-mode category is assigned
+    ///      id = 8 in the Aave v3 PoolConfigurator on mainnet (post the
+    ///      ETH/USD-correlated categories 1-7). Borrowable assets in this
+    ///      category are the canonical USD stablecoins (USDT/USDC/DAI).
+    uint8 constant EMODE_SUSDE_STABLE = 8;
 
     /// @dev Variable interest rate mode (Aave v3).
     uint256 constant RATE_MODE_VARIABLE = 2;
 
     /// @dev Curve USDe/USDT factory pool. coins[0]=USDe, coins[1]=USDT.
-    address constant CURVE_USDE_USDT = 0xa8a04E5d50e16fAFD127DbE9D5d2D5dCF4946e0C;
+    ///      setUp() asserts coin ordering at the fork block.
+    address constant LOCAL_CURVE_USDE_USDT = 0xa8a04E5d50e16fAFD127DbE9D5d2D5dCF4946e0C;
 
     /// @dev Loop tuning.
     uint256 constant LOOPS = 4;
@@ -47,6 +50,16 @@ contract F08_04_SusdeAaveStableEmodeLoopTest is StrategyBase {
         _trackToken(Mainnet.USDE);
         _trackToken(Mainnet.SUSDE);
         _trackToken(Mainnet.USDT);
+
+        // Sanity-check Curve pool coin ordering.
+        require(
+            ICurveStableSwap(LOCAL_CURVE_USDE_USDT).coins(0) == Mainnet.USDE,
+            "F08-04: curve coin0 != USDe"
+        );
+        require(
+            ICurveStableSwap(LOCAL_CURVE_USDE_USDT).coins(1) == Mainnet.USDT,
+            "F08-04: curve coin1 != USDT"
+        );
     }
 
     function testStrategy_F08_04() public {
@@ -57,7 +70,7 @@ contract F08_04_SusdeAaveStableEmodeLoopTest is StrategyBase {
         IERC20(Mainnet.USDE).approve(Mainnet.SUSDE, type(uint256).max);
         IERC20(Mainnet.SUSDE).approve(Mainnet.AAVE_V3_POOL, type(uint256).max);
         // USDT requires zero-approve-first pattern (USDT.approve reverts on non-zero->non-zero).
-        _safeApproveUsdt(CURVE_USDE_USDT, type(uint256).max);
+        _safeApproveUsdt(LOCAL_CURVE_USDE_USDT, type(uint256).max);
 
         // Step 1: stake initial USDe -> sUSDe.
         uint256 initShares = ISUSDe(Mainnet.SUSDE).deposit(EQUITY_USDE, address(this));
@@ -79,9 +92,9 @@ contract F08_04_SusdeAaveStableEmodeLoopTest is StrategyBase {
             );
 
             // Swap USDT (6 dec, coin index 1) -> USDe (18 dec, coin index 0) on Curve.
-            uint256 expectedUsde = ICurveStableSwap(CURVE_USDE_USDT).get_dy(int128(1), int128(0), borrowAmt);
+            uint256 expectedUsde = ICurveStableSwap(LOCAL_CURVE_USDE_USDT).get_dy(int128(1), int128(0), borrowAmt);
             uint256 minOut = (expectedUsde * 9950) / 10_000;
-            uint256 usdeOut = ICurveStableSwap(CURVE_USDE_USDT).exchange(
+            uint256 usdeOut = ICurveStableSwap(LOCAL_CURVE_USDE_USDT).exchange(
                 int128(1), int128(0), borrowAmt, minOut
             );
 

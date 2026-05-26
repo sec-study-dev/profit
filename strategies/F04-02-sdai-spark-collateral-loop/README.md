@@ -130,6 +130,8 @@ below DSR for a window.
   (SSR) than DSR for periods; on those windows F04-03 dominates this one.
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~15.85% APY on equity (~1.21% / ~$1,210 per $100k seed over 30 days at DSR=15%, Spark borrow=14.5%, L=2.7x)
 
 A clean same-asset DAI loop where leverage amplifies the DSR baseline by the
 sDAI-vs-Spark spread. PoC asserts: leverage > 2.5x after 5 iterations, positive

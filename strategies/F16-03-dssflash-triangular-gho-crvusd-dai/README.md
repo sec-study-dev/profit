@@ -68,8 +68,11 @@ exit is deterministic.
 ## Preconditions
 
 - `DSS_FLASH.toll() == 0` and `max() >= 50_000_000e18`.
-- GHO/3CRV Curve meta-pool live with non-trivial DAI side. Pool address
-  `0x635EF0056A597D13863B73825CcA297236578595` (TODO verify on Curve UI).
+- Curve GHO/crvUSD StableNG 2-coin pool `0x635EF0056A597D13863B73825CcA297236578595`
+  live with non-trivial depth (verified via Curve gov forum
+  [crvUSD]: GHO Pegkeeper Review, Feb 2026). Pool indices: 0=GHO, 1=crvUSD.
+  No deep GHO/3CRV factory metapool exists; we route GHO via the crvUSD
+  bridge instead.
 - Curve crvUSD/USDC NG pool live.
 - Maker PSM USDC has gem buffer.
 

@@ -10,24 +10,27 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
 // ---- Local interfaces (do NOT modify shared) ----
+//   (No metapool-specific calls — every leg uses ICurveStableSwap from shared.)
 
-/// @dev Curve meta-pool with underlying coin support (LUSD/3CRV, GHO/3CRV, etc.).
-interface ICurveMeta {
-    function exchange_underlying(int128 i, int128 j, uint256 dx, uint256 min_dy)
-        external returns (uint256);
-    function get_dy_underlying(int128 i, int128 j, uint256 dx) external view returns (uint256);
-    function coins(uint256 i) external view returns (address);
-}
-
-/// @title F16-03 — DAI flashmint triangular: DAI -> GHO -> USDC -> crvUSD -> USDC -> DAI
-/// @notice All-Curve fallback variant — no Balancer dependency, so the test
-///         runs deterministically on any block where the meta-pools exist.
+/// @title F16-03 — DAI flashmint triangular: DAI -> USDC -> crvUSD -> GHO -> crvUSD -> USDC -> DAI
+/// @notice All-Curve route — no Balancer dependency. The triangle "closes" by
+///         round-tripping crvUSD <-> GHO on the Curve GHO/crvUSD StableNG pool;
+///         residual DAI after the PSM sell-back is the measured edge.
 contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBorrower {
     bytes32 internal constant CALLBACK_SUCCESS = keccak256("ERC3156FlashBorrower.onFlashLoan");
 
-    /// @dev Curve GHO/3CRV meta-pool. underlying coins: [GHO, DAI, USDC, USDT].
-    ///      TODO verify: pool address at the pinned block.
-    address constant CURVE_GHO_3CRV = 0x635EF0056A597D13863B73825CcA297236578595;
+    /// @dev Curve 3pool (legacy stableswap). Underlying coins: [DAI=0, USDC=1, USDT=2].
+    address constant CURVE_3POOL = 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7;
+
+    /// @dev Curve GHO/crvUSD StableNG 2-coin pool. Verified via Curve gov
+    ///      `[crvUSD]: GHO Pegkeeper Review` (gov.curve.finance/t/.../11003,
+    ///      Feb 2026) — pool was added to the crvUSD PegKeeper set with a
+    ///      3M crvUSD debt ceiling. Pool index ordering: 0=GHO, 1=crvUSD.
+    ///      Note: this is the *only* deep on-chain GHO/crvUSD venue; the
+    ///      original "GHO/3CRV metapool" referenced in the README does not
+    ///      exist as a deployed Curve factory pool, so we route GHO via the
+    ///      crvUSD bridge.
+    address constant CURVE_GHO_CRVUSD = 0x635EF0056A597D13863B73825CcA297236578595;
 
     /// @dev Curve crvUSD/USDC stableswap-NG (index 0=crvUSD, 1=USDC).
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
@@ -56,34 +59,43 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
         require(flash.maxFlashLoan(Mainnet.DAI) >= FLASH_DAI, "flash cap");
 
         // ---- Discovery: quote the round trip without taking the flashloan ----
-        // Step 1: DAI (idx 1) -> GHO (idx 0) on GHO/3CRV meta.
-        uint256 ghoOut;
-        try ICurveMeta(CURVE_GHO_3CRV).get_dy_underlying(1, 0, FLASH_DAI) returns (uint256 q1) {
-            ghoOut = q1;
+        // Step 1: DAI (idx 0) -> USDC (idx 1) on Curve 3pool.
+        uint256 usdcOut1;
+        try ICurveStableSwap(CURVE_3POOL).get_dy(int128(0), int128(1), FLASH_DAI) returns (uint256 q1) {
+            usdcOut1 = q1;
         } catch {
-            emit log("GHO/3CRV pool quote failed — skipping triangle");
+            emit log("Curve 3pool quote failed — skipping triangle");
             return;
         }
-        emit log_named_uint("quote_gho_out_from_dai", ghoOut);
+        emit log_named_uint("quote_usdc_out_from_dai_3pool", usdcOut1);
 
-        // Step 2: GHO (idx 0) -> USDC (idx 2) on the same meta-pool.
-        uint256 usdcOut1 = ICurveMeta(CURVE_GHO_3CRV).get_dy_underlying(0, 2, ghoOut);
-        emit log_named_uint("quote_usdc_out_from_gho", usdcOut1);
-
-        // Step 3: USDC -> crvUSD on NG pool.
-        uint256 crvUsdOut = ICurveStableSwap(CURVE_CRVUSD_USDC).get_dy(
+        // Step 2: USDC (idx 1) -> crvUSD (idx 0) on crvUSD/USDC NG pool.
+        uint256 crvUsdOut1 = ICurveStableSwap(CURVE_CRVUSD_USDC).get_dy(
             int128(1), int128(0), usdcOut1
         );
-        emit log_named_uint("quote_crvusd_out_from_usdc", crvUsdOut);
+        emit log_named_uint("quote_crvusd_out_from_usdc", crvUsdOut1);
 
-        // Step 4: crvUSD -> USDC reverse on NG pool.
+        // Step 3: crvUSD (idx 1) -> GHO (idx 0) on Curve GHO/crvUSD StableNG pool.
+        uint256 ghoOut;
+        try ICurveStableSwap(CURVE_GHO_CRVUSD).get_dy(int128(1), int128(0), crvUsdOut1) returns (uint256 q3) {
+            ghoOut = q3;
+        } catch {
+            emit log("GHO/crvUSD pool quote failed — skipping triangle");
+            return;
+        }
+        emit log_named_uint("quote_gho_out_from_crvusd", ghoOut);
+
+        // Step 4: GHO (idx 0) -> crvUSD (idx 1) reverse on the same pool (closes the triangle).
+        uint256 crvUsdOut2 = ICurveStableSwap(CURVE_GHO_CRVUSD).get_dy(int128(0), int128(1), ghoOut);
+        emit log_named_uint("quote_crvusd_back_from_gho", crvUsdOut2);
+
+        // Step 5: crvUSD (idx 0) -> USDC (idx 1) reverse on NG pool.
         uint256 usdcOut2 = ICurveStableSwap(CURVE_CRVUSD_USDC).get_dy(
-            int128(0), int128(1), crvUsdOut
+            int128(0), int128(1), crvUsdOut2
         );
         emit log_named_uint("quote_usdc_out_from_crvusd", usdcOut2);
 
-        // Step 5: USDC -> DAI via the same GHO/3CRV meta (or via DAI/USDC PSM at 1:1).
-        // We will use PSM in execution; for quote use 1:1 conversion.
+        // Step 6: USDC -> DAI via Maker PSM at 1:1 (zero fee).
         uint256 daiBackQuote = usdcOut2 * 1e12;
         emit log_named_uint("quote_dai_back_via_psm", daiBackQuote);
 
@@ -122,27 +134,38 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
         require(fee == 0, "fee non-zero");
         _executed = true;
 
-        // Leg 1: DAI -> GHO via GHO/3CRV meta.
-        IERC20(Mainnet.DAI).approve(CURVE_GHO_3CRV, amount);
-        uint256 ghoOut = ICurveMeta(CURVE_GHO_3CRV).exchange_underlying(1, 0, amount, 0);
-
-        // Leg 2: GHO -> USDC via the same meta (underlying idx 0 -> 2).
-        IERC20(Mainnet.GHO).approve(CURVE_GHO_3CRV, ghoOut);
-        uint256 usdcMid = ICurveMeta(CURVE_GHO_3CRV).exchange_underlying(0, 2, ghoOut, 0);
-
-        // Leg 3: USDC -> crvUSD via NG pool (idx 1 -> 0).
-        IERC20(Mainnet.USDC).approve(CURVE_CRVUSD_USDC, usdcMid);
-        uint256 crvUsdMid = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
-            int128(1), int128(0), usdcMid, 0
+        // Leg 1: DAI -> USDC via Curve 3pool (idx 0 -> 1).
+        IERC20(Mainnet.DAI).approve(CURVE_3POOL, amount);
+        uint256 usdcMid1 = ICurveStableSwap(CURVE_3POOL).exchange(
+            int128(0), int128(1), amount, 0
         );
 
-        // Leg 4: crvUSD -> USDC reverse on NG pool (idx 0 -> 1).
-        IERC20(Mainnet.CRVUSD).approve(CURVE_CRVUSD_USDC, crvUsdMid);
+        // Leg 2: USDC -> crvUSD via crvUSD/USDC NG pool (idx 1 -> 0).
+        IERC20(Mainnet.USDC).approve(CURVE_CRVUSD_USDC, usdcMid1);
+        uint256 crvUsdMid1 = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
+            int128(1), int128(0), usdcMid1, 0
+        );
+
+        // Leg 3: crvUSD -> GHO via GHO/crvUSD pool (idx 1 -> 0).
+        IERC20(Mainnet.CRVUSD).approve(CURVE_GHO_CRVUSD, crvUsdMid1);
+        uint256 ghoMid = ICurveStableSwap(CURVE_GHO_CRVUSD).exchange(
+            int128(1), int128(0), crvUsdMid1, 0
+        );
+
+        // Leg 4: GHO -> crvUSD reverse on the same pool (idx 0 -> 1). Closes
+        // the GHO leg of the triangle.
+        IERC20(Mainnet.GHO).approve(CURVE_GHO_CRVUSD, ghoMid);
+        uint256 crvUsdMid2 = ICurveStableSwap(CURVE_GHO_CRVUSD).exchange(
+            int128(0), int128(1), ghoMid, 0
+        );
+
+        // Leg 5: crvUSD -> USDC reverse on NG pool (idx 0 -> 1).
+        IERC20(Mainnet.CRVUSD).approve(CURVE_CRVUSD_USDC, crvUsdMid2);
         uint256 usdcEnd = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
-            int128(0), int128(1), crvUsdMid, 0
+            int128(0), int128(1), crvUsdMid2, 0
         );
 
-        // Leg 5: USDC -> DAI via Maker PSM (1:1, zero fee).
+        // Leg 6: USDC -> DAI via Maker PSM (1:1, zero fee).
         IDssPsm psm = IDssPsm(Mainnet.DSS_PSM_USDC);
         address gj = psm.gemJoin();
         IERC20(Mainnet.USDC).approve(gj, usdcEnd);

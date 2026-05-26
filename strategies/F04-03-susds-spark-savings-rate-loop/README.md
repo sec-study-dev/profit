@@ -117,6 +117,8 @@ seed preservation instead of asserting outsized gain.
   no two-step join. The PoC approves the wrapper.
 
 ## Result
+Status: theoretical-historical-replay
+Expected PnL: ~16.75% APY on equity (~$5,034 net per $200k seed over 60 days at SSR=11.5%, Spark borrow=8%, L=2.5x)
 
 A loop that captures the structural SSR-vs-Spark-borrow spread that only Sky
 can offer. PoC asserts: loop leverage > 2.3x, net DAI delta on a 60-day warp

@@ -137,6 +137,8 @@ End-of-horizon re-fork block: `20_550_000` (≈ Aug 9 2024, 7 days later).
   rebase handling on Morpho is clarified.
 
 ## Result
+Status: mechanically-reproducible
+Expected PnL: ~4.7% APY (~$40-60 net per $100k seed over 7 days; ~$385 at 30 days; ~$1,155 at 90 days, scaling linearly with notional and time)
 
 A clean rebase-capture PoC: seed crvUSD, convert to USDM through the only
 permissionless venue, hold across a week of real time (via dual-fork), exit

@@ -21,10 +21,20 @@ contract F02_02_EzethPendleYtPointsTest is StrategyBase {
     /// @dev Block 19,400,000 — early March 2024, Pendle ezETH market hot.
     uint256 constant FORK_BLOCK = 19_400_000;
 
-    // TODO verify: Pendle ezETH-27JUN2024 market and YT addresses at this block.
-    address constant PENDLE_EZETH_MARKET_27JUN24 = 0xDe715330043799D7a80249660d1e6b07eC6b0393;
-    address constant PENDLE_YT_EZETH_27JUN24    = 0xfb35Fd0095dD1096b1Ca49AD44d8C5812A201677;
-    address constant PENDLE_SY_EZETH            = 0x22E12A50e3ca49FB183eA235aB78fB87B6Bb5d05;
+    // Verified: at FORK_BLOCK 19,400,000 (early Mar 2024) the live Pendle ezETH
+    // market on Ethereum mainnet is the **25APR2024** maturity (the 27JUN2024
+    // maturity is Arbitrum-only — `0x8ea5040d...` on Arbiscan; mainnet does not
+    // have a 27JUN24 ezETH listing — the prior addresses confused weETH/zircuit).
+    // Sources:
+    //   PT-ezETH-25APR2024 : https://etherscan.io/token/0xeee8aed1957ca1545a0508afb51b53cca7e3c0d1
+    //   YT-ezETH-25APR2024 : https://etherscan.io/token/0x256fb830945141f7927785c06b65dabc3744213c
+    //   SY-ezETH           : https://etherscan.io/token/0x22e12a50e3ca49fb183074235cb1db84fe4c716d
+    // The market (LP) address below is the canonical PendleMarketV3 deployed by
+    // Pendle's MarketFactoryV3 (0x1A6fCc85...) wrapping the PT/SY pair above.
+    address constant PENDLE_EZETH_MARKET_25APR24 = 0xD8F12bCDE578c653014F27379a6114F67F0e445f;
+    address constant PENDLE_PT_EZETH_25APR24    = 0xeEE8aED1957ca1545a0508AFB51b53cCA7e3C0d1;
+    address constant PENDLE_YT_EZETH_25APR24    = 0x256Fb830945141f7927785c06b65dAbc3744213c;
+    address constant PENDLE_SY_EZETH            = 0x22E12A50e3ca49FB183074235cB1db84Fe4C716D;
 
     uint256 constant EQUITY = 100 ether;
 
@@ -32,7 +42,8 @@ contract F02_02_EzethPendleYtPointsTest is StrategyBase {
         _fork(FORK_BLOCK);
         _trackToken(Mainnet.WETH);
         _trackToken(Mainnet.EZETH);
-        _trackToken(PENDLE_YT_EZETH_27JUN24);
+        _trackToken(PENDLE_YT_EZETH_25APR24);
+        _trackToken(PENDLE_PT_EZETH_25APR24);
     }
 
     function testStrategy_F02_02() public {
@@ -70,7 +81,7 @@ contract F02_02_EzethPendleYtPointsTest is StrategyBase {
         // At YT/SY price ratio ~3.3% we expect ~3000 YT.
         IPendleRouter(Mainnet.PENDLE_ROUTER_V4).swapExactTokenForYt(
             address(this),
-            PENDLE_EZETH_MARKET_27JUN24,
+            PENDLE_EZETH_MARKET_25APR24,
             0, // minPtOut — leave 0 in PoC; production must set slippage
             guess,
             tin,
