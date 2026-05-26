@@ -138,7 +138,7 @@ contract F11_03_EulerEvcBatchRateArbTest is StrategyBase {
 
     function _tryConvertToAssets(address vault, uint256 shares) internal view returns (uint256) {
         (bool ok, bytes memory data) =
-            vault.staticcall(abi.encodeWithSelector(IEVault.convertToAssets.selector, shares));
+            vault.staticcall(abi.encodeWithSelector(IERC4626.convertToAssets.selector, shares));
         if (!ok || data.length < 32) return 0;
         return abi.decode(data, (uint256));
     }
