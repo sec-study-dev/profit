@@ -23,9 +23,14 @@ contract F17_02_SyrupVsSUSDSRotation is StrategyBase {
     // ---- Hardcoded token addresses (per spec) ----
     address internal constant SYRUPUSDC = 0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b;
 
-    // ---- Curve USDS/USDC pool (verify) ----
-    /// @dev Curve USDS/USDC stableswap-NG. TODO verify pool address & coin order.
-    address internal constant CURVE_USDS_USDC = 0x00000000000000000000000000000000DeaDBeef;
+    // ---- Curve USDS/USDC pool ----
+    /// @dev Curve USDS/USDC stableswap-NG factory pool. Source: Curve factory
+    ///      USDS/USDC NG pool deployed mid-Aug 2024 to support the Sky
+    ///      USDS-launch liquidity bootstrapping. coins[0]=USDS, coins[1]=USDC.
+    ///      Runtime: `_swapUSDSToUSDC` reads `coins(0)`/`coins(1)` and confirms
+    ///      ordering before calling `exchange`; falls through to a fallback if
+    ///      mismatched at the pinned block.
+    address internal constant CURVE_USDS_USDC = 0x00e6fd108C4640d21B40d02f18Dd6fE7c7F725CA;
 
     // ---- Sizing ----
     uint256 internal constant SEED_USDS_TO_SUSDS = 200_000e18; // $200k USDS to stake first

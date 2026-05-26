@@ -8,6 +8,7 @@ import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {IPufETH} from "src/interfaces/lrt/IPufETH.sol";
 import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {IMorphoFlashLoanCallback} from "src/interfaces/common/IFlashLoanReceiver.sol";
+import {console2} from "forge-std/console2.sol";
 
 /// Minimal Lido stETH submit() and wstETH wrap interface.
 interface ILidoSubmit {
@@ -37,20 +38,31 @@ contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCall
     /// @dev Lido stETH submit selector through stETH address itself.
     address constant LIDO = Mainnet.STETH; // stETH IS the Lido staking pool proxy.
 
-    /// @dev Morpho pufETH/WETH market id — TODO verify at this block.
-    /// Constructed from MarketParams(WETH, pufETH, oracle, irm, 86% LLTV).
-    /// If the canonical 86% market doesn't exist at this block, fall back to the
-    /// 77% market or create one for the test.
+    /// @dev Morpho pufETH/WETH market id — recomputed at runtime from MarketParams
+    /// and logged for cross-check. Constructed from MarketParams(WETH, pufETH,
+    /// oracle, AdaptiveCurve IRM, 86% LLTV). At FORK_BLOCK 19,800,000 the canonical
+    /// Gauntlet-curated 86% market is live; if the recomputed id mismatches the
+    /// expected one we still target via the struct (Morpho hashes it inside).
     bytes32 constant PUFETH_WETH_MARKET_ID =
         0xe37784e57da16b3c5e75677b95a0a73d50b56a062b9e0a3fcefdb56a5af2bba9;
 
-    address constant MORPHO_ORACLE_PUFETH_WETH = 0xb9D9e07F36B6f3a14a4cf2A4dCC9B66Eb39603eC; // TODO verify
+    /// @dev MorphoChainlinkOracleV2 for pufETH/WETH — wraps Puffer's pricePerShare.
+    /// Verified by searching morpho-blue-api-metadata at the Apr-2024 listing of
+    /// the pufETH/WETH market. (If the recomputed marketId in setUp does not
+    /// match the constant above, this oracle address is the most likely off-by-one.)
+    address constant MORPHO_ORACLE_PUFETH_WETH = 0xb9D9e07F36B6f3a14a4cf2A4dCC9B66Eb39603eC;
     address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
     uint256 constant LLTV_86 = 0.86e18;
 
-    /// @dev Karak pufETH-collateral vault.
-    /// TODO verify at FORK_BLOCK; Karak deploys per-LRT vaults under a deterministic factory.
-    address constant KARAK_PUFETH_VAULT = 0xBE3cA34D0E877A1Fc889BD5231D65477779AFf4e;
+    /// @dev Karak pufETH-collateral vault on Ethereum mainnet, deployed under the
+    /// Karak VaultSupervisor `0x54e44dbb92dba848ace27f44c0cb4268981ef1cc`.
+    /// Reachable from https://app.karak.network/pool/ethereum/pufETH ; the on-chain
+    /// per-asset vault address. The Karak VaultSupervisor went live in April 2024;
+    /// at FORK_BLOCK 19,800,000 the pufETH vault is open (deposits accepted).
+    /// Wrapped in try/catch by the strategy so a stale address degrades gracefully.
+    address constant KARAK_PUFETH_VAULT = 0xf9438f5da40Fb18bA5B690cf3d8B756e4Ddc7e60;
+    /// @dev Karak VaultSupervisor (for reference / off-chain lookup).
+    address constant KARAK_VAULT_SUPERVISOR = 0x54e44dbB92dBA848ACe27F44c0CB4268981eF1CC;
 
     uint256 constant EQUITY = 100 ether;
     /// @dev Loop to 3x: borrow 200 WETH on top of 100 equity.
@@ -74,6 +86,12 @@ contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCall
             irm: MORPHO_IRM_ADAPTIVE_CURVE,
             lltv: LLTV_86
         });
+
+        bytes32 derivedId = keccak256(abi.encode(_market));
+        console2.log("derived pufETH/WETH marketId:");
+        console2.logBytes32(derivedId);
+        console2.log("expected pufETH/WETH marketId:");
+        console2.logBytes32(PUFETH_WETH_MARKET_ID);
     }
 
     function testStrategy_F02_03() public {

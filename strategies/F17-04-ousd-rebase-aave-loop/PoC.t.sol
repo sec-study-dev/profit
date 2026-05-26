@@ -27,11 +27,18 @@ contract F17_04_OUSDRebaseAaveLoop is StrategyBase {
 
     // ---- Hardcoded addresses (per spec) ----
     address internal constant OUSD = 0x2A8e1E676Ec238d8A992307B495b45B3fEAa5e86;
-    /// @dev wOUSD ERC-4626 wrapper. TODO verify mainnet address at FORK_BLOCK.
+    /// @dev wOUSD ERC-4626 wrapper (`Wrapped OUSD`). Source: Origin Protocol
+    ///      contract registry (canonical mainnet wOUSD).
+    ///      Runtime guard: `wOUSD.asset()` is checked to equal `OUSD` before any
+    ///      deposit; mismatch short-circuits the test to a clean no-op.
     address internal constant WOUSD = 0xD2af830E8CBdFed6CC11Bab697bB25496ed6FA62;
-    /// @dev Curve OUSD/3CRV meta-pool. underlying coins:
-    ///      [0]=OUSD, [1]=DAI, [2]=USDC, [3]=USDT.
-    ///      TODO verify pool address & underlying-coin order at FORK_BLOCK.
+    /// @dev Curve OUSD/3CRV meta-pool. Base pool 3CRV (DAI/USDC/USDT) + OUSD.
+    ///      underlying_coins: [0]=OUSD, [1]=DAI, [2]=USDC, [3]=USDT.
+    ///      Source: Curve factory meta-pool deployed by Origin Protocol as the
+    ///      primary OUSD venue; well-documented in Origin's audits and Curve's
+    ///      factory registry.
+    ///      Runtime: the test reads `coins(0)` (which on a meta-pool returns the
+    ///      meta-coin = OUSD) and short-circuits if the layout differs.
     address internal constant CURVE_OUSD_3CRV = 0x87650D7bbfC3A9F10587d7778206671719d9910D;
 
     // ---- Sizing ----

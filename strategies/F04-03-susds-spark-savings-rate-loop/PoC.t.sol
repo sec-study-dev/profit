@@ -43,9 +43,26 @@ contract F04_03_SUsdsSparkLoop is StrategyBase {
         emit log_named_uint("spark_dai_borrow_RAY", daiRes.currentVariableBorrowRate);
 
         // Verify Spark accepts sUSDS as collateral at this block.
+        // Historical context (verified via Sky governance forum / Spark Prime spells):
+        //   * sUSDS was onboarded to SparkLend shortly after the USDS launch in
+        //     Sep-2024 with LTV ~75% and a stablecoin-emode rating that lets
+        //     sUSDS borrow DAI/USDC at high efficiency.
+        //   * A Spark Prime delist proposal (LTV -> 0, supplyCap -> 1) was first
+        //     surfaced in late 2025 — far past this FORK_BLOCK (~Dec 22 2024).
+        // So at block 21_500_000 sUSDS is a live, non-frozen collateral asset.
+        // We still verify on-chain rather than trust the historical claim:
+        //   1. aTokenAddress != 0  -> reserve is initialised
+        //   2. configuration bits 0-15  == LTV       (basis points, Aave v3 layout)
+        //      configuration bits 16-31 == LIQ_THRES (basis points)
+        //      We require LTV > 0 (LTV == 0 == "no borrowing against").
         IAavePool.ReserveDataLegacy memory susdsRes =
             spark.getReserveData(Mainnet.SUSDS);
         require(susdsRes.aTokenAddress != address(0), "sUSDS not listed on Spark at this block");
+        uint256 ltvBips = susdsRes.configuration & 0xFFFF;
+        uint256 ltBips = (susdsRes.configuration >> 16) & 0xFFFF;
+        emit log_named_uint("spark_sUSDS_LTV_bps", ltvBips);
+        emit log_named_uint("spark_sUSDS_LT_bps", ltBips);
+        require(ltvBips > 0, "sUSDS LTV frozen to 0 -> cannot borrow against it");
 
         // ---- Fund seed DAI ----
         _fund(Mainnet.DAI, address(this), SEED_DAI);

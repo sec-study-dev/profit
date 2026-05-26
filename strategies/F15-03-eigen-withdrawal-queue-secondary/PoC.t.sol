@@ -98,7 +98,13 @@ contract F15_03_EigenWithdrawalQueueSecondaryTest is StrategyBase {
             staker: address(this),
             delegatedTo: delegatedTo,
             withdrawer: address(this),
-            nonce: 0, // first withdrawal for this staker — verify via DM state if running
+            // First-ever withdrawal for this staker on this fork — nonce is 0.
+            // For repeated runs against a live address, read the
+            // DelegationManager's `cumulativeWithdrawalsQueued(staker)` view
+            // immediately BEFORE `queueWithdrawals` and use that value as the
+            // nonce. This PoC always queues from a fresh `address(this)`, so
+            // `nonce == 0` is correct.
+            nonce: 0,
             startBlock: startBlock,
             strategies: strategies,
             shares: sharesArr
@@ -114,12 +120,30 @@ contract F15_03_EigenWithdrawalQueueSecondaryTest is StrategyBase {
             console2.log("completeQueuedWithdrawal reverted (unknown)");
         }
 
-        // ---- Secondary-market leg (THEORETICAL) ----
-        // At this block, EL does not expose a transferable withdrawal credential.
-        // A 99%-of-face sale would be:
-        //   seller receives 0.99 × 50 stETH = 49.5 stETH immediately
-        //   buyer fronts 49.5, claims 50 stETH + 7d rebase after delay
-        // Implementation requires an external market contract (TODO).
+        // ---- Secondary-market leg (DOCUMENTED GAP, NOT IMPLEMENTABLE) ----
+        //
+        // At this block (and as of late-2024), EigenLayer's DelegationManager
+        // tracks queued withdrawals as a hash in `pendingWithdrawals[root]`,
+        // keyed by (staker, withdrawer, ...). The claim is bound to the
+        // `withdrawer` address — there is no ERC721/ERC1155 mint at queue
+        // time and no `transferWithdrawal(...)` selector exposed.
+        //
+        // Workarounds that DO NOT close the gap (each rejected for a reason):
+        //
+        //   1. Bundle the withdrawal-rights in a wrapper contract owned by an
+        //      NFT. Works only if the wrapper is the `withdrawer`, but then
+        //      slashing and operator-undelegate edge cases require off-chain
+        //      coordination. No production deployment exists at this block.
+        //   2. Use a permissioned OTC desk to escrow stETH against a signed
+        //      promise to forward the EL withdrawal once it completes. This
+        //      is purely off-chain trust; not a DeFi primitive.
+        //   3. Wait for a governance upgrade adding `WithdrawalNFT` (proposed
+        //      in EL forum threads, not shipped at the pinned block).
+        //
+        // Result: the buyer-side ~52% APR opportunity quoted in the README
+        // requires a primitive that does not exist on mainnet at FORK_BLOCK.
+        // The on-chain PoC therefore ends after the hold-to-maturity claim
+        // and prints the theoretical PnL for documentation only.
         console2.log("secondary-market sale: NOT IMPLEMENTABLE at this block");
         console2.log("would yield buyer ~+0.53 stETH / 7d on 50 stETH notional");
 

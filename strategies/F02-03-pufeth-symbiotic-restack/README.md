@@ -101,9 +101,14 @@ Combined estimate:
 
 ## Block pinned
 - Fork block 19,800,000 (mid-April 2024)
-- Karak `pufETH` vault address (TODO verify): `0xBE3cA34D0E877A1Fc889BD5231D65477779AFf4e`
-- Morpho pufETH/WETH market id (TODO verify): computed from
-  `MarketParams(WETH, pufETH, ORACLE, IRM, 0.86e18)`
+- Karak `pufETH` vault: `0xf9438f5da40Fb18bA5B690cf3d8B756e4Ddc7e60` — deployed
+  under Karak VaultSupervisor `0x54e44dbb92dba848ace27f44c0cb4268981ef1cc`
+  (https://etherscan.io/address/0x54e44dbb92dba848ace27f44c0cb4268981ef1cc).
+  Reachable from app.karak.network/pool/ethereum/pufETH.
+- Morpho pufETH/WETH market id: computed at runtime in `setUp()` from
+  `keccak256(abi.encode(MarketParams{WETH, pufETH, MORPHO_ORACLE_PUFETH_WETH,
+  AdaptiveCurveIRM, 0.86e18}))` and logged via `console2.logBytes32`.
+- Morpho oracle (pufETH/WETH): `0xb9D9e07F36B6f3a14a4cf2A4dCC9B66Eb39603eC`.
 
 ## Risks
 - **Anti-slashing failure.** Puffer's secure-signer module is a custom L2-style

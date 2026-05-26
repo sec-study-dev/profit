@@ -101,9 +101,11 @@ contract F10_04_GhoStkAaveDiscountedMint is StrategyBase {
             // pool addresses are pinned.
             uint256 daiEquivalent = ghoOnHand; // 1:1 par assumption
             // Burn GHO, mint DAI to mimic a perfect swap. Use deal so the
-            // post-state reflects "GHO is gone, DAI is here".
+            // post-state reflects "GHO is gone, DAI is here". Add any
+            // pre-existing DAI balance so the wipe doesn't lose unrelated DAI.
+            uint256 priorDai = IERC20(Mainnet.DAI).balanceOf(address(this));
             deal(Mainnet.GHO, address(this), 0);
-            deal(Mainnet.DAI, address(this), daiEquivalent);
+            deal(Mainnet.DAI, address(this), priorDai + daiEquivalent);
 
             // DAI -> USDS via Sky converter, if reachable.
             bool usdsOk = false;

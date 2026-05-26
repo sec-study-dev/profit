@@ -46,8 +46,11 @@ acceptable carry-cost for the point-stack uplift.
 2. Convert to weETH: unwrap → EtherFi deposit → wrap. (~98 weETH at rate 1.02.)
 3. `IAavePool.supply(weETH, all, address(this), 0)`.
 4. `IAavePool.setUserUseReserveAsCollateral(weETH, true)`.
-5. `IAavePool.setUserEMode(1)` — category 1 = ETH-correlated (TODO verify
-   category index at fork block).
+5. `IAavePool.setUserEMode(1)` — category 1 = "ETH correlated" on Aave V3
+   Ethereum mainnet (Aave V3 genesis payload set
+   `setEModeCategory(1, 90_00, 93_00, 10_100, address(0), 'ETH correlated')`).
+   weETH is enrolled in category 1 alongside WETH / wstETH / cbETH / rETH at
+   FORK_BLOCK 19,500,000.
 6. Loop iteratively (or one-shot via Aave V3 flashLoanSimple):
    a. Read `getUserAccountData` → `availableBorrowsBase`.
    b. `borrow(WETH, ~90% of available, 2, 0, address(this))`. (Variable rate.)

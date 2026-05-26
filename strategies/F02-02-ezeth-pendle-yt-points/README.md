@@ -39,7 +39,9 @@ If points convert to airdrop $ > YT time-decay → strict win.
 - Block: 19,400,000 (early March 2024 — after Pendle ezETH market launched and
   ezPoints S2 active; ezETH momentum, YT trading 4-7% APR implied points-value)
 - Pendle Router V4 deployed
-- Pendle ezETH market with expiry 27-Jun-2024 active (~120 days TTM)
+- Pendle ezETH market with expiry 25-Apr-2024 active (~50 days TTM at FORK_BLOCK).
+  Note: the 27-Jun-2024 PT/YT ezETH pair only exists on Arbitrum; on Ethereum
+  mainnet the closest live maturity in early Mar 2024 is **25-Apr-2024**.
 - Renzo `RestakeManager` accepts ETH deposits (Phase-2 caps lifted)
 
 ## Strategy steps
@@ -82,10 +84,18 @@ Combined estimate over 120 days:
 
 ## Block pinned
 - Fork block 19,400,000 (early March 2024)
-- Reference: Pendle ezETH-27JUN2024 market PT/YT/SY contracts active at this block.
-- ezETH-27JUN2024 market address (TODO verify): `0xDe715330043799D7a80249660d1e6b07eC6b0393`
-- YT-ezETH-27JUN2024 (TODO verify): `0xfb35Fd0095dD1096b1Ca49AD44d8C5812A201677`
-- SY-ezETH (TODO verify): `0x22E12A50e3ca49FB183eA235aB78fB87B6Bb5d05`
+- Reference: Pendle ezETH-25APR2024 market PT/YT/SY contracts active at this block.
+- ezETH-25APR2024 market (LP) address: `0xD8F12bCDE578c653014F27379a6114F67F0e445f`
+- PT-ezETH-25APR2024: `0xeEE8aED1957ca1545a0508AFB51b53cCA7e3C0d1`
+  (https://etherscan.io/token/0xeee8aed1957ca1545a0508afb51b53cca7e3c0d1)
+- YT-ezETH-25APR2024: `0x256Fb830945141f7927785c06b65dAbc3744213c`
+  (https://etherscan.io/token/0x256fb830945141f7927785c06b65dabc3744213c)
+- SY-ezETH: `0x22E12A50e3ca49FB183074235cB1db84Fe4C716D`
+  (https://etherscan.io/token/0x22e12a50e3ca49fb183074235cb1db84fe4c716d)
+- The original 27-JUN-2024 PT/YT/market only exists on Arbitrum
+  (PT @ `0x8ea5040d423410f1fdc363379af88e1db5ea1c34` on Arbiscan); the 27JUN24 token
+  formerly listed here was actually YT-weETH-27JUN24 (`0xfb35Fd00...`), a
+  different LRT.
 
 ## Risks
 - **Points dilution.** Renzo can change emission rate (and has — S1 → S2 cut).

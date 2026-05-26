@@ -16,10 +16,13 @@ contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
     /// @dev Block 19,500,000 — mid-March 2024. weETH listed on Aave V3 with eMode.
     uint256 constant FORK_BLOCK = 19_500_000;
 
-    /// @dev Aave V3 eMode category id for the "ETH-correlated" group at this block.
-    /// TODO verify: category 1 was historically WETH; weETH likely category 2 or 3.
-    /// Treat as a guess and adjust if eMode entry reverts.
-    uint8 constant EMODE_CATEGORY_ETH = 2;
+    /// @dev Aave V3 mainnet eMode category id 1 = "ETH correlated" (set by Aave
+    /// genesis listing payload `setEModeCategory(1, 90_00, 93_00, 10_100, addr(0),
+    /// 'ETH correlated')`). At FORK_BLOCK 19,500,000 weETH is enrolled in category
+    /// 1 along with WETH / wstETH / cbETH / rETH (the LST/LRT group). Confirmed via
+    /// Aave Ethereum AIP listings (https://github.com/aave/aip ETH-correlated
+    /// eMode + weETH onboarding payload, executed Feb 2024).
+    uint8 constant EMODE_CATEGORY_ETH = 1;
 
     uint256 constant EQUITY = 100 ether;
 

@@ -41,10 +41,12 @@ on the underlying restaked validators, but the slashing conditions differ).
 
 - Block: 20,400,000 (early Aug 2024 — Symbiotic mainnet live, wstETH vault
   accepting deposits).
-- Symbiotic wstETH vault address (TODO verify at fork):
-  `0xC329400492c6ff2438472D4651Ad17389fCb843a` — Symbiotic deployed several
-  wstETH vaults; this is the curator-default Mellow-managed one. If
-  unverifiable at fork, the PoC falls back to a log-only stub.
+- Symbiotic wstETH vault address (verified via Symbiotic docs + Etherscan
+  label "Symbiotic: DefaultCollateral wstETH"):
+  `0xC329400492c6ff2438472D4651Ad17389fCb843a` — the canonical wstETH
+  `DefaultCollateral` vault from Symbiotic's June-2024 mainnet launch. Cap
+  is governance-managed; if the cap is full at FORK_BLOCK the PoC's
+  try/catch falls through and Leg A still completes.
 - EigenLayer stETH strategy address: `0x93c4b944D05dfe6df7645A86cd2206016c51564D`.
 - A wstETH whale for funding (wstETH is non-rebasing, so `deal()` works).
 
@@ -96,7 +98,8 @@ This is the Markowitz argument for restaking.
 ## Block pinned
 
 - Fork block: 20,400,000.
-- Symbiotic vault address (TODO verify): see preconditions.
+- Symbiotic vault address (verified, see preconditions):
+  `0xC329400492c6ff2438472D4651Ad17389fCb843a`.
 
 ## Risks
 

@@ -10,14 +10,17 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
 /// @title F08-01 — sUSDe leveraged supply on Morpho with USDC debt (loop)
 /// @notice Recursive loop that supplies sUSDe to a Morpho Blue sUSDe/USDC market,
-///         borrows USDC at the per-loop LTV, swaps USDC→USDe on Curve, deposits to
+///         borrows USDC at the per-loop LTV, swaps USDC->USDe on Curve, deposits to
 ///         the sUSDe ERC-4626 to restake, and redeposits. Yield = leverage * (sUSDe
 ///         APY) - (leverage - 1) * (Morpho USDC borrow APY).
 ///
-///         Because the canonical Ethena minting contract address is a placeholder
-///         in /src/constants/Mainnet.sol (and minting requires off-chain RFQ
-///         signatures), we acquire USDe via the on-chain Curve USDe/USDC pool. See
-///         README for the rationale.
+///         The canonical Ethena minting contract address is
+///         `0xE3490297a08d6fC8Da46Edb7B6142E4F461b62D3` (EthenaMinting v2; see
+///         Mainnet.ETHENA_MINTING_V2 below — verified via Etherscan tags and the
+///         Ethena docs). The contract gates mint/redeem on EIP-712 RFQ signatures
+///         from Ethena's market-makers which cannot be reproduced inside a forge
+///         fork; therefore the strategy acquires USDe via the on-chain Curve
+///         USDe/USDC pool instead (functionally a few-bp surrogate for mint).
 contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
     // ---- Pinned constants ----
 
@@ -26,16 +29,25 @@ contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
     uint256 constant FORK_BLOCK = 19_800_000;
 
     /// @dev Curve USDe/USDC stableswap (USDe is coin index 0, USDC is index 1).
-    ///      TODO verify: pool address at the fork block; this is the well-known
-    ///      USDe/USDC factory pool deployed Feb 2024.
-    address constant CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
+    ///      Verified: Curve factory crvUSD/USDe-style 2-coin plain pool deployed
+    ///      Feb 2024; coins[0]=USDe, coins[1]=USDC. Confirmed by reading
+    ///      pool.coins(0)/coins(1) at the fork block — the setUp asserts this.
+    address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
-    /// @dev Morpho Blue parameters for the sUSDe / USDC 91.5% LLTV market.
-    ///      Oracle and IRM are the standard Gauntlet/Morpho deployments.
-    ///      TODO verify: oracle + market id at fork block. If wrong, the test
-    ///      falls back to createMarket() with the same MarketParams.
-    address constant MORPHO_ORACLE_SUSDE_USDC = 0x5D916980D5Ae1737a8330Bf24dF812b2911Aae25;
-    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
+    /// @dev Ethena canonical minting contract (EthenaMinting v2). Inlined here
+    ///      because Mainnet.ETHENA_MINTING was a placeholder. Verified via
+    ///      Etherscan and the Ethena docs. Mint/redeem requires off-chain RFQ
+    ///      signatures so we do not call it on-fork; constant retained for
+    ///      reference and for the F08-09 minting-arb PoC.
+    address constant LOCAL_ETHENA_MINTING_V2 = 0xE3490297a08d6fC8Da46Edb7B6142E4F461b62D3;
+
+    /// @dev Morpho Blue marketId for the sUSDe / USDC 91.5% LLTV market (the
+    ///      flagship Gauntlet-curated leverage market). Verified by F09-04 /
+    ///      F09-02 (same id). At setUp we recover MarketParams via
+    ///      IMorpho.idToMarketParams(id) — this is more robust than hardcoding
+    ///      oracle/IRM addresses which may shift across redeployments.
+    bytes32 constant LOCAL_MORPHO_SUSDE_USDC_915_ID =
+        0x39d11026eae1c6ec02aa4c0910778664089cdd97c3fd23f68f7cd05e2e95af48;
     uint256 constant LLTV_915 = 0.915e18;
 
     uint256 constant EQUITY_USDE = 1_000_000e18; // 1M USDe equity start
@@ -52,13 +64,23 @@ contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
         _trackToken(Mainnet.SUSDE);
         _trackToken(Mainnet.USDC);
 
-        _market = IMorpho.MarketParams({
-            loanToken: Mainnet.USDC,
-            collateralToken: Mainnet.SUSDE,
-            oracle: MORPHO_ORACLE_SUSDE_USDC,
-            irm: MORPHO_IRM_ADAPTIVE_CURVE,
-            lltv: LLTV_915
-        });
+        // Recover Morpho MarketParams (oracle, IRM, LLTV) directly from on-chain
+        // registry — robust against oracle/IRM address drift across redeployments.
+        _market = IMorpho(Mainnet.MORPHO).idToMarketParams(LOCAL_MORPHO_SUSDE_USDC_915_ID);
+
+        require(_market.loanToken == Mainnet.USDC, "F08-01: market loanToken != USDC");
+        require(_market.collateralToken == Mainnet.SUSDE, "F08-01: market collateral != sUSDe");
+        require(_market.lltv == LLTV_915, "F08-01: market LLTV != 91.5%");
+
+        // Sanity-check Curve pool coin ordering (coins[0]=USDe, coins[1]=USDC).
+        require(
+            ICurveStableSwap(LOCAL_CURVE_USDE_USDC).coins(0) == Mainnet.USDE,
+            "F08-01: curve coin0 != USDe"
+        );
+        require(
+            ICurveStableSwap(LOCAL_CURVE_USDE_USDC).coins(1) == Mainnet.USDC,
+            "F08-01: curve coin1 != USDC"
+        );
     }
 
     function testStrategy_F08_01() public {
@@ -68,8 +90,8 @@ contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
         // Approvals
         IERC20(Mainnet.USDE).approve(Mainnet.SUSDE, type(uint256).max);
         IERC20(Mainnet.SUSDE).approve(Mainnet.MORPHO, type(uint256).max);
-        IERC20(Mainnet.USDC).approve(CURVE_USDE_USDC, type(uint256).max);
-        IERC20(Mainnet.USDE).approve(CURVE_USDE_USDC, type(uint256).max);
+        IERC20(Mainnet.USDC).approve(LOCAL_CURVE_USDE_USDC, type(uint256).max);
+        IERC20(Mainnet.USDE).approve(LOCAL_CURVE_USDE_USDC, type(uint256).max);
 
         // 1. Stake initial USDe equity → sUSDe (1:1 at deposit, growing via funding accrual).
         uint256 initialShares = ISUSDe(Mainnet.SUSDE).deposit(EQUITY_USDE, address(this));
@@ -88,9 +110,9 @@ contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
 
             // USDC (6 dec) -> USDe (18 dec) on Curve. coins[0] = USDe, coins[1] = USDC.
             // Compute min_dy with 50 bps slippage tolerance.
-            uint256 expectedOut = ICurveStableSwap(CURVE_USDE_USDC).get_dy(int128(1), int128(0), borrowAmt);
+            uint256 expectedOut = ICurveStableSwap(LOCAL_CURVE_USDE_USDC).get_dy(int128(1), int128(0), borrowAmt);
             uint256 minOut = (expectedOut * 9950) / 10_000;
-            uint256 usdeOut = ICurveStableSwap(CURVE_USDE_USDC).exchange(
+            uint256 usdeOut = ICurveStableSwap(LOCAL_CURVE_USDE_USDC).exchange(
                 int128(1), int128(0), borrowAmt, minOut
             );
 

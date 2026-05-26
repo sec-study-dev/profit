@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {StrategyBase} from "test/utils/StrategyBase.t.sol";
 import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
+import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
 // ---- Local interfaces (do NOT modify shared) ----
 
@@ -79,8 +80,15 @@ contract F16_04_GhoMintLusdStabilityPoolCarry is StrategyBase {
     /// @dev LQTY token.
     address constant LQTY = 0x6DEA81C8171D0bA574754EF6F8b412F2Ed88c54D;
 
-    // ---- Curve meta-pools ----
-    address constant CURVE_GHO_3CRV = 0x635EF0056A597D13863B73825CcA297236578595; // TODO verify
+    // ---- Curve pools ----
+    /// @dev Curve GHO/crvUSD 2-coin StableNG pool. Verified via Curve gov
+    ///      `[crvUSD]: GHO Pegkeeper Review` (gov.curve.finance/t/.../11003).
+    ///      Pool index ordering: 0=GHO, 1=crvUSD.
+    address constant CURVE_GHO_CRVUSD = 0x635EF0056A597D13863B73825CcA297236578595;
+    /// @dev Curve crvUSD/USDC StableNG (idx 0=crvUSD, 1=USDC). Used to bridge
+    ///      GHO -> crvUSD -> USDC since no deep GHO/3CRV metapool exists.
+    address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
+    /// @dev Curve LUSD/3pool meta-pool (underlying coins [LUSD, DAI, USDC, USDT]).
     address constant CURVE_LUSD_3POOL = 0xEd279fDD11ca84bEef15AF5D39BB4d4bEE23F0cA;
 
     // ---- Tunables ----
@@ -93,6 +101,7 @@ contract F16_04_GhoMintLusdStabilityPoolCarry is StrategyBase {
         _fork(FORK_BLOCK);
         _trackToken(Mainnet.USDC);
         _trackToken(Mainnet.GHO);
+        _trackToken(Mainnet.CRVUSD);
         _trackToken(Mainnet.LUSD);
         _trackToken(LQTY);
         _setEthUsdFallback(2_400e8);
@@ -121,16 +130,27 @@ contract F16_04_GhoMintLusdStabilityPoolCarry is StrategyBase {
         emit log_named_uint("gho_borrowed", ghoBal);
         require(ghoBal >= GHO_BORROW, "GHO borrow shortfall");
 
-        // ---- 3) Swap GHO -> USDC via GHO/3CRV meta (underlying 0->2) ----
-        IERC20(Mainnet.GHO).approve(CURVE_GHO_3CRV, ghoBal);
-        uint256 usdcMid;
-        try ICurveMeta(CURVE_GHO_3CRV).exchange_underlying(0, 2, ghoBal, 0) returns (uint256 o) {
-            usdcMid = o;
+        // ---- 3) Swap GHO -> crvUSD -> USDC ----
+        //   The deployed cross-CDP venue is the GHO/crvUSD StableNG pool
+        //   (no GHO/3CRV metapool exists with non-trivial depth), so we
+        //   bridge via crvUSD/USDC NG.
+        IERC20(Mainnet.GHO).approve(CURVE_GHO_CRVUSD, ghoBal);
+        uint256 crvUsdMid;
+        try ICurveStableSwap(CURVE_GHO_CRVUSD).exchange(int128(0), int128(1), ghoBal, 0)
+            returns (uint256 o)
+        {
+            crvUsdMid = o;
         } catch {
-            emit log("GHO/3CRV swap failed; pool address may be wrong at this block");
+            emit log("GHO/crvUSD swap failed; pool inactive at this block");
             _endPnL("F16-04-gho-mint-lusd-stability-pool-carry");
             return;
         }
+        emit log_named_uint("crvusd_intermediate", crvUsdMid);
+
+        IERC20(Mainnet.CRVUSD).approve(CURVE_CRVUSD_USDC, crvUsdMid);
+        uint256 usdcMid = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
+            int128(0), int128(1), crvUsdMid, 0
+        );
         emit log_named_uint("usdc_intermediate", usdcMid);
 
         // ---- 4) Swap USDC -> LUSD via LUSD/3pool meta (underlying 2->0) ----

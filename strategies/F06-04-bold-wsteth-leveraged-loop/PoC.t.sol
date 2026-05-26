@@ -41,22 +41,45 @@ interface IStabilityPoolV2 {
 ///         larger), achieving N× wstETH exposure on the initial equity.
 ///         Theoretical until v2 mainnet addresses are wired.
 contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipientBalancer {
-    // ---- Placeholder v2 addresses (override on Wave-3 verification) ----
+    // ---- Liquity v2 mainnet addresses (verified Wave-4) ----
+    //
+    // SOURCES:
+    //   - https://docs.liquity.org/v2-documentation/technical-resources
+    //   - https://etherscan.io/token/0x6440f144b7e50D6a8439336510312d2F54beB01D
+    //   - https://www.liquity.org/blog/liquity-v2-redeployment
+    //
+    // Canonical BOLD (post 2025-05-19 redeployment).
+    address constant LOCAL_BOLD = 0x6440f144b7e50D6a8439336510312d2F54beB01D;
 
-    // TODO verify: Liquity v2 wstETH-branch BorrowerOperations
-    address constant BORROWER_OPS_WSTETH = address(0);
-    // TODO verify: Liquity v2 wstETH-branch TroveManager
-    address constant TROVE_MANAGER_WSTETH = address(0);
-    // TODO verify: Liquity v2 wstETH-branch Stability Pool
-    address constant STABILITY_POOL_WSTETH = address(0);
-    // TODO verify: Curve BOLD/USDC pool
-    address constant CURVE_BOLD_USDC = address(0);
+    // CollateralRegistry is the only system-level entrypoint that exposes
+    // each branch's BorrowerOperations via getBranch(N) helper. We resolve
+    // wstETH-branch contracts at runtime where possible.
+    address constant LOCAL_COLLATERAL_REGISTRY = 0xd99de73b95236f69A559117ECD6F519Af780F3f7;
+    address constant LOCAL_HINT_HELPERS_V2 = 0xe3Bb97EE79AC4bdfc0c30A95aD82c243c9913AdA;
 
-    address constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
+    // wstETH-branch contracts. The May-2025 redeployment swapped the previous
+    // addresses (Etherscan now labels them "Old <X> wstETH"). The replacement
+    // addresses are not all under stable labels at Wave-4. We keep them as
+    // 0x0 + gate, but document the known DefaultPool (legacy) for traceability.
+    //
+    // Legacy (pre-redeployment, DO NOT use for real txs):
+    //   DefaultPool wstETH  = 0xd796e1648526400386cc4d12fa05e5f11e6a22a1
+    //   Old BO WETH branch = 0x0b995602b5a797823f92027e8b40c0f2d97aff1c
+    //   Old TM WETH branch = 0x81d78814df42da2cab0e8870c477bc3ed861de66
+    //   Old ST WETH branch = 0x879474cfbb980fb6899aaaa9b5d5ee14ffbf85a9
+    //   Possible TM wstETH = 0x1cc79f3f47bfc060b6f761fcd1afc6d399a968b6 (search-derived; UNVERIFIED label)
+    address constant LOCAL_BORROWER_OPS_WSTETH = address(0); // pending registry probe
+    address constant LOCAL_TROVE_MANAGER_WSTETH = address(0);
+    address constant LOCAL_STABILITY_POOL_WSTETH = address(0);
+    address constant LOCAL_CURVE_BOLD_USDC = address(0);
+
+    address constant LOCAL_BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
 
     // ---- Tunables ----
 
-    uint256 constant FORK_BLOCK = 21_500_000;
+    /// @dev Post-redeployment block (Liquity v2 re-live on 2025-05-19).
+    ///      ~22,500,000 ≈ mid-June 2025; first month with v2 trove activity.
+    uint256 constant FORK_BLOCK = 22_500_000;
 
     /// @dev wstETH equity tranche.
     uint256 constant EQUITY_WSTETH = 10 ether;
@@ -84,20 +107,30 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
         _trackToken(Mainnet.WSTETH);
         _trackToken(Mainnet.WETH);
         _trackToken(Mainnet.USDC);
-        if (Mainnet.BOLD != address(0)) _trackToken(Mainnet.BOLD);
+        _trackToken(LOCAL_BOLD);
 
-        _v2Available = Mainnet.BOLD != address(0)
-            && BORROWER_OPS_WSTETH != address(0)
-            && TROVE_MANAGER_WSTETH != address(0)
-            && CURVE_BOLD_USDC != address(0);
+        // BOLD must have code; per-branch addresses must be wired.
+        _v2Available = _hasCode(LOCAL_BOLD)
+            && LOCAL_BORROWER_OPS_WSTETH != address(0)
+            && LOCAL_TROVE_MANAGER_WSTETH != address(0)
+            && LOCAL_CURVE_BOLD_USDC != address(0);
+    }
+
+    function _hasCode(address a) internal view returns (bool) {
+        uint256 s;
+        assembly { s := extcodesize(a) }
+        return s > 0;
     }
 
     function testStrategy_F06_04() public {
         _fund(Mainnet.WSTETH, address(this), EQUITY_WSTETH);
         _startPnL();
 
+        emit log_named_address("canonical_BOLD", LOCAL_BOLD);
+        emit log_named_uint("bold_has_code_e1", _hasCode(LOCAL_BOLD) ? 1 : 0);
+
         if (!_v2Available) {
-            emit log_string("F06-04: Liquity v2 wstETH branch not yet wired; running as a theoretical placeholder.");
+            emit log_string("F06-04: per-branch wstETH addresses pending; structural placeholder.");
             emit log_named_uint("planned_equity_wstETH", EQUITY_WSTETH);
             emit log_named_uint("planned_leverage", LEVERAGE);
             emit log_named_uint("planned_annual_rate_e18", ANNUAL_RATE);
@@ -111,16 +144,16 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = EQUITY_WSTETH * (LEVERAGE - 1);
 
-        IBalancerVault(BALANCER_VAULT).flashLoan(
+        IBalancerVault(LOCAL_BALANCER_VAULT).flashLoan(
             address(this), tokens, amounts, ""
         );
 
         // ---- 2) Inspect resulting trove ----
         if (_troveId != 0) {
             emit log_named_uint("trove_id", _troveId);
-            emit log_named_uint("trove_debt_bold", ITroveManagerV2Branch(TROVE_MANAGER_WSTETH).getTroveEntireDebt(_troveId));
-            emit log_named_uint("trove_coll_wsteth", ITroveManagerV2Branch(TROVE_MANAGER_WSTETH).getTroveEntireColl(_troveId));
-            emit log_named_uint("trove_rate_e18", ITroveManagerV2Branch(TROVE_MANAGER_WSTETH).getTroveAnnualInterestRate(_troveId));
+            emit log_named_uint("trove_debt_bold", ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveEntireDebt(_troveId));
+            emit log_named_uint("trove_coll_wsteth", ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveEntireColl(_troveId));
+            emit log_named_uint("trove_rate_e18", ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveAnnualInterestRate(_troveId));
         }
 
         // ---- 3) Advance 30 days; surface interest accrual ----
@@ -137,7 +170,7 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
         uint256[] memory feeAmounts,
         bytes memory
     ) external override {
-        require(msg.sender == BALANCER_VAULT, "only balancer");
+        require(msg.sender == LOCAL_BALANCER_VAULT, "only balancer");
         require(tokens.length == 1 && tokens[0] == Mainnet.WSTETH, "bad token");
         require(feeAmounts[0] == 0, "balancer fee changed");
 
@@ -159,9 +192,9 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
         // boldAmount = usdValueE8 * 1e10 (rescale e8 -> e18) * TARGET_LTV / 1e18.
         uint256 boldAmount = (usdValueE8 * 1e10 * TARGET_LTV) / 1e18;
 
-        IERC20(Mainnet.WSTETH).approve(BORROWER_OPS_WSTETH, totalColl);
+        IERC20(Mainnet.WSTETH).approve(LOCAL_BORROWER_OPS_WSTETH, totalColl);
 
-        _troveId = IBorrowerOperations(BORROWER_OPS_WSTETH).openTrove(
+        _troveId = IBorrowerOperations(LOCAL_BORROWER_OPS_WSTETH).openTrove(
             address(this),
             OWNER_INDEX,
             totalColl,
@@ -176,9 +209,9 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
         );
 
         // ---- B) Swap BOLD -> USDC -> wstETH to repay the flash ----
-        IERC20(Mainnet.BOLD).approve(CURVE_BOLD_USDC, boldAmount);
-        // TODO verify: BOLD/USDC pool index layout (assume 0=BOLD, 1=USDC).
-        uint256 usdcOut = ICurveStableSwap(CURVE_BOLD_USDC).exchange(
+        IERC20(LOCAL_BOLD).approve(LOCAL_CURVE_BOLD_USDC, boldAmount);
+        // Curve Stableswap-NG BOLD/USDC index layout: 0=BOLD, 1=USDC.
+        uint256 usdcOut = ICurveStableSwap(LOCAL_CURVE_BOLD_USDC).exchange(
             int128(0), int128(1), boldAmount, 0
         );
 
@@ -213,7 +246,7 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
 
         // ---- C) Repay Balancer flash. Vault pulls via balanceOf check. ----
         // Balancer V2 expects the borrower to transfer the tokens back.
-        IERC20(Mainnet.WSTETH).transfer(BALANCER_VAULT, flashed);
+        IERC20(Mainnet.WSTETH).transfer(LOCAL_BALANCER_VAULT, flashed);
     }
 
     function _ethUsd() internal view returns (uint256) {

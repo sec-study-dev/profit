@@ -31,13 +31,13 @@ contract F08_02_UsdePegArbTest is StrategyBase, IFlashLoanRecipientBalancer {
     ///      funding spikes.
     uint256 constant FORK_BLOCK = 19_500_000;
 
-    /// @dev Curve USDe/USDT factory pool. coins[0]=USDe, coins[1]=USDT.
-    ///      TODO verify: pool address at the fork block.
-    address constant CURVE_USDE_USDT = 0xa8a04E5d50e16fAFD127DbE9D5d2D5dCF4946e0C;
+    /// @dev Curve USDe/USDT factory plain-pool. coins[0]=USDe, coins[1]=USDT.
+    ///      Verified by setUp() coin-ordering assertion against the live pool.
+    address constant LOCAL_CURVE_USDE_USDT = 0xa8a04E5d50e16fAFD127DbE9D5d2D5dCF4946e0C;
 
-    /// @dev Curve USDe/USDC factory pool. coins[0]=USDe, coins[1]=USDC.
-    ///      TODO verify: pool address at the fork block.
-    address constant CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
+    /// @dev Curve USDe/USDC factory plain-pool. coins[0]=USDe, coins[1]=USDC.
+    ///      Verified by setUp() coin-ordering assertion against the live pool.
+    address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
     /// @dev Curve 3pool. coins: [DAI(0), USDC(1), USDT(2)].
     address constant CURVE_3POOL = Mainnet.CURVE_3POOL;
@@ -54,6 +54,26 @@ contract F08_02_UsdePegArbTest is StrategyBase, IFlashLoanRecipientBalancer {
         _trackToken(Mainnet.USDC);
         _trackToken(Mainnet.USDT);
         _trackToken(Mainnet.USDE);
+
+        // Verify the Curve pool coin orderings — coins[0]=USDe, coins[1]=stable.
+        // Reverting here gives a clear signal if a factory pool was redeployed
+        // and the address constant drifted (rather than failing inside exchange).
+        require(
+            ICurveStableSwap(LOCAL_CURVE_USDE_USDT).coins(0) == Mainnet.USDE,
+            "F08-02: USDT pool coin0 != USDe"
+        );
+        require(
+            ICurveStableSwap(LOCAL_CURVE_USDE_USDT).coins(1) == Mainnet.USDT,
+            "F08-02: USDT pool coin1 != USDT"
+        );
+        require(
+            ICurveStableSwap(LOCAL_CURVE_USDE_USDC).coins(0) == Mainnet.USDE,
+            "F08-02: USDC pool coin0 != USDe"
+        );
+        require(
+            ICurveStableSwap(LOCAL_CURVE_USDE_USDC).coins(1) == Mainnet.USDC,
+            "F08-02: USDC pool coin1 != USDC"
+        );
     }
 
     function testStrategy_F08_02() public {
@@ -61,8 +81,8 @@ contract F08_02_UsdePegArbTest is StrategyBase, IFlashLoanRecipientBalancer {
 
         // Pre-flight quote: estimate end-to-end profitability.
         // USDT -> USDe on USDT pool, USDe -> USDC on USDC pool, USDC -> USDT on 3pool.
-        uint256 q1 = ICurveStableSwap(CURVE_USDE_USDT).get_dy(int128(1), int128(0), FLASH_USDT);          // USDT -> USDe
-        uint256 q2 = ICurveStableSwap(CURVE_USDE_USDC).get_dy(int128(0), int128(1), q1);                  // USDe -> USDC
+        uint256 q1 = ICurveStableSwap(LOCAL_CURVE_USDE_USDT).get_dy(int128(1), int128(0), FLASH_USDT);          // USDT -> USDe
+        uint256 q2 = ICurveStableSwap(LOCAL_CURVE_USDE_USDC).get_dy(int128(0), int128(1), q1);                  // USDe -> USDC
         uint256 q3 = ICurveStableSwap(CURVE_3POOL).get_dy(int128(1), int128(2), q2);                      // USDC -> USDT
 
         emit log_named_uint("quote_in_usdt", FLASH_USDT);
@@ -100,15 +120,15 @@ contract F08_02_UsdePegArbTest is StrategyBase, IFlashLoanRecipientBalancer {
         uint256 amt = amounts[0];
 
         // Approve all three pools.
-        _approveOnce(Mainnet.USDT, CURVE_USDE_USDT);
-        _approveOnce(Mainnet.USDE, CURVE_USDE_USDC);
+        _approveOnce(Mainnet.USDT, LOCAL_CURVE_USDE_USDT);
+        _approveOnce(Mainnet.USDE, LOCAL_CURVE_USDE_USDC);
         _approveOnce(Mainnet.USDC, CURVE_3POOL);
 
         // Leg 1: USDT -> USDe on the discount-side pool.
-        uint256 usdeOut = ICurveStableSwap(CURVE_USDE_USDT).exchange(int128(1), int128(0), amt, 0);
+        uint256 usdeOut = ICurveStableSwap(LOCAL_CURVE_USDE_USDT).exchange(int128(1), int128(0), amt, 0);
 
         // Leg 2: USDe -> USDC on the peg-side pool.
-        uint256 usdcOut = ICurveStableSwap(CURVE_USDE_USDC).exchange(int128(0), int128(1), usdeOut, 0);
+        uint256 usdcOut = ICurveStableSwap(LOCAL_CURVE_USDE_USDC).exchange(int128(0), int128(1), usdeOut, 0);
 
         // Leg 3: USDC -> USDT on 3pool.
         uint256 usdtBack = ICurveStableSwap(CURVE_3POOL).exchange(int128(1), int128(2), usdcOut, 0);

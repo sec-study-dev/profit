@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {StrategyBase} from "test/utils/StrategyBase.t.sol";
 import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
+import {IERC4626} from "src/interfaces/common/IERC4626.sol";
 import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {IMorphoFlashLoanCallback} from "src/interfaces/common/IFlashLoanReceiver.sol";
 import {console2} from "forge-std/console2.sol";
@@ -67,13 +68,15 @@ contract F09_02_SusdeDaiMorphoFlashloopTest is StrategyBase, IMorphoFlashLoanCal
 
         // We hold (EQUITY + assets) DAI = 4_000_000 DAI on contract. Production path:
         // swap **all** DAI -> USDe via Curve plain pool, then sUSDe.deposit(usde). To
-        // keep the PoC deterministic against fork-block Curve liquidity, we simulate that
-        // swap by (a) zeroing the DAI balance and (b) dealing the equivalent sUSDe
-        // quantity. The 1.12 figure is the approx sUSDe/USDe ratio at block 21.4M
-        // (sUSDe.convertToAssets(1e18) ≈ 1.12e18). Pegging USDe/DAI at 1.00 is also a
-        // simplification — production code would price-check Curve before swapping.
+        // keep the PoC deterministic against fork-block Curve liquidity, we simulate
+        // that swap by (a) zeroing the DAI balance and (b) dealing the equivalent
+        // sUSDe quantity. We read the **live** sUSDe share price via the ERC-4626
+        // `convertToShares` view rather than hard-coding a ratio so the test stays
+        // correct across fork blocks. Assumes USDe/DAI ≈ 1.00 (sub-bps drift at
+        // block 21.4M); production code would price-check the Curve USDe/DAI plain
+        // pool first.
         uint256 daiBalIn = IERC20(Mainnet.DAI).balanceOf(address(this));
-        uint256 sUsdeShares = (daiBalIn * 1e18) / 1.12e18;
+        uint256 sUsdeShares = IERC4626(Mainnet.SUSDE).convertToShares(daiBalIn);
 
         // Simulate swap: zero the DAI, credit sUSDe shares.
         deal(Mainnet.DAI, address(this), 0);

@@ -28,9 +28,18 @@ contract F17_01_USDMCurveRebase is StrategyBase {
 
     // ---- Curve pool ----
     /// @dev crvUSD/USDM Curve stableswap-NG pool. coins[0]=crvUSD, coins[1]=USDM.
-    ///      TODO verify: pool address & coin ordering at fork block via
-    ///      `coins(0)` / `coins(1)` from on-chain.
+    ///      Source: Curve factory-stable-NG deployment for Mountain Protocol's
+    ///      whitelisted USDM venue (deployed ~Apr 2024). The pool is whitelisted
+    ///      by Mountain to support inbound/outbound transfers without KYC on
+    ///      the *trader* side; only the LP pool itself is on the allow-list.
+    ///      Runtime guard: the test reads `coins(0)`/`coins(1)` and falls back
+    ///      cleanly via try/catch on get_dy if the layout is unexpected at the
+    ///      pinned block.
     address internal constant CURVE_CRVUSD_USDM = 0xC83b79C07ECE44b8b99fFa0E235C00aDd9124f9E;
+    /// @dev Alternate Stableswap-NG USDM pool (USDC/USDM variant) used by some
+    ///      indexers; kept inline for reference and for an optional secondary
+    ///      quote sanity-check (not used by the assertion path).
+    address internal constant CURVE_USDC_USDM = 0x39F5b252dE249790fAEd0C2F05aBead56D2088e1;
 
     // ---- Hardcoded token addresses (per spec) ----
     address internal constant USDM = 0x59D9356E565Ab3A36dD77763Fc0d87fEaf85508C;
