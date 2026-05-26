@@ -159,6 +159,7 @@ contract F10_01_GhoMintBalancerCarry is StrategyBase {
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
         // Touch USDC reserve to crystallise the supply index.
+        deal(Mainnet.USDC, address(this), 1);
         pool.supply(Mainnet.USDC, 1, address(this), 0);
 
         // ---- 5. Report position state ----

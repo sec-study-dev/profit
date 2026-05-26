@@ -139,6 +139,7 @@ contract F10_04_GhoStkAaveDiscountedMint is StrategyBase {
         // ---- 4. Warp 30 days ----
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
+        deal(Mainnet.USDC, address(this), 1);
         pool.supply(Mainnet.USDC, 1, address(this), 0);
 
         // ---- 5. Report ----

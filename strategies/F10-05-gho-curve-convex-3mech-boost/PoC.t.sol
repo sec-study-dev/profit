@@ -187,6 +187,7 @@ contract F10_05_GhoCurveConvex3MechBoost is StrategyBase {
         // Re-supply 1 USDC; if all USDC was used in LP pairing this may revert.
         uint256 leftoverUsdc = IERC20(Mainnet.USDC).balanceOf(address(this));
         if (leftoverUsdc >= 1) {
+            deal(Mainnet.USDC, address(this), 1);
             pool.supply(Mainnet.USDC, 1, address(this), 0);
         }
 

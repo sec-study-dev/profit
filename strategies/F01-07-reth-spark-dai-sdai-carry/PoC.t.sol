@@ -92,6 +92,7 @@ contract F01_07_RethSparkDaiSdaiCarryTest is StrategyBase {
         // Crystallise Spark indices via a 1-wei rETH touch supply.
         deal(Mainnet.RETH, address(this), 1);
         IERC20(Mainnet.RETH).approve(Mainnet.SPARK_POOL, type(uint256).max);
+        deal(Mainnet.RETH, address(this), 1);
         spark.supply(Mainnet.RETH, 1, address(this), 0);
 
         // ---- 6. Read final state for logging ----
