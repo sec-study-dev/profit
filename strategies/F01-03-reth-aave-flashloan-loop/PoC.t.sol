@@ -14,8 +14,8 @@ contract F01_03_RethAaveFlashloanLoopTest is StrategyBase {
     uint256 constant FORK_BLOCK = 21_000_000;
 
     // Curve rETH/ETH stableswap pool (LP token = pool address).
-    // Verified against Curve registry: 0x0f3159811670c117c372428d4e69ac32325e4d0f
-    address constant CURVE_RETH_ETH_POOL = 0x0f3159811670c117c372428d4e69ac32325e4d0f;
+    // Verified against Curve registry: 0x0f3159811670c117c372428D4E69AC32325e4D0F
+    address constant CURVE_RETH_ETH_POOL = 0x0f3159811670c117c372428D4E69AC32325e4D0F;
 
     uint8 constant EMODE_ETH_CORRELATED = 1;
     uint256 constant RATE_MODE_VARIABLE = 2;

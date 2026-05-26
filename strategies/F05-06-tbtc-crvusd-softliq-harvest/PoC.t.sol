@@ -31,21 +31,21 @@ import {IFlashLoanSimpleReceiverAave} from "src/interfaces/common/IFlashLoanRece
 contract F05_06_PoC is StrategyBase, IFlashLoanSimpleReceiverAave {
     // ---- Per-collateral crvUSD addresses (verified on etherscan) ----
     /// @dev tBTC controller.
-    address constant CONTROLLER_TBTC = 0x1c91da0223c763d2e0173243eadaa0a2ea47e704;
+    address constant CONTROLLER_TBTC = 0x1C91da0223c763d2e0173243eAdaA0A2ea47E704;
     /// @dev tBTC LLAMMA.
-    address constant LLAMMA_TBTC = 0xf9bd9da2427a50908c4c6d1599d8e62837c2bcb0;
+    address constant LLAMMA_TBTC = 0xf9bD9da2427a50908C4c6D1599D8e62837C2BCB0;
     /// @dev tBTC ERC20 (Threshold Network - Bitcoin redemption-bridged).
-    address constant TBTC = 0x18084fba666a33d37592fa2633fd49a74dd93a88;
+    address constant TBTC = 0x18084fbA666a33d37592fA2633fD49a74DD93a88;
 
     // WBTC for the exit leg.
-    address constant WBTC = 0x2260fac5e5542a773aa44fbcfedf7c193bc2c599;
+    address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 
     // Curve crvUSD/USDC stableswap-NG.
-    address constant CURVE_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
+    address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
     // Curve tBTC/WBTC factory pool ("tbtc/wbtc" stable-NG, 0=tBTC, 1=WBTC).
-    address constant CURVE_TBTC_WBTC = 0xb7ecb2aa52aa64a717180e030241bc75cd946726;
+    address constant CURVE_TBTC_WBTC = 0xB7ECB2AA52AA64a717180E030241bC75Cd946726;
 
-    address constant UNIV3_ROUTER = 0xe592427a0aece92de3edee1f18e0157c05861564;
+    address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
     uint24 constant UNIV3_FEE_WBTC_USDC = 3000; // 0.3% - deepest WBTC pool
 
     // Block: Apr 13 2024 BTC sell-off mid-window.

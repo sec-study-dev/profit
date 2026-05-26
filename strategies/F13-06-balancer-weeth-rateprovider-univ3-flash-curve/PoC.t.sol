@@ -43,7 +43,7 @@ contract F13_06_BalancerWeETHRateLagUniV3FlashCurveTest is StrategyBase, IUniswa
 
     // ---- UniV3 wstETH/WETH 1bp (cheapest WETH flash source) ----
     /// @dev UniV3 wstETH/WETH 0.01% pool. token0 = wstETH, token1 = WETH.
-    address constant UNIV3_FLASH_POOL = 0x109830a3b59ddabe21ee0b1c34dd4a59e3f2ac81;
+    address constant UNIV3_FLASH_POOL = 0x109830A3b59DdAbE21EE0b1C34DD4A59E3F2aC81;
 
     // ---- Balancer weETH / wETH ComposableStable ----
     /// @dev Balancer ezETH/weETH/rswETH or weETH/wETH CSP. We target the
@@ -51,14 +51,14 @@ contract F13_06_BalancerWeETHRateLagUniV3FlashCurveTest is StrategyBase, IUniswa
     ///      "Balancer rsETH/weETH/wstETH/sfrxETH" composed pool replaced
     ///      by direct weETH/WETH CSP after Aug 2024. Address below is the
     ///      `weETH-WETH BPT` CSP.
-    address constant BAL_WEETH_WETH_POOL = 0x05ff47afada98a98982113758878f9a8b9fdda0a;
+    address constant BAL_WEETH_WETH_POOL = 0x05ff47AFADa98a98982113758878F9A8B9FddA0a;
     bytes32 constant BAL_WEETH_WETH_POOL_ID =
         0x05ff47afada98a98982113758878f9a8b9fdda0a000000000000000000000645;
 
     // ---- Curve weETH / WETH ng pool ----
     /// @dev Curve "weETH/WETH" ng (newer) pool, deep liquidity.
-    ///      Verified address: 0x13947303f63b363876868d070f14dc865c36463b
-    address constant CURVE_WEETH_WETH_POOL = 0x13947303f63b363876868d070f14dc865c36463b;
+    ///      Verified address: 0x13947303F63b363876868D070F14dc865C36463b
+    address constant CURVE_WEETH_WETH_POOL = 0x13947303F63b363876868D070F14dc865C36463b;
 
     uint256 constant FLASH_NOTIONAL = 200 ether;
     uint256 constant MIN_SPREAD_BPS = 3;

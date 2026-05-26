@@ -30,7 +30,7 @@ contract F09_06_RsethMorphoFlashloopCurveTest is StrategyBase, IMorphoFlashLoanC
     uint256 constant FORK_BLOCK = 21_400_000;
 
     /// @dev Kelp DAO LRTDepositPool - entry point for native ETH -> rsETH at NAV.
-    address constant KELP_DEPOSIT_POOL = 0x036676389e48133b63a802f8635ad39e752d375d;
+    address constant KELP_DEPOSIT_POOL = 0x036676389e48133B63a802f8635AD39E752D375D;
 
     /// @dev rsETH/WETH 86% LLTV market id on Morpho Blue.
     ///      MarketParams recovered live via idToMarketParams(id) in setUp.

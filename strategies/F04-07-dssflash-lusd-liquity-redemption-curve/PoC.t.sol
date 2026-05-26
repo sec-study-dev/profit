@@ -57,9 +57,9 @@ contract F04_07_DssFlashLusdLiquityRedemption is StrategyBase, IERC3156FlashBorr
     // ---- Liquity v1 mainnet addresses (immutable since 2021). Inline-local
     //      per the family-isolation rule. ----
     address internal constant LOCAL_LIQUITY_TROVE_MANAGER =
-        0xa39739ef8b0231dbfa0dcda07d7e29faabcf4bb2;
+        0xA39739EF8b0231DbFA0DcdA07d7e29faAbCf4bb2;
     address internal constant LOCAL_CURVE_LUSD_3POOL =
-        0xed279fdd11ca84beef15af5d39bb4d4bee23f0ca;
+        0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA;
 
     // Pinned block: LUSD/3pool was at a meaningful depeg post-USDC SVB stress
     // wave; Liquity redemption fee was still near floor. Same vintage as the

@@ -23,14 +23,14 @@ interface ISymbioticCollateral {
 ///   - 50 wstETH unwrapped -> stETH -> EigenLayer stETH strategy.
 ///   - 50 wstETH directly -> Symbiotic wstETH vault.
 contract F15_04_NativeEigenSymbioticDualstackTest is StrategyBase {
-    address constant STETH_STRATEGY = 0x93c4b944d05dfe6df7645a86cd2206016c51564d;
+    address constant STETH_STRATEGY = 0x93c4b944D05dfe6df7645A86cd2206016c51564D;
 
     /// @dev Symbiotic wstETH `DefaultCollateral` vault. Verified via Symbiotic
     ///      docs + Etherscan (label "Symbiotic: DefaultCollateral wstETH"):
     ///      this is the canonical, most-liquid wstETH collateral vault from
     ///      Symbiotic's June-2024 mainnet launch wave, deposit-cap-managed by
     ///      Mellow/Symbiotic governance. Live at FORK_BLOCK (Aug 2024).
-    address constant SYMBIOTIC_WSTETH_VAULT = 0xc329400492c6ff2438472d4651ad17389fcb843a;
+    address constant SYMBIOTIC_WSTETH_VAULT = 0xC329400492c6ff2438472D4651Ad17389fCb843a;
 
     /// @dev Aug 2024 - Symbiotic mainnet live.
     uint256 constant FORK_BLOCK = 20_400_000;

@@ -55,12 +55,12 @@ contract F07_09_YtPufethSymbioticStackTest is StrategyBase {
     // ---- Pendle market (PT/YT/SY-pufETH-26DEC2024) ----
     /// @dev Pendle Market for PT/YT/SY-pufETH - maturity 26-DEC-2024.
     ///      Source: Pendle markets registry (pufETH Dec-26-2024).
-    address constant LOCAL_MARKET = 0x58612beb0e8a126735b19bb222cbc7fc2c162d2a;
+    address constant LOCAL_MARKET = 0x58612beB0e8a126735b19BB222cbC7fC2C162D2a;
 
     // ---- Symbiotic pufETH vault ----
     /// @dev Symbiotic Mellow / native vault accepting pufETH as collateral.
     ///      Live Aug 2024 with the initial capacity ramp.
-    address constant SYMBIOTIC_PUFETH_VAULT = 0x649c5c70ad6b18d29e1d2be07b3c3cc9d7db05f9;
+    address constant SYMBIOTIC_PUFETH_VAULT = 0x649c5c70AD6b18D29E1D2BE07B3c3CC9d7db05f9;
 
     // ---- Equity / split ----
     uint256 constant EQUITY_WETH = 100 ether;

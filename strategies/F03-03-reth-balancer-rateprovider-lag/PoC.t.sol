@@ -27,13 +27,13 @@ contract F03_03_RETHRateLagTest is StrategyBase, IFlashLoanRecipientBalancer {
     uint256 constant FORK_BLOCK = 20_400_500;
 
     /// @dev Balancer rETH/wETH MetaStable pool id.
-    ///      Pool address: 0x1e19cf2d73a72ef1332c882f20534b6519be0276
+    ///      Pool address: 0x1E19CF2D73a72Ef1332C882F20534B6519Be0276
     bytes32 constant BAL_RETH_POOL_ID =
         0x1e19cf2d73a72ef1332c882f20534b6519be0276000200000000000000000112;
-    address constant BAL_RETH_POOL = 0x1e19cf2d73a72ef1332c882f20534b6519be0276;
+    address constant BAL_RETH_POOL = 0x1E19CF2D73a72Ef1332C882F20534B6519Be0276;
 
     /// @dev Curve rETH/ETH crypto pool. coins[0] = ETH (sentinel), coins[1] = rETH.
-    address constant CURVE_RETH_ETH = 0x0f3159811670c117c372428d4e69ac32325e4d0f;
+    address constant CURVE_RETH_ETH = 0x0f3159811670c117c372428D4E69AC32325e4D0F;
 
     uint256 constant FLASH_NOTIONAL = 500 ether;
 

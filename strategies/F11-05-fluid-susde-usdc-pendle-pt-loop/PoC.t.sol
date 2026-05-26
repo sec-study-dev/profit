@@ -21,18 +21,18 @@ contract F11_05_FluidSusdeUsdcPendlePtLoopTest is StrategyBase {
     // ---- Fluid sUSDe / USDC smart-collateral vault ----
     // Inline LOCAL_ constant per family constraint (Mainnet.sol is shared).
     // verified at
-    // https://etherscan.io/address/0x025c1494b7d15aa931e011f6740e0b46b2136cb9
+    // https://etherscan.io/address/0x025C1494b7d15aa931E011f6740E0b46b2136cb9
     // (Fluid Vault T4 sUSDe/USDC smart-collateral & smart-debt vault, deployed
     // by Fluid VaultFactory in late 2024).
     address internal constant LOCAL_FLUID_SUSDE_USDC_VAULT =
-        0x025c1494b7d15aa931e011f6740e0b46b2136cb9;
+        0x025C1494b7d15aa931E011f6740E0b46b2136cb9;
 
     // ---- Pendle PT-sUSDe Mar 2025 ----
     // verified at
-    // https://etherscan.io/address/0xe00bd3df25fb187d6abbb620b3dfd19839947b81
+    // https://etherscan.io/address/0xE00bd3Df25fb187d6ABBB620b3dfd19839947b81
     // (Pendle PT-sUSDe-27MAR2025).
     address internal constant LOCAL_PT_SUSDE_MAR2025 =
-        0xe00bd3df25fb187d6abbb620b3dfd19839947b81;
+        0xE00bd3Df25fb187d6ABBB620b3dfd19839947b81;
 
     uint256 internal constant PRINCIPAL_USDC = 1_000_000e6; // 1M USDC
     uint256 internal _nftId;

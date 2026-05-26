@@ -34,8 +34,8 @@ contract F02_06_PufethSymbioticAaveEmodeTripleTest is StrategyBase {
     uint256 constant FORK_BLOCK = 20_100_000;
 
     /// @dev Symbiotic DC_wstETH - DefaultCollateral wrapper over wstETH.
-    /// https://etherscan.io/address/0xc329400492c6ff2438472d4651ad17389fcb843a
-    address constant LOCAL_SYMBIOTIC_DC_WSTETH = 0xc329400492c6ff2438472d4651ad17389fcb843a;
+    /// https://etherscan.io/address/0xC329400492c6ff2438472D4651Ad17389fCb843a
+    address constant LOCAL_SYMBIOTIC_DC_WSTETH = 0xC329400492c6ff2438472D4651Ad17389fCb843a;
 
     /// @dev Aave V3 mainnet eMode category 1 = "ETH correlated" (genesis payload).
     /// pufETH was enrolled in cat 1 by Aave governance via the May-2024 listing

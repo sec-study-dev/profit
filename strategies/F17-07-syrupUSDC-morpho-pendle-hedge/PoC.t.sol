@@ -34,7 +34,7 @@ contract F17_07_SyrupMorphoPendleHedge is StrategyBase {
     // ---- Maple syrupUSDC ----
     /// @dev Maple v2 syrupUSDC ERC-4626 vault (USDC underlying).
     ///      Source: Maple Finance contract registry (mainnet).
-    address internal constant SYRUPUSDC = 0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b;
+    address internal constant SYRUPUSDC = 0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b;
 
     // ---- Pendle PT-syrupUSDC market ----
     /// @dev Pendle market for PT/YT-syrupUSDC. Source: Pendle markets registry
@@ -44,7 +44,7 @@ contract F17_07_SyrupMorphoPendleHedge is StrategyBase {
     ///      Runtime: `readTokens()` is called via try/catch; if the market is
     ///      not live at the pinned block, the strategy falls back to a Morpho-
     ///      only carry path and documents the hedge unavailability.
-    address internal constant PENDLE_MKT_SYRUP = 0x4339ffe2b7592dc783ed13cce310531ab366deac;
+    address internal constant PENDLE_MKT_SYRUP = 0x4339Ffe2B7592Dc783ed13cCE310531aB366dEac;
 
     // ---- Morpho Blue market parameters ----
     /// @dev MEV Capital / Maple-curated Morpho market for syrupUSDC/USDC.
@@ -55,8 +55,8 @@ contract F17_07_SyrupMorphoPendleHedge is StrategyBase {
     ///      Runtime: the test computes the market id via keccak256 of the
     ///      parameters; if the market does not exist Morpho calls revert and
     ///      the strategy short-circuits.
-    address internal constant MORPHO_ORACLE_SYRUP = 0x5e35a6f35f1ed4da9bbcb01a82c01c9dd20e33b6;
-    address internal constant MORPHO_IRM_ADAPTIVE = 0x870ac11d48b15db9a138cf899d20f13f79ba00bc;
+    address internal constant MORPHO_ORACLE_SYRUP = 0x5E35a6f35F1ED4da9BBCB01a82C01c9dD20E33B6;
+    address internal constant MORPHO_IRM_ADAPTIVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
     uint256 internal constant LLTV_86_5 = 0.865e18;
 
     // ---- Sizing ----

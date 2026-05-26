@@ -43,7 +43,7 @@ contract F13_04_UniV3WstETHWETHNarrowLPTest is StrategyBase, IUniswapV3MintCallb
     uint256 constant FORK_BLOCK = 20_900_000;
 
     /// @dev UniV3 wstETH/WETH 0.01% (fee tier 100, tickSpacing = 1). token0 = wstETH, token1 = WETH.
-    address constant UNIV3_WSTETH_WETH_100 = 0x109830a3b59ddabe21ee0b1c34dd4a59e3f2ac81;
+    address constant UNIV3_WSTETH_WETH_100 = 0x109830A3b59DdAbE21EE0b1C34DD4A59E3F2aC81;
 
     /// @dev Roughly equal-value funding amounts. 10 ETH-equiv each side.
     ///      wstETH/WETH ~= 1.18 so 10 ETH ~= 8.47 wstETH.

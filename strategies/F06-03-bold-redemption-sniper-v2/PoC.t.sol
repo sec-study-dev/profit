@@ -50,44 +50,44 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
     //     (page is labelled "Legacy V2 and Testnet" - pre-redeployment
     //     addresses; do NOT use those values.)
     //
-    // NOTE: Wave-4 cited CollateralRegistry as 0xd99de73b95236f69a559117ecd6f519af780f3f7,
+    // NOTE: Wave-4 cited CollateralRegistry as 0xd99dE73b95236F69A559117ECD6F519Af780F3f7,
     // but that is a LEGACY V2 hintHelpers address (per the docs.liquity.org
     // "Legacy V2" page). The canonical post-redeployment CollateralRegistry
-    // is 0xf949982b91c8c61e952b3ba942cbbfaef5386684 (per liquity/bold
+    // is 0xf949982B91C8c61e952B3bA942cbbfaef5386684 (per liquity/bold
     // contracts/addresses/1.json on main). All addresses below are sourced
     // from that manifest.
 
     /// @dev Canonical BOLD (post 2025-05-19 redeployment).
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_BOLD = 0x6440f144b7e50d6a8439336510312d2f54beb01d;
+    address constant LOCAL_BOLD = 0x6440f144b7e50D6a8439336510312d2F54beB01D;
 
     /// @dev CollateralRegistry - system-wide v2 entrypoint for multi-branch
     ///      redemptions. Surfaces redeemCollateral() that fans out into each
     ///      branch's TroveManager based on outstanding debt.
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_COLLATERAL_REGISTRY = 0xf949982b91c8c61e952b3ba942cbbfaef5386684;
+    address constant LOCAL_COLLATERAL_REGISTRY = 0xf949982B91C8c61e952B3bA942cbbfaef5386684;
 
     /// @dev HintHelpers - view-only hints across branches.
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_HINT_HELPERS_V2 = 0xf0cae19c96e572234398d6665cc1147a16cbe657;
+    address constant LOCAL_HINT_HELPERS_V2 = 0xF0caE19C96E572234398d6665cC1147A16cBe657;
 
     /// @dev MultiTroveGetter - enumerate troves per branch.
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_MULTI_TROVE_GETTER = 0xfa61db085510c64b83056db3a7acf3b6f631d235;
+    address constant LOCAL_MULTI_TROVE_GETTER = 0xFA61dB085510C64B83056Db3A7Acf3b6f631D235;
 
     // ---- WETH branch (branch index 0) ----
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_ADDRESSES_REGISTRY_ETH = 0x20f7c9ad66983f6523a0881d0f82406541417526;
-    address constant LOCAL_BORROWER_OPS_ETH       = 0x372abd1810eaf23cb9d941bbe7596dfb2c46bc65;
-    address constant LOCAL_TROVE_MANAGER_ETH      = 0x7bcb64b2c9206a5b699ed43363f6f98d4776cf5a;
-    address constant LOCAL_SORTED_TROVES_ETH      = 0xa25269e41bd072513849f2e64ad221e84f3063f4;
-    address constant LOCAL_STABILITY_POOL_ETH     = 0x5721cbbd64fc7ae3ef44a0a3f9a790a9264cf9bf;
-    address constant LOCAL_ACTIVE_POOL_ETH        = 0xeb5a8c825582965f1d84606e078620a84ab16afe;
+    address constant LOCAL_ADDRESSES_REGISTRY_ETH = 0x20F7C9ad66983F6523a0881d0f82406541417526;
+    address constant LOCAL_BORROWER_OPS_ETH       = 0x372ABD1810eAF23Cb9D941BbE7596DFb2c46BC65;
+    address constant LOCAL_TROVE_MANAGER_ETH      = 0x7bcb64B2c9206a5B699eD43363f6F98D4776Cf5A;
+    address constant LOCAL_SORTED_TROVES_ETH      = 0xA25269E41BD072513849F2E64Ad221e84f3063F4;
+    address constant LOCAL_STABILITY_POOL_ETH     = 0x5721cbbd64fc7Ae3Ef44A0A3F9a790A9264Cf9BF;
+    address constant LOCAL_ACTIVE_POOL_ETH        = 0xeB5A8C825582965f1d84606E078620a84ab16AfE;
 
     /// @dev Curve Stableswap-NG USDC/BOLD pool (from governance config in
     ///      same deployment manifest).
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_CURVE_BOLD_USDC = 0xefc6516323fbd28e80b85a497b65a86243a54b3e;
+    address constant LOCAL_CURVE_BOLD_USDC = 0xEFc6516323FbD28e80B85A497B65A86243a54B3E;
 
     // ---- Tunables ----
 

@@ -20,10 +20,10 @@ contract F18_03_EthenaCurveAaveUsdeCarry is StrategyBase {
     uint256 constant FORK_BLOCK = 20_400_000;
 
     /// @dev Curve USDe/USDT factory plain-pool. coins[0]=USDe, coins[1]=USDT.
-    address constant LOCAL_CURVE_USDE_USDT = 0xa8a04e5d50e16fafd127dbe9d5d2d5dcf4946e0c;
+    address constant LOCAL_CURVE_USDE_USDT = 0xa8A04E5d50e16FAFD127dBE9d5D2d5dcf4946E0C;
 
     /// @dev Curve USDe/USDC factory plain-pool. coins[0]=USDe, coins[1]=USDC.
-    address constant LOCAL_CURVE_USDE_USDC = 0x02950460e2b9529d0e00284a5fa2d7bdf3fa4d72;
+    address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
     /// @dev Aave v3 stables-eMode category id (post-July 2024 listing for
     ///      USDe family). Verified by reading reserve config; PoC also

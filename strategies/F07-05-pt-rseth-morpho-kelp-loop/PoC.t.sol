@@ -33,13 +33,13 @@ contract F07_05_PtRsethMorphoKelpLoopTest is StrategyBase {
     /// @dev Pendle Market for PT/YT/SY-rsETH-26DEC2024.
     ///      Maturity: 26 December 2024 (1735171200 UTC).
     ///      Source: Pendle markets registry (rsETH 26-Dec-2024 ETH variant).
-    address constant LOCAL_MARKET = 0x6b4740722e46048874d84306b2877600abcea3ae;
+    address constant LOCAL_MARKET = 0x6b4740722e46048874d84306B2877600ABCea3Ae;
 
     // ---- Morpho market (PT-rsETH-26DEC2024 / WETH) ----
     /// @dev PendleSparkLinearDiscount oracle for PT-rsETH-26DEC2024 vs WETH.
-    address constant MORPHO_ORACLE_PT_RSETH = 0xec4d7a9d0bd7ea8dd45d9ed20a4dd6c4e00d5d8a;
+    address constant MORPHO_ORACLE_PT_RSETH = 0xec4d7a9d0bD7EA8DD45d9eD20a4dd6C4E00D5d8a;
     /// @dev Morpho Blue AdaptiveCurveIRM (shared singleton).
-    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870ac11d48b15db9a138cf899d20f13f79ba00bc;
+    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
     /// @dev 86% LLTV variant for PT-rsETH/WETH market.
     uint256 constant LLTV_86 = 0.86e18;
 

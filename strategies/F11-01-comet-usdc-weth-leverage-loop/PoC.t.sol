@@ -24,7 +24,7 @@ contract F11_01_CometUsdcWethLeverageLoopTest is StrategyBase {
     uint256 internal constant LOOPS = 4;
 
     // Uniswap v3 0.05% fee tier for USDC/WETH (verified at
-    // https://info.uniswap.org/#/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640).
+    // https://info.uniswap.org/#/pools/0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640).
     uint24 internal constant UNI_FEE_5BPS = 500;
 
     function setUp() public {
@@ -114,7 +114,7 @@ contract F11_01_CometUsdcWethLeverageLoopTest is StrategyBase {
 
     function _ethUsdE8() internal view returns (uint256) {
         // Chainlink ETH/USD aggregator (8 decimals) - same address used by PriceOracle.
-        (bool ok, bytes memory data) = address(0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419)
+        (bool ok, bytes memory data) = address(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)
             .staticcall(abi.encodeWithSignature("latestAnswer()"));
         if (!ok || data.length < 32) return 0;
         int256 ans = abi.decode(data, (int256));

@@ -51,8 +51,8 @@ interface ILiquityV1TroveManager {
 ///         r_ETH_LST_yield`.
 contract F16_08_LusdTroveCrvUsdCurveConvexBoost is StrategyBase {
     // ---- Liquity v1 (immutable since 2021) ----
-    address constant BORROWER_OPS = 0x24179cd81c9e782a4096035f7ec97fb8b783e007;
-    address constant TROVE_MANAGER = 0xa39739ef8b0231dbfa0dcda07d7e29faabcf4bb2;
+    address constant BORROWER_OPS = 0x24179CD81c9e782A4096035f7eC97fB8B783e007;
+    address constant TROVE_MANAGER = 0xA39739EF8b0231DbFA0DcdA07d7e29faAbCf4bb2;
 
     /// @dev Candidate Curve crvUSD/LUSD factory pool. This is a community-
     ///      deployed StableNG factory pool whose canonical address has shifted
@@ -61,10 +61,10 @@ contract F16_08_LusdTroveCrvUsdCurveConvexBoost is StrategyBase {
     ///      a live crvUSD/LUSD pair at the pinned block. The address below is
     ///      a known crvUSD-factory pool referenced in Curve gauge proposals
     ///      from 2024.
-    address constant CURVE_CRVUSD_LUSD_CANDIDATE = 0x9978c6b08d36e1d304407c5c3da15a079bdfb0bd;
+    address constant CURVE_CRVUSD_LUSD_CANDIDATE = 0x9978C6B08d36e1d304407C5C3Da15A079bDfb0bD;
 
     /// @dev Convex CRV token (for tracked-token list).
-    address constant CRV = 0xd533a949740bb3306d119cc777fa900ba034cd52;
+    address constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
 
     /// @dev Pinned block: Q1 2025. By this block:
     ///        - Liquity v1 baseRate is near floor (no recent redemptions).

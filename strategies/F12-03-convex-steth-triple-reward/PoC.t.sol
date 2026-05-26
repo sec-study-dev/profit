@@ -15,14 +15,14 @@ import {IConvexBooster, IConvexBaseRewardPool} from "src/interfaces/bribe/IConve
 contract F12_03_PoC is StrategyBase {
     // ---- Addresses ----
     // Curve stETH/ETH pool (the swap contract) - used only for ABI sanity.
-    address constant CURVE_STETH_POOL = 0xdc24316b9ae028f1497c275eb9192a3ea0f67022;
+    address constant CURVE_STETH_POOL = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
     // steCRV LP token (Curve emits a separate LP for this legacy pool).
-    address constant STECRV_LP = 0x06325440d014e39736583c165c2963ba99faf14e;
+    address constant STECRV_LP = 0x06325440D014e39736583c165C2963BA99fAf14E;
     // Convex BaseRewardPool for PID 25 (stETH/ETH).
-    address constant CVX_STETH_REWARDS = 0x0a760466e1b4621579a82a39cb56dda2f4e70f03;
+    address constant CVX_STETH_REWARDS = 0x0A760466E1B4621579a82a39CB56Dda2F4E70f03;
     // Reward tokens.
-    address constant CRV = 0xd533a949740bb3306d119cc777fa900ba034cd52;
-    address constant LDO = 0x5a98fcbea516cf06857215779fd812ca3bef1b32;
+    address constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
+    address constant LDO = 0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32;
 
     uint256 constant PID_STETH = 25;
 

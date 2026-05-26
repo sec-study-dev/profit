@@ -55,21 +55,21 @@ contract F01_05_SfrxethFraxlendLoopTest is StrategyBase {
     // Fraxlend sfrxETH/FRAX pair address - verified against Frax docs deployments
     // page (https://docs.frax.finance/fraxlend/fraxlend-overview).
     address constant LOCAL_FRAXLEND_SFRXETH_FRAX_PAIR =
-        0x32467a5fc2d72d21e8dce990906547a2b012f382;
+        0x32467a5fc2d72D21E8DCe990906547A2b012f382;
 
     // FRAX stablecoin - verified Etherscan (Frax Finance: FRAX Token).
-    address constant LOCAL_FRAX = 0x853d955acef822db058eb8505911ed77f175b99e;
+    address constant LOCAL_FRAX = 0x853d955aCEf822Db058eb8505911ED77F175b99e;
 
     // Curve frxETH/ETH cryptopool (2-coin) - verified Curve registry:
     // coin0 = ETH (0xeeee...), coin1 = frxETH.
     address constant LOCAL_CURVE_FRXETH_ETH_POOL =
-        0xa1f8a6807c402e4a15ef4eba36528a3fed24e577;
+        0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577;
 
     // Curve FRAX/USDC (FRAXBP) base pool - coin0 = FRAX, coin1 = USDC.
     // Used to convert borrowed FRAX -> USDC, then Uni v3 USDC/WETH 5-bp pool ETH.
     // Verified Curve registry (canonical FRAXBP at
-    // 0xdcef968d416a41cdac0ed8702fac8128a64241a2).
-    address constant LOCAL_CURVE_FRAXBP = 0xdcef968d416a41cdac0ed8702fac8128a64241a2;
+    // 0xDcEF968d416a41Cdac0ED8702fAC8128A64241A2).
+    address constant LOCAL_CURVE_FRAXBP = 0xDcEF968d416a41Cdac0ED8702fAC8128A64241A2;
 
     // Per-loop LTV (Fraxlend cap is 75%; buffer to ~70%).
     uint256 constant LOOP_LTV_BPS = 7000;
@@ -206,7 +206,7 @@ contract F01_05_SfrxethFraxlendLoopTest is StrategyBase {
     }
 
     function _ethUsdE8() internal view returns (uint256) {
-        (bool ok, bytes memory data) = address(0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419)
+        (bool ok, bytes memory data) = address(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)
             .staticcall(abi.encodeWithSignature("latestAnswer()"));
         if (!ok || data.length < 32) return 0;
         int256 ans = abi.decode(data, (int256));

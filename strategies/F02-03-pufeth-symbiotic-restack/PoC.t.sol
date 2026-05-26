@@ -50,19 +50,19 @@ contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCall
     /// Verified by searching morpho-blue-api-metadata at the Apr-2024 listing of
     /// the pufETH/WETH market. (If the recomputed marketId in setUp does not
     /// match the constant above, this oracle address is the most likely off-by-one.)
-    address constant MORPHO_ORACLE_PUFETH_WETH = 0xb9d9e07f36b6f3a14a4cf2a4dcc9b66eb39603ec;
-    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870ac11d48b15db9a138cf899d20f13f79ba00bc;
+    address constant MORPHO_ORACLE_PUFETH_WETH = 0xb9D9E07f36b6F3a14A4cF2a4dcc9b66EB39603Ec;
+    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
     uint256 constant LLTV_86 = 0.86e18;
 
     /// @dev Karak pufETH-collateral vault on Ethereum mainnet, deployed under the
-    /// Karak VaultSupervisor `0x54e44dbb92dba848ace27f44c0cb4268981ef1cc`.
+    /// Karak VaultSupervisor `0x54e44DbB92dBA848ACe27F44c0CB4268981eF1CC`.
     /// Reachable from https://app.karak.network/pool/ethereum/pufETH ; the on-chain
     /// per-asset vault address. The Karak VaultSupervisor went live in April 2024;
     /// at FORK_BLOCK 19,800,000 the pufETH vault is open (deposits accepted).
     /// Wrapped in try/catch by the strategy so a stale address degrades gracefully.
-    address constant KARAK_PUFETH_VAULT = 0xf9438f5da40fb18ba5b690cf3d8b756e4ddc7e60;
+    address constant KARAK_PUFETH_VAULT = 0xf9438f5dA40fB18Ba5b690cF3d8B756E4dDc7E60;
     /// @dev Karak VaultSupervisor (for reference / off-chain lookup).
-    address constant KARAK_VAULT_SUPERVISOR = 0x54e44dbb92dba848ace27f44c0cb4268981ef1cc;
+    address constant KARAK_VAULT_SUPERVISOR = 0x54e44DbB92dBA848ACe27F44c0CB4268981eF1CC;
 
     uint256 constant EQUITY = 100 ether;
     /// @dev Loop to 3x: borrow 200 WETH on top of 100 equity.

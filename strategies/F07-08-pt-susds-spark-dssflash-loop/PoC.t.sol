@@ -42,17 +42,17 @@ contract F07_08_PtSusdsSparkDssflashLoopTest is StrategyBase, IERC3156FlashBorro
 
     // ---- Pendle market (PT/YT/SY-sUSDS-25SEP2025) ----
     /// @dev Pendle Market for PT/YT/SY-sUSDS - maturity 25-SEP-2025.
-    address constant LOCAL_MARKET = 0xcae62858db831272a03768f5844cbe1b40bb381f;
+    address constant LOCAL_MARKET = 0xCaE62858DB831272A03768f5844cbe1B40bB381f;
 
     // ---- Morpho market: PT-sUSDS / USDS ----
     /// @dev PendleSparkLinearDiscount oracle for PT-sUSDS-25SEP2025 vs USDS.
-    address constant MORPHO_ORACLE_PT_SUSDS = 0x9abce44a60c93ce39942e0a4d6e0ab1d3b3a8e90;
-    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870ac11d48b15db9a138cf899d20f13f79ba00bc;
+    address constant MORPHO_ORACLE_PT_SUSDS = 0x9abcE44A60C93ce39942e0A4D6E0Ab1d3B3A8e90;
+    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
     uint256 constant LLTV_91_5 = 0.915e18;
 
     // ---- Sky / Maker plumbing ----
     /// @dev Sky DAI<->USDS 1:1 converter (post-rebrand bridge).
-    address constant DAI_USDS_CONVERTER = 0x3225737a9bbb6473cb4a45b7244aca2befdb276a;
+    address constant DAI_USDS_CONVERTER = 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A;
 
     // ---- Equity / sizing ----
     uint256 constant EQUITY_USDS = 1_000_000e18;

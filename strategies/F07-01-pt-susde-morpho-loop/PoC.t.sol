@@ -23,13 +23,13 @@ contract F07_01_PtSusdeMorphoLoopTest is StrategyBase {
     // ---- Pendle market (maturity-specific, hardcoded per family rules) ----
     /// @dev Pendle Market for PT/YT/SY-sUSDe-26SEP2024.
     ///      Source: Pendle markets registry (sUSDe Sep-26-2024 USDe variant).
-    address constant LOCAL_MARKET = 0x19588f29f9402bb508007feadd415c875ee3f19f;
+    address constant LOCAL_MARKET = 0x19588F29f9402Bb508007FeADd415c875Ee3f19F;
 
     // ---- Morpho market (PT-sUSDe-26SEP2024 / USDC, MEV Capital curated) ----
     /// @dev Linear-discount PT-sUSDe oracle.
-    address constant MORPHO_ORACLE_PT_SUSDE = 0x38d130cee60cda080a3b3ac94c79c34b6fc919a7;
+    address constant MORPHO_ORACLE_PT_SUSDE = 0x38d130cEe60CDa080A3b3aC94C79c34B6Fc919A7;
     /// @dev Morpho Blue AdaptiveCurveIRM.
-    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870ac11d48b15db9a138cf899d20f13f79ba00bc;
+    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
     /// @dev 86.5% LLTV for PT collateral with linear-discount oracle.
     uint256 constant LLTV_86_5 = 0.865e18;
 

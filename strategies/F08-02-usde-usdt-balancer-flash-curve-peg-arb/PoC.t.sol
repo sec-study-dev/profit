@@ -33,11 +33,11 @@ contract F08_02_UsdePegArbTest is StrategyBase, IFlashLoanRecipientBalancer {
 
     /// @dev Curve USDe/USDT factory plain-pool. coins[0]=USDe, coins[1]=USDT.
     ///      Verified by setUp() coin-ordering assertion against the live pool.
-    address constant LOCAL_CURVE_USDE_USDT = 0xa8a04e5d50e16fafd127dbe9d5d2d5dcf4946e0c;
+    address constant LOCAL_CURVE_USDE_USDT = 0xa8A04E5d50e16FAFD127dBE9d5D2d5dcf4946E0C;
 
     /// @dev Curve USDe/USDC factory plain-pool. coins[0]=USDe, coins[1]=USDC.
     ///      Verified by setUp() coin-ordering assertion against the live pool.
-    address constant LOCAL_CURVE_USDE_USDC = 0x02950460e2b9529d0e00284a5fa2d7bdf3fa4d72;
+    address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
     /// @dev Curve 3pool. coins: [DAI(0), USDC(1), USDT(2)].
     address constant CURVE_3POOL = Mainnet.CURVE_3POOL;

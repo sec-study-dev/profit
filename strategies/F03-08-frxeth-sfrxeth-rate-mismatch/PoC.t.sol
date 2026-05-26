@@ -21,7 +21,7 @@ contract F03_08_FrxETHSfrxETHRateMismatchTest is StrategyBase, IFlashLoanRecipie
     uint256 constant FORK_BLOCK = 21_300_000;
 
     /// @dev Curve frxETH/ETH plain pool. coins[0] = ETH (native), coins[1] = frxETH.
-    address constant LOCAL_CURVE_FRXETH_ETH = 0xa1f8a6807c402e4a15ef4eba36528a3fed24e577;
+    address constant LOCAL_CURVE_FRXETH_ETH = 0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577;
 
     uint256 constant FLASH_NOTIONAL = 1_000 ether;
 

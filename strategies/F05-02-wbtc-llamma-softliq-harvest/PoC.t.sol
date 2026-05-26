@@ -17,14 +17,14 @@ import {IFlashLoanSimpleReceiverAave} from "src/interfaces/common/IFlashLoanRece
 ///         to receive WBTC at oracle-EMA quote -> WBTC->USDC on Uni v3 -> repay.
 contract F05_02_PoC is StrategyBase, IFlashLoanSimpleReceiverAave {
     // WBTC market crvUSD primitives (verified on etherscan)
-    address constant LLAMMA_WBTC = 0xe0438eb3703bf871e31ce639bd351109c88666ea;
-    address constant CONTROLLER_WBTC = 0x4e59541306910ad6dc1dac0ac9dfb29bd9f15c67;
-    address constant WBTC = 0x2260fac5e5542a773aa44fbcfedf7c193bc2c599;
+    address constant LLAMMA_WBTC = 0xE0438Eb3703bF871E31Ce639bd351109c88666ea;
+    address constant CONTROLLER_WBTC = 0x4e59541306910aD6dC1daC0AC9dFB29bD9F15c67;
+    address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 
     // Curve crvUSD/USDC stableswap-NG: token0 = crvUSD, token1 = USDC
-    address constant CURVE_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
+    address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
 
-    address constant UNIV3_ROUTER = 0xe592427a0aece92de3edee1f18e0157c05861564;
+    address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
     uint24 constant UNIV3_FEE_WBTC_USDC = 3000; // 0.3% - deepest pool
 
     uint256 constant FORK_BLOCK = 19_643_500; // Apr 13 2024 mid-fall

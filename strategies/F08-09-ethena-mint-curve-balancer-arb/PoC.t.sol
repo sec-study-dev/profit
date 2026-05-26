@@ -16,7 +16,7 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 ///
 ///         The canonical loop:
 ///         1. **Balancer V2 flashloan** funds the mint collateral (USDT/USDC).
-///         2. **EthenaMinting v2** (`0xe3490297a08d6fc8da46edb7b6142e4f461b62d3`)
+///         2. **EthenaMinting v2** (`0xe3490297a08d6fC8Da46Edb7B6142E4F461b62D3`)
 ///            mints USDe at $1 in exchange for the collateral asset - gated on
 ///            an EIP-712 signed RFQ from one of Ethena's market makers.
 ///         3. **Curve USDe/USDC** sells the freshly-minted USDe at the
@@ -47,10 +47,10 @@ contract F08_09_EthenaMintCurveBalancerArbTest is StrategyBase, IFlashLoanRecipi
 
     /// @dev Ethena canonical minting contract (EthenaMinting v2). Verified via
     ///      Etherscan tags and Ethena docs. Mint requires EIP-712 signature.
-    address constant LOCAL_ETHENA_MINTING_V2 = 0xe3490297a08d6fc8da46edb7b6142e4f461b62d3;
+    address constant LOCAL_ETHENA_MINTING_V2 = 0xe3490297a08d6fC8Da46Edb7B6142E4F461b62D3;
 
     /// @dev Curve USDe/USDC factory pool (coin 0 = USDe, coin 1 = USDC).
-    address constant LOCAL_CURVE_USDE_USDC = 0x02950460e2b9529d0e00284a5fa2d7bdf3fa4d72;
+    address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
     /// @dev Notional probe - flashloan in USDC, mint USDe, sell USDe back to USDC.
     uint256 constant FLASH_USDC = 2_000_000e6;

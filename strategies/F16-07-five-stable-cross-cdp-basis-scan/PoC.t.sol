@@ -50,22 +50,22 @@ contract F16_07_FiveStableCrossCdpBasisScan is StrategyBase {
     uint256 constant FORK_BLOCK = 23_000_000;
 
     // ---- Issuer contracts ----
-    address constant CRVUSD_WSTETH_CONTROLLER = 0x100daa78fc509db39ef7d04de0c1abd299f4c6ce;
-    address constant CRVUSD_WSTETH_AMM = 0x37417b2238aa52d0dd2d6252d989e728e8f706e4;
-    address constant LIQUITY_TROVE_MANAGER = 0xa39739ef8b0231dbfa0dcda07d7e29faabcf4bb2;
+    address constant CRVUSD_WSTETH_CONTROLLER = 0x100dAa78fC509Db39Ef7D04DE0c1ABD299f4C6CE;
+    address constant CRVUSD_WSTETH_AMM = 0x37417B2238AA52D0DD2D6252d989E728e8f706e4;
+    address constant LIQUITY_TROVE_MANAGER = 0xA39739EF8b0231DbFA0DcdA07d7e29faAbCf4bb2;
 
     /// @dev Liquity v2 canonical BOLD (post May-2025 redeployment).
-    address constant BOLD = 0x6440f144b7e50d6a8439336510312d2f54beb01d;
+    address constant BOLD = 0x6440f144b7e50D6a8439336510312d2F54beB01D;
 
     // ---- Curve pool venues ----
     /// @dev Curve 3pool: [DAI=0, USDC=1, USDT=2]. Used for DAI/USDC pricing.
-    address constant CURVE_3POOL = 0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7;
+    address constant CURVE_3POOL = 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7;
     /// @dev Curve crvUSD/USDC StableNG (idx 0=crvUSD, 1=USDC).
-    address constant CURVE_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
+    address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
     /// @dev Curve GHO/crvUSD StableNG (idx 0=GHO, 1=crvUSD). Verified.
-    address constant CURVE_GHO_CRVUSD = 0x635ef0056a597d13863b73825cca297236578595;
+    address constant CURVE_GHO_CRVUSD = 0x635EF0056A597D13863B73825CcA297236578595;
     /// @dev Curve LUSD/3pool meta. Underlying coins: [LUSD=0, DAI=1, USDC=2, USDT=3].
-    address constant CURVE_LUSD_3POOL = 0xed279fdd11ca84beef15af5d39bb4d4bee23f0ca;
+    address constant CURVE_LUSD_3POOL = 0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA;
 
     /// @dev seconds in a year for APR conversion of per-second rates.
     uint256 constant SECONDS_PER_YEAR = 365 days;

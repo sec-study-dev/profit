@@ -8,7 +8,7 @@ import {ISUSDS} from "src/interfaces/stable/ISUSDS.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 
 /// @notice Sky DaiUsds wrapper interface (zero-fee 1:1 DAI<->USDS).
-/// @dev Mainnet address: 0x3225737a9bbb6473cb4a45b7244aca2befdb276a
+/// @dev Mainnet address: 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A
 interface IDaiUsds {
     function daiToUsds(address usr, uint256 wad) external;
     function usdsToDai(address usr, uint256 wad) external;
@@ -16,7 +16,7 @@ interface IDaiUsds {
 
 /// @title F04-03 sUSDS loop on Spark using Sky Savings Rate spread
 contract F04_03_SUsdsSparkLoop is StrategyBase {
-    address internal constant DAI_USDS = 0x3225737a9bbb6473cb4a45b7244aca2befdb276a;
+    address internal constant DAI_USDS = 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A;
 
     uint256 internal constant FORK_BLOCK = 21_500_000;
     uint256 internal constant SEED_DAI = 200_000e18;

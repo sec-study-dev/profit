@@ -25,12 +25,12 @@ contract F02_07_WeethPendlePtYtSplitFlashloopTest is StrategyBase, IMorphoFlashL
     uint256 constant FORK_BLOCK = 19_400_000;
 
     /// @dev Pendle PT-eETH-27JUN24 / SY-weETH market (LP token).
-    /// https://etherscan.io/address/0xf32e58f92e60f4b0a37a69b95d642a471365eae8
-    address constant LOCAL_PENDLE_WEETH_MARKET_27JUN24 = 0xf32e58f92e60f4b0a37a69b95d642a471365eae8;
-    /// @dev YT-weETH-27JUN2024. https://etherscan.io/token/0xfb35fd0095dd1096b1ca49ad44d8c5812a201677
-    address constant LOCAL_PENDLE_YT_WEETH_27JUN24 = 0xfb35fd0095dd1096b1ca49ad44d8c5812a201677;
-    /// @dev PT-weETH-27JUN2024. https://etherscan.io/token/0xc69ad9bab1dee23f4605a82b3354f8e40d1e5966
-    address constant LOCAL_PENDLE_PT_WEETH_27JUN24 = 0xc69ad9bab1dee23f4605a82b3354f8e40d1e5966;
+    /// https://etherscan.io/address/0xF32e58F92e60f4b0A37A69b95d642A471365EAe8
+    address constant LOCAL_PENDLE_WEETH_MARKET_27JUN24 = 0xF32e58F92e60f4b0A37A69b95d642A471365EAe8;
+    /// @dev YT-weETH-27JUN2024. https://etherscan.io/token/0xfb35Fd0095dD1096b1Ca49AD44d8C5812A201677
+    address constant LOCAL_PENDLE_YT_WEETH_27JUN24 = 0xfb35Fd0095dD1096b1Ca49AD44d8C5812A201677;
+    /// @dev PT-weETH-27JUN2024. https://etherscan.io/token/0xc69Ad9baB1dEE23F4605a82b3354F8E40d1E5966
+    address constant LOCAL_PENDLE_PT_WEETH_27JUN24 = 0xc69Ad9baB1dEE23F4605a82b3354F8E40d1E5966;
 
     uint256 constant EQUITY = 100 ether;
     /// @dev Flashloan 1900 WETH for 20x notional bootstrap (PT-sale will repay it).

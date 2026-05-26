@@ -30,7 +30,7 @@ contract F09_03_MetaMorphoIdleVaultSupplyTest is StrategyBase {
     uint256 constant FORK_BLOCK = 21_400_000;
 
     /// @dev Steakhouse USDC MetaMorpho vault.
-    address constant STEAKHOUSE_USDC_VAULT = 0xbeef01735c132ada46aa9aa4c54623caa92a64cb;
+    address constant STEAKHOUSE_USDC_VAULT = 0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB;
 
     uint256 constant EQUITY_USDC = 1_000_000e6; // 1M USDC
 
