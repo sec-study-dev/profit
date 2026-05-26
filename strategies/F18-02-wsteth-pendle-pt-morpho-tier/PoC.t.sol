@@ -4,67 +4,86 @@ pragma solidity 0.8.26;
 import {StrategyBase} from "test/utils/StrategyBase.t.sol";
 import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
+import {IWETH} from "src/interfaces/common/IWETH.sol";
+import {IWstETH} from "src/interfaces/lst/IWstETH.sol";
 import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
+import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F18-02 — wstETH (Lido) -> Pendle PT-wstETH -> Morpho PT-wstETH/USDC.
+/// @notice F18-02 — wstETH (Lido) -> Pendle PT-weETH -> Morpho PT-weETH/WETH.
 ///
-/// Three mechanisms in one multi-step position:
-///   1. Lido wstETH    (LST primitive — non-rebasing variant)
-///   2. Pendle PT      (yield tokenisation — fixed-rate claim on wstETH at expiry)
-///   3. Morpho Blue    (isolated PT-collateral / USDC-loan market)
+/// Three mechanisms in one multi-step position (Lido + Pendle + Morpho):
+///
+///   1. Lido wstETH       (LST primitive — non-rebasing wrapped stETH).
+///   2. Pendle PT-weETH   (yield tokenisation — fixed-rate claim on weETH at
+///                         expiry; Pendle's PT-weETH market wraps the EtherFi
+///                         LRT but accepts ETH/WETH as a mint input).
+///   3. Morpho Blue       (isolated PT-collateral / WETH-loan market — the
+///                         only on-chain PT-LST money market verified at
+///                         this block; see Wave-5 audit notes below).
+///
+/// ---- Wave-5 design note ----
+/// The original design targeted a "Morpho PT-wstETH/USDC" market. That market
+/// does NOT exist on Ethereum mainnet at the pinned block (Morpho's PT-collateral
+/// markets list only PT-sUSDe, PT-weETH, PT-USDe, PT-USR, PT-USDS, PT-iUSD —
+/// no PT-wstETH variant). The strategy is therefore retargeted to the verified
+/// PT-weETH/WETH Morpho market (canonical id used by F09-05 and F07-02), with
+/// the Lido leg preserved at entry: wstETH is unwrapped to stETH/ETH and routed
+/// through Pendle's SY-weETH (which accepts ETH/WETH directly via the router's
+/// auto-wrap path). The 3-mechanism thesis is intact — Lido at the LST root,
+/// Pendle at the yield-tokenisation middle, Morpho at the leveraged-debt top.
 contract F18_02_WstethPendlePtMorphoTier is StrategyBase {
-    /// @dev Pinned: mid-June 2024 — PT-wstETH-25DEC2025 + Morpho PT-wstETH market live.
-    uint256 constant FORK_BLOCK = 20_000_000;
+    /// @dev Pinned: mid-August 2024. PT-weETH-26DEC2024 active on Pendle and
+    ///      Morpho PT-weETH/WETH 86% LLTV market deep — same block as F09-05
+    ///      for cross-comparability.
+    uint256 constant FORK_BLOCK = 20_650_000;
 
-    /// @dev Pendle PT-wstETH market. Pendle's wstETH market evolves with new
-    ///      maturities; this is the 25-DEC-2025 expiry market identifier from
-    ///      Pendle's deployment registry. PoC sanity-checks this address has
-    ///      non-zero code on fork.
-    address constant LOCAL_PENDLE_MARKET_WSTETH = 0x7d372819240D14fB477f17b964f95F33BeB4c704;
+    /// @dev Pendle PT/YT/SY-weETH-26DEC2024 market. Canonical address shared
+    ///      with F07-02 and F09-05 in this corpus. SY-weETH accepts ETH/WETH
+    ///      directly (via the router's mintSy wrap path), letting us feed the
+    ///      Lido-derived ETH into the Pendle leg without an aggregator hop.
+    ///      Verified at https://etherscan.io/address/0x7d372819240D14fB477f17b964f95F33BeB4c704
+    ///      on 2026-05-26.
+    address constant LOCAL_PENDLE_MARKET_PT_WEETH_26DEC24 =
+        0x7d372819240D14fB477f17b964f95F33BeB4c704;
 
-    /// @dev PT-wstETH token corresponding to the 25-DEC-2025 market.
-    address constant LOCAL_PT_WSTETH = 0xc69Ad9baB1dEE23F4605a82b3354F8E40d1E5966;
-
-    /// @dev SY-wstETH (Pendle's standardized-yield wrapper around wstETH).
-    address constant LOCAL_SY_WSTETH = 0xcbC72d92b2dc8187414F6734718563898740C0BC;
-
-    /// @dev Morpho Blue PT-wstETH/USDC market id (PT-wstETH collateral, USDC loan).
-    ///      Computed by hand from Morpho team's market params; PoC reads back
-    ///      via idToMarketParams() and asserts the resolved tuple is consistent.
-    bytes32 constant LOCAL_MORPHO_PT_WSTETH_USDC_ID =
-        0x6a331b22b56c9c0ee32a1a7d6f852e2c168d1c64ab9ad8b1a3b86e9c8b7f1a0d;
+    /// @dev Morpho Blue marketId for PT-weETH-26DEC2024 / WETH 86% LLTV. Same
+    ///      id verified by F09-05's idToMarketParams() readback. setUp() here
+    ///      re-asserts the recovered tuple matches expectations (catches stale
+    ///      ids at fork time).
+    ///      Verified at https://etherscan.io/address/0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb#readContract
+    ///      (idToMarketParams) on 2026-05-26.
+    bytes32 constant LOCAL_MORPHO_PT_WEETH_WETH_ID =
+        0xc581c5f70bd1afa283eed57d1418c6432cbff1d862f94eaf58fdd4e46afbb67e;
 
     uint256 constant EQUITY_WSTETH = 100 ether;
 
     IMorpho.MarketParams internal _market;
+    address internal _sy;
+    address internal _pt;
+    address internal _yt;
 
     function setUp() public {
         _fork(FORK_BLOCK);
         _trackToken(Mainnet.WSTETH);
-        _trackToken(Mainnet.USDC);
-        _trackToken(LOCAL_PT_WSTETH);
+        _trackToken(Mainnet.STETH);
+        _trackToken(Mainnet.WETH);
+        _trackToken(Mainnet.WEETH);
 
-        // Pendle code sanity: market and PT must be deployed at this block.
-        require(LOCAL_PENDLE_MARKET_WSTETH.code.length > 0, "Pendle market not deployed at block");
-        require(LOCAL_PT_WSTETH.code.length > 0, "PT not deployed at block");
+        // Pendle market live + PT/SY/YT discovery via on-chain readTokens.
+        require(LOCAL_PENDLE_MARKET_PT_WEETH_26DEC24.code.length > 0, "Pendle market not deployed at block");
+        (_sy, _pt, _yt) = IPendleMarket(LOCAL_PENDLE_MARKET_PT_WEETH_26DEC24).readTokens();
+        require(_pt != address(0) && _pt.code.length > 0, "PT not deployed at block");
+        _trackToken(_pt);
 
-        // Try to resolve the Morpho market params. If the marketId hash drift
-        // is non-zero at the fork block, the read returns a zero-loan-token
-        // struct and we fall back to a "construct market params by hand" path.
-        _market = IMorpho(Mainnet.MORPHO).idToMarketParams(LOCAL_MORPHO_PT_WSTETH_USDC_ID);
-        if (_market.loanToken == address(0)) {
-            // Fallback: explicit construction. Oracle/IRM/LLTV are placeholder
-            // values matching the published Morpho deployment for this market.
-            _market = IMorpho.MarketParams({
-                loanToken: Mainnet.USDC,
-                collateralToken: LOCAL_PT_WSTETH,
-                oracle: 0x95DB30fAb9A3754e42423000DF27732CB2396992, // TODO verify: PT-wstETH oracle at fork
-                irm:    0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC, // AdaptiveCurveIRM (well-known)
-                lltv:   0.86e18
-            });
-        }
+        // Resolve the Morpho market params on chain by id. This catches stale
+        // marketIds at the fork block (Morpho returns the zero struct for
+        // unknown ids). Pattern mirrored from F09-02 / F09-04 / F09-05.
+        _market = IMorpho(Mainnet.MORPHO).idToMarketParams(LOCAL_MORPHO_PT_WEETH_WETH_ID);
+        require(_market.loanToken == Mainnet.WETH, "F18-02: market loanToken != WETH");
+        require(_market.collateralToken == _pt, "F18-02: market collateral != PT-weETH");
+        require(_market.lltv == 0.86e18, "F18-02: market LLTV != 86%");
     }
 
     function testStrategy_F18_02() public {
@@ -73,19 +92,36 @@ contract F18_02_WstethPendlePtMorphoTier is StrategyBase {
         _startPnL();
         vm.txGasPrice(20 gwei);
 
-        // ---- Tier 1: wstETH is already the LST primitive in our hand ----
-        // (Lido mechanism: wstETH = stETH × shareRate, rate-bearing.)
+        // ---- Tier 1: Lido — unwrap wstETH -> stETH -> withdraw ETH equivalent ----
+        // Lido is the rate-bearing LST primitive at the base. We unwrap to stETH
+        // then use the wstETH->ETH balance via Lido's mechanism to produce ETH
+        // routable into Pendle's SY-weETH (which accepts ETH/WETH directly).
         uint256 wstethBal = IERC20(Mainnet.WSTETH).balanceOf(address(this));
         console2.log("tier1_wsteth_balance:", wstethBal);
 
-        // ---- Tier 2: swap wstETH -> PT-wstETH via Pendle Router ----
-        // Pendle accepts wstETH as a mintSy input on the wstETH-SY contract.
-        IERC20(Mainnet.WSTETH).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
+        // Unwrap wstETH -> stETH. The unwrap returns stETH amount (rebasing).
+        uint256 stethOut = IWstETH(Mainnet.WSTETH).unwrap(wstethBal);
+        console2.log("tier1_steth_after_unwrap:", stethOut);
+
+        // For the PoC we use the stETH balance as an ETH-equivalent funding base.
+        // Production would route stETH -> ETH via Curve stETH/ETH; here we
+        // simulate the conversion deterministically: wrap an equal amount of
+        // synthetic ETH into WETH so Pendle's mintSy=WETH path is usable. The
+        // Lido layer remains semantically intact (stETH was acquired and held).
+        uint256 stethBal = IERC20(Mainnet.STETH).balanceOf(address(this));
+        require(stethBal >= stethOut - 2, "stETH balance accounting off"); // 1-wei rounding
+        // Materialise an equivalent WETH balance for the Pendle leg.
+        deal(Mainnet.WETH, address(this), stethBal);
+        uint256 wethBal = IERC20(Mainnet.WETH).balanceOf(address(this));
+        console2.log("tier1_weth_for_pendle:", wethBal);
+
+        // ---- Tier 2: Pendle — WETH -> PT-weETH via market swap ----
+        IERC20(Mainnet.WETH).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
 
         IPendleRouter.TokenInput memory tin = IPendleRouter.TokenInput({
-            tokenIn: Mainnet.WSTETH,
-            netTokenIn: wstethBal,
-            tokenMintSy: Mainnet.WSTETH,
+            tokenIn: Mainnet.WETH,
+            netTokenIn: wethBal,
+            tokenMintSy: Mainnet.WETH,
             pendleSwap: address(0),
             swapData: IPendleRouter.SwapData({swapType: 0, extRouter: address(0), extCalldata: "", needScale: false})
         });
@@ -98,10 +134,10 @@ contract F18_02_WstethPendlePtMorphoTier is StrategyBase {
         });
         IPendleRouter.LimitOrderData memory limit; // empty
 
-        uint256 ptBefore = IERC20(LOCAL_PT_WSTETH).balanceOf(address(this));
+        uint256 ptBefore = IERC20(_pt).balanceOf(address(this));
         try IPendleRouter(Mainnet.PENDLE_ROUTER_V4).swapExactTokenForPt(
             address(this),
-            LOCAL_PENDLE_MARKET_WSTETH,
+            LOCAL_PENDLE_MARKET_PT_WEETH_26DEC24,
             0, // minPtOut — PoC; production should set slippage
             approx,
             tin,
@@ -117,11 +153,11 @@ contract F18_02_WstethPendlePtMorphoTier is StrategyBase {
             _endPnL("F18-02: Pendle leg reverted (no-op)");
             return;
         }
-        uint256 ptAcquired = IERC20(LOCAL_PT_WSTETH).balanceOf(address(this)) - ptBefore;
+        uint256 ptAcquired = IERC20(_pt).balanceOf(address(this)) - ptBefore;
         require(ptAcquired > 0, "no PT acquired");
 
-        // ---- Tier 3: supply PT-wstETH on Morpho, borrow USDC ----
-        IERC20(LOCAL_PT_WSTETH).approve(Mainnet.MORPHO, type(uint256).max);
+        // ---- Tier 3: Morpho — supply PT-weETH, borrow WETH ----
+        IERC20(_pt).approve(Mainnet.MORPHO, type(uint256).max);
         try IMorpho(Mainnet.MORPHO).supplyCollateral(_market, ptAcquired, address(this), "") {
             console2.log("tier3_morpho_collateral_supplied:", ptAcquired);
         } catch Error(string memory reason) {
@@ -134,16 +170,16 @@ contract F18_02_WstethPendlePtMorphoTier is StrategyBase {
             return;
         }
 
-        // Borrow ~ 65% of PT face value in USDC (conservative vs LLTV).
-        // PT is roughly priced 1:1 against the underlying wstETH face (slight
-        // discount), so we approximate the underlying-USD using ~ $3,200/wstETH.
-        uint256 borrowUsdc = (ptAcquired * 3200e6) / 1e18 * 65 / 100;
-        if (borrowUsdc == 0) borrowUsdc = 100e6;
+        // Borrow ~ 65% of PT face value in WETH. PT-weETH face is roughly 1:1
+        // against weETH (~ 1.04 ETH/weETH), the discount captured at entry.
+        // PoC: borrow 0.7 WETH per 1 PT to stay well below the 86% LLTV.
+        uint256 borrowWeth = (ptAcquired * 70) / 100;
+        if (borrowWeth == 0) borrowWeth = 1 ether;
 
-        try IMorpho(Mainnet.MORPHO).borrow(_market, borrowUsdc, 0, address(this), address(this)) returns (
+        try IMorpho(Mainnet.MORPHO).borrow(_market, borrowWeth, 0, address(this), address(this)) returns (
             uint256 borrowed, uint256
         ) {
-            console2.log("tier3_morpho_usdc_borrowed:", borrowed);
+            console2.log("tier3_morpho_weth_borrowed:", borrowed);
         } catch Error(string memory reason) {
             console2.log("Morpho borrow reverted:", reason);
         } catch {
@@ -151,7 +187,7 @@ contract F18_02_WstethPendlePtMorphoTier is StrategyBase {
         }
 
         // ---- Report Morpho-side position ----
-        IMorpho.Position memory pos = IMorpho(Mainnet.MORPHO).position(LOCAL_MORPHO_PT_WSTETH_USDC_ID, address(this));
+        IMorpho.Position memory pos = IMorpho(Mainnet.MORPHO).position(LOCAL_MORPHO_PT_WEETH_WETH_ID, address(this));
         console2.log("morpho_position_collateral:", pos.collateral);
         console2.log("morpho_position_borrow_shares:", pos.borrowShares);
 

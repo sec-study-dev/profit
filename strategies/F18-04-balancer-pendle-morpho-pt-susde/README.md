@@ -13,10 +13,12 @@ the PT-sUSDe market. Mechanically:
    `swapExactTokenForPt`. PT-sUSDe trades 7-15% under sUSDe spot at most
    blocks because it's a fixed-rate claim on sUSDe at expiry and the
    implied APY frequently matches sUSDe's variable APY.
-3. **Morpho Blue PT-sUSDe / USDC market** — `0xbe9b0…` (the actual market
-   id verified by Morpho's official deploy log; reproduced inline). LLTV
-   91.5%; specifically supports PT-sUSDe as collateral (the only
-   money-market that does).
+3. **Morpho Blue PT-sUSDe-26SEP2024 / USDC market** — marketId
+   `0xe3569130a77514ee127338c307790b2ccc73d9e601917d3ddfe6219a19662ee1`
+   (computed from canonical MarketParams; recovered on-chain via
+   `idToMarketParams` in setUp and asserted against the expected tuple).
+   LLTV 86.5%; specifically supports PT-sUSDe-26SEP2024 as collateral
+   (the only money-market that does at the pinned block).
 
 The atomicity is critical: **the Balancer flash is repaid in the same tx
 that opens the Morpho borrow that funds the PT buy**. If any leg fails,
@@ -50,8 +52,8 @@ No 2-mechanism combo achieves this:
   a flashloan into a Morpho position, which provides no edge.
 
 Only the triangle (atomic flash + atomic PT mint + atomic Morpho
-supply+borrow) lets the cash-and-carry open at K=11 with zero up-front
-equity.
+supply+borrow) lets the cash-and-carry open at K≈7-8 with zero up-front
+equity (LLTV 86.5% → max attainable c-ratio ≈ 1/(1-0.865) ≈ 7.4×).
 
 ## Preconditions
 
@@ -90,7 +92,7 @@ artefact replaceable by Pendle's `swapData` aggregator hop in production.)
 Let:
 - `Flash = 10,000,000 USDC`
 - `disc = 0.08` (PT-sUSDe trades 8% under par at fork)
-- `LTV = 0.85` (85% — sub-LLTV 0.915 with 6.5pp buffer)
+- `LTV = 0.82` (82% — sub-LLTV 0.865 with 4.5pp buffer)
 - `r_usdc_borrow = 0.085` (Morpho USDC borrow APY at fork)
 - `T = 0.42` years to maturity (5-month PT)
 
@@ -135,9 +137,24 @@ V2 USDC vault balance > 50M USDC at this block.
 
 Status: **mechanically-reproducible**. The PoC executes the entire
 3-protocol triangle atomically on the pinned fork block. Realised carry
-materialises over 5 months (PT pull-to-par); PoC reports the position
-state immediately after open and accrues no warp-based PnL by default.
+materialises over ~2 months (PT pull-to-par to the 26-SEP-2024 expiry);
+PoC reports the position state immediately after open and accrues no
+warp-based PnL by default.
 
-Expected gross PnL on $0 equity over 5 months: **+$500,000 in net carry
+Expected gross PnL on $0 equity over 2 months: **+$300,000 in net carry
 (post-borrow)** at $10M flash size, assuming PT discount holds and USDC
 borrow APY stays sub-9%.
+
+## Verified addresses (Wave-5)
+
+| Constant | Address / id | Source |
+|---|---|---|
+| Pendle PT-sUSDe-26SEP2024 market | `0x19588F29f9402Bb508007FeADd415c875Ee3f19F` | F07-01, F07-04, F08-03, F08-05; Etherscan |
+| PT-sUSDE-26SEP2024 PT token | `0x6c9f097e044506712b58eac670c9a5fd4bccef13` | Etherscan token tracker |
+| Morpho PT-sUSDe/USDC 86.5% id | `0xe3569130a77514ee127338c307790b2ccc73d9e601917d3ddfe6219a19662ee1` | Computed `keccak256(abi.encode(MarketParams))`; verified via `idToMarketParams` in setUp |
+| Morpho PendleSparkLinearDiscount oracle | `0x38d130cEe60CDa080A3b3aC94C79c34B6Fc919A7` | F07-01, F08-03 |
+| Morpho AdaptiveCurveIRM | `0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC` | Etherscan, F07-01, F07-02, F08-03 |
+| Balancer V2 Vault | `0xBA12222222228d8Ba445958a75a0704d566BF2C8` | `Mainnet.BAL_VAULT` |
+| Curve USDe/USDC pool | `0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72` | F08-01, F08-03 |
+| Morpho singleton | `0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb` | `Mainnet.MORPHO` |
+| Pendle Router V4 | `0x888888888889758F76e7103c6CbF23ABbF58F946` | `Mainnet.PENDLE_ROUTER_V4` |

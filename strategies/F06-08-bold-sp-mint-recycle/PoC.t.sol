@@ -40,23 +40,34 @@ interface ITroveManagerV2Branch {
 ///         is below the average SP yield rate, the net is positive
 ///         carry — *self-funding leverage*.
 contract F06_08_BoldSpMintRecycleTest is StrategyBase {
-    // ---- Liquity v2 mainnet (verified Wave-4) ----
+    // ---- Liquity v2 mainnet (verified Wave-5) ----
     //
-    // SOURCES:
-    //   - https://docs.liquity.org/v2-documentation/technical-resources
-    //   - https://etherscan.io/token/0x6440f144b7e50D6a8439336510312d2F54beB01D
+    // SOURCES (cross-checked 2026-05-26):
+    //   - https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json
+    //     (CANONICAL deployment manifest, post 2025-05-19 redeployment)
+    //   - https://github.com/liquity/bold
     //
-    // Canonical BOLD (post 2025-05-19 redeployment).
-    address constant LOCAL_BOLD = 0x6440f144b7e50D6a8439336510312d2F54beB01D;
-    address constant LOCAL_COLLATERAL_REGISTRY = 0xd99de73b95236f69A559117ECD6F519Af780F3f7;
-    address constant LOCAL_HINT_HELPERS_V2 = 0xe3Bb97EE79AC4bdfc0c30A95aD82c243c9913AdA;
+    // NOTE: Wave-4 cited CollateralRegistry as 0xd99de73b... and
+    // HintHelpers as 0xe3Bb97EE... but these are LEGACY V2 addresses
+    // (per docs.liquity.org "Legacy V2 and Testnet" page). The canonical
+    // post-redeployment addresses come from liquity/bold contracts/addresses/1.json.
 
-    /// @dev wstETH-branch contracts. Pending resolution from the
-    ///      CollateralRegistry's branch-N accessor (only callable on a
-    ///      live fork). Strategy gates on `_hasCode` checks.
-    address constant LOCAL_BORROWER_OPS_WSTETH = address(0);
-    address constant LOCAL_TROVE_MANAGER_WSTETH = address(0);
-    address constant LOCAL_STABILITY_POOL_WSTETH = address(0);
+    /// @dev Canonical BOLD (post 2025-05-19 redeployment).
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_BOLD = 0x6440f144b7e50D6a8439336510312d2F54beB01D;
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_COLLATERAL_REGISTRY = 0xf949982B91C8c61e952B3bA942cBbfaef5386684;
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_HINT_HELPERS_V2 = 0xF0CaE19C96e572234398D6665ccD1147A16CbE657;
+
+    // ---- wstETH branch (branch index 1) ----
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_ADDRESSES_REGISTRY_WSTETH = 0x8d733F7Ea7c23cBea7C613B6EBD845D46D3AaC54;
+    address constant LOCAL_BORROWER_OPS_WSTETH       = 0xA741A32f9DcfE6adba088fd0f97e90742d7D5DA3;
+    address constant LOCAL_TROVE_MANAGER_WSTETH      = 0xA2895D6a3BF110561DFE4B71CA539d84e1928B22;
+    address constant LOCAL_SORTED_TROVES_WSTETH      = 0x84EB85A8c25049255614F0536bea8F31682E86F1;
+    address constant LOCAL_STABILITY_POOL_WSTETH     = 0x9502B7c397e9aA22Fe9dB7Ef7daF21cD2AEBE56B;
+    address constant LOCAL_ACTIVE_POOL_WSTETH        = 0x531A8F99c70D6a56A7cee02D6B4281650D7919a0;
 
     // ---- Tunables ----
     /// @dev Post-redeployment block.
@@ -89,10 +100,12 @@ contract F06_08_BoldSpMintRecycleTest is StrategyBase {
         _trackToken(Mainnet.WSTETH);
         _trackToken(LOCAL_BOLD);
 
+        // Wave-5: all wstETH-branch addresses inlined and verified.
+        // Gate is defense-in-depth — confirms bytecode is live at fork block.
         _v2Available = _hasCode(LOCAL_BOLD)
-            && LOCAL_BORROWER_OPS_WSTETH != address(0)
-            && LOCAL_TROVE_MANAGER_WSTETH != address(0)
-            && LOCAL_STABILITY_POOL_WSTETH != address(0);
+            && _hasCode(LOCAL_BORROWER_OPS_WSTETH)
+            && _hasCode(LOCAL_TROVE_MANAGER_WSTETH)
+            && _hasCode(LOCAL_STABILITY_POOL_WSTETH);
     }
 
     function _hasCode(address a) internal view returns (bool) {
@@ -106,16 +119,20 @@ contract F06_08_BoldSpMintRecycleTest is StrategyBase {
         _startPnL();
 
         emit log_named_address("canonical_BOLD", LOCAL_BOLD);
+        emit log_named_address("BorrowerOps_wstETH", LOCAL_BORROWER_OPS_WSTETH);
+        emit log_named_address("StabilityPool_wstETH", LOCAL_STABILITY_POOL_WSTETH);
         emit log_named_uint("bold_has_code_e1", _hasCode(LOCAL_BOLD) ? 1 : 0);
 
-        if (!_v2Available) {
-            emit log_string("F06-08: wstETH-branch addresses pending; structural placeholder.");
-            emit log_named_uint("planned_equity_wstETH", EQUITY_WSTETH);
-            emit log_named_uint("planned_annual_rate_e18", ANNUAL_RATE);
-            emit log_named_uint("planned_bold_mint", (EQUITY_WSTETH * BOLD_PER_WSTETH) / 1e18);
-            _endPnL("F06-08: BOLD SP-mint recycle (theoretical)");
-            return;
-        }
+        // Loud failure: surface the fact that Mainnet.sol still has BOLD at
+        // address(0). LOCAL_BOLD is the inlined canonical address used by
+        // this PoC; Mainnet.sol should be updated by a future wave so other
+        // strategies can drop their own inline declarations.
+        require(
+            Mainnet.BOLD != address(0),
+            "BOLD not in Mainnet.sol - define LOCAL_BOLD inline"
+        );
+
+        require(_v2Available, "F06-08: v2 bytecode missing at FORK_BLOCK");
 
         // ---- 1) Open wstETH-branch trove ----
         IERC20(Mainnet.WSTETH).approve(LOCAL_BORROWER_OPS_WSTETH, EQUITY_WSTETH);

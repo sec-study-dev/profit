@@ -49,8 +49,9 @@ library Mainnet {
     address constant SUSDS = 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD;
     address constant CRVUSD = 0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E;
     address constant LUSD = 0x5f98805A4E8be255a32880FDeC7F6728C6568bA0;
-    // TODO verify: Liquity v2 BOLD token (mainnet deployment address)
-    address constant BOLD = address(0);
+    // Liquity v2 BOLD token (post-2025-05-19 redeployment).
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json
+    address constant BOLD = 0x6440f144b7e50D6a8439336510312d2F54beB01D;
     address constant RAI = 0x03ab458634910AaD20eF5f1C8ee96F1D6ac54919;
     address constant DOLA = 0x865377367054516e17014CcdED1e7d814EDC9ce4;
     address constant GHO = 0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f;

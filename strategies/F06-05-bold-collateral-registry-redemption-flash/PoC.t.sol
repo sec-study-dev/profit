@@ -44,18 +44,37 @@ interface ICollateralRegistryV2 {
 ///         long a *cross-section* of v2 collateral, not the cheapest branch
 ///         only.
 contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3156FlashBorrower {
-    // ---- Liquity v2 mainnet (verified Wave-4) ----
+    // ---- Liquity v2 mainnet (verified Wave-5) ----
     //
-    // SOURCES:
-    //   - https://docs.liquity.org/v2-documentation/technical-resources
-    //   - https://etherscan.io/token/0x6440f144b7e50D6a8439336510312d2F54beB01D
-    //   - Liquity v2 redeployment 2025-05-19
+    // SOURCES (cross-checked 2026-05-26):
+    //   - https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json
+    //     (CANONICAL deployment manifest, post 2025-05-19 redeployment)
+    //   - https://github.com/liquity/bold
+    //
+    // NOTE: Wave-4 cited CollateralRegistry as 0xd99de73b... and
+    // HintHelpers as 0xe3Bb97EE... but these are LEGACY V2 addresses
+    // (per docs.liquity.org "Legacy V2 and Testnet" page). The canonical
+    // post-redeployment addresses come from liquity/bold contracts/addresses/1.json.
+
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
     address constant LOCAL_BOLD = 0x6440f144b7e50D6a8439336510312d2F54beB01D;
-    address constant LOCAL_COLLATERAL_REGISTRY = 0xd99de73b95236f69A559117ECD6F519Af780F3f7;
-    address constant LOCAL_HINT_HELPERS_V2 = 0xe3Bb97EE79AC4bdfc0c30A95aD82c243c9913AdA;
-    /// @dev Curve Stableswap-NG BOLD/USDC pool. Awaiting public verification of
-    ///      the canonical post-redeployment pool — gate at runtime.
-    address constant LOCAL_CURVE_BOLD_USDC = address(0);
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_COLLATERAL_REGISTRY = 0xf949982B91C8c61e952B3bA942cBbfaef5386684;
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_HINT_HELPERS_V2 = 0xF0CaE19C96e572234398D6665ccD1147A16CbE657;
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_MULTI_TROVE_GETTER = 0xfa61DB085510c64B83056Db3A7AcF3b6f631d235;
+
+    // ---- Per-branch TroveManagers — used to introspect basket composition ----
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_TROVE_MANAGER_ETH    = 0x7BCB64B2c9206A5b699ed43363f6F98D4776CF5a;
+    address constant LOCAL_TROVE_MANAGER_WSTETH = 0xA2895D6a3BF110561DFE4B71CA539d84e1928B22;
+    address constant LOCAL_TROVE_MANAGER_RETH   = 0xB2B2aBeb5C357A234363Ff5d180912D319e3e19E;
+
+    /// @dev Curve Stableswap-NG USDC/BOLD pool (from governance config in
+    ///      the same deployment manifest).
+    // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
+    address constant LOCAL_CURVE_BOLD_USDC = 0xEFc6516323FbD28e80B85A497B65A86243a54b3E;
 
     // ---- Tunables ----
 
@@ -90,9 +109,11 @@ contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3
         _trackToken(Mainnet.RETH);
         _trackToken(LOCAL_BOLD);
 
+        // Wave-5: all v2 system + Curve pool addresses inlined.
+        // Gate is defense-in-depth — confirms bytecode is live at fork block.
         _v2Available = _hasCode(LOCAL_BOLD)
             && _hasCode(LOCAL_COLLATERAL_REGISTRY)
-            && LOCAL_CURVE_BOLD_USDC != address(0);
+            && _hasCode(LOCAL_CURVE_BOLD_USDC);
     }
 
     function _hasCode(address a) internal view returns (bool) {
@@ -107,21 +128,20 @@ contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3
         // Telemetry — what's live at this fork?
         emit log_named_address("BOLD", LOCAL_BOLD);
         emit log_named_address("CollateralRegistry", LOCAL_COLLATERAL_REGISTRY);
+        emit log_named_address("CurveBoldUsdc", LOCAL_CURVE_BOLD_USDC);
         emit log_named_uint("registry_has_code_e1", _hasCode(LOCAL_COLLATERAL_REGISTRY) ? 1 : 0);
+        emit log_named_uint("curve_pool_has_code_e1", _hasCode(LOCAL_CURVE_BOLD_USDC) ? 1 : 0);
 
-        if (!_v2Available) {
-            emit log_string("F06-05: BOLD/USDC pool address pending; running structurally.");
-            // Sanity probe — call view-only registry methods to confirm the
-            // registry is well-formed at this fork block.
-            (bool ok, bytes memory ret) = LOCAL_COLLATERAL_REGISTRY.staticcall(
-                abi.encodeWithSignature("totalCollaterals()")
-            );
-            if (ok && ret.length >= 32) {
-                emit log_named_uint("registry_total_collaterals", abi.decode(ret, (uint256)));
-            }
-            _endPnL("F06-05: BOLD redemption-registry arb (theoretical)");
-            return;
-        }
+        // Loud failure: surface the fact that Mainnet.sol still has BOLD at
+        // address(0). LOCAL_BOLD is the inlined canonical address used by
+        // this PoC; Mainnet.sol should be updated by a future wave so other
+        // strategies can drop their own inline declarations.
+        require(
+            Mainnet.BOLD != address(0),
+            "BOLD not in Mainnet.sol - define LOCAL_BOLD inline"
+        );
+
+        require(_v2Available, "F06-05: v2 bytecode missing at FORK_BLOCK");
 
         // Sanity: confirm DSS Flash is open and zero-fee.
         uint256 fee = IDssFlash(Mainnet.DSS_FLASH).flashFee(Mainnet.DAI, FLASH_DAI);
