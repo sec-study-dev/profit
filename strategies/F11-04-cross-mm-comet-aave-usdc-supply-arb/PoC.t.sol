@@ -73,6 +73,7 @@ contract F11_04_CrossMmCometAaveUsdcSupplyArbTest is StrategyBase {
         vm.roll(block.number + (30 days / 12));
         comet.accrueAccount(address(this));
         // Touch the Aave reserve so the liquidity index updates and aUSDC reflects yield.
+        deal(Mainnet.USDC, address(this), 1);
         aave.supply(Mainnet.USDC, 1, address(this), 0);
 
         // ---- 5. Report realised spread ----

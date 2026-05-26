@@ -73,6 +73,7 @@ contract F01_01_WstethAaveEmodeLoopTest is StrategyBase {
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
         // Touch the reserve to crystallise debt / supply indices into balances.
+        deal(Mainnet.WSTETH, address(this), 1);
         IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.WSTETH, 1, address(this), 0);
 
         // ---- 5. Report ----

@@ -156,6 +156,7 @@ contract F10_06_SdaiAaveUsdcSparkRecursive is StrategyBase {
         // Touch Aave reserve to crystallise indices.
         uint256 sdaiResidual = IERC20(Mainnet.SDAI).balanceOf(address(this));
         if (sdaiResidual >= 1) {
+            deal(Mainnet.SDAI, address(this), 1);
             aave.supply(Mainnet.SDAI, 1, address(this), 0);
         }
 

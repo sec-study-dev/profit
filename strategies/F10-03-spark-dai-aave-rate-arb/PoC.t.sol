@@ -92,7 +92,9 @@ contract F10_03_SparkDaiAaveRateArb is StrategyBase {
         vm.roll(block.number + (30 days / 12));
 
         // Touch each reserve to crystallise indices.
+        deal(Mainnet.USDC, address(this), 1);
         spark.supply(Mainnet.USDC, 1, address(this), 0);
+        deal(Mainnet.DAI, address(this), 1);
         aave.supply(Mainnet.DAI, 1, address(this), 0);
 
         // ---- 6. Post-warp rate readout ----

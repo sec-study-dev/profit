@@ -91,6 +91,7 @@ contract F10_02_EmodeSdaiDaiSparkLoop is StrategyBase {
         // Touch supply to crystallise indices. Need >=1 wei sDAI on hand.
         uint256 sdaiResidual = IERC20(Mainnet.SDAI).balanceOf(address(this));
         if (sdaiResidual > 0) {
+            deal(Mainnet.SDAI, address(this), 1);
             pool.supply(Mainnet.SDAI, 1, address(this), 0);
         }
 

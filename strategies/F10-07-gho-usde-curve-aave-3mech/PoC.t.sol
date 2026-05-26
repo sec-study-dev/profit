@@ -155,6 +155,7 @@ contract F10_07_GhoUsdeCurveAave3Mech is StrategyBase {
         vm.roll(block.number + (30 days / 12));
 
         // Touch reserve.
+        deal(Mainnet.USDC, address(this), 1);
         pool.supply(Mainnet.USDC, 1, address(this), 0);
 
         // ---- Report position state ----

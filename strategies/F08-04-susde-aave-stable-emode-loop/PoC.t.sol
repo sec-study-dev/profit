@@ -108,6 +108,7 @@ contract F08_04_SusdeAaveStableEmodeLoopTest is StrategyBase {
         vm.roll(block.number + (30 days / 12));
         // Tiny no-op supply to crystallise indices.
         _fund(Mainnet.SUSDE, address(this), 1);
+        deal(Mainnet.SUSDE, address(this), 1);
         IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.SUSDE, 1, address(this), 0);
 
         // Step 5: surface Aave account data.

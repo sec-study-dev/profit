@@ -54,6 +54,7 @@ contract F01_03_RethAaveFlashloanLoopTest is StrategyBase {
         vm.roll(block.number + (30 days / 12));
         // Touch reserve to crystallise indices.
         IERC20(Mainnet.RETH).approve(Mainnet.AAVE_V3_POOL, type(uint256).max);
+        deal(Mainnet.RETH, address(this), 1);
         IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.RETH, 1, address(this), 0);
 
         (uint256 totalCollBase, uint256 totalDebtBase, , , , uint256 hf) =
