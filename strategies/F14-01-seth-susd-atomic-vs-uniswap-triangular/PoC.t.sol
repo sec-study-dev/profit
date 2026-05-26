@@ -16,7 +16,7 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 // ============================================================================
 
 /// @notice Synthetix AddressResolver (V2x). The canonical mainnet resolver is
-///         `0x823be81bbf96bec0e25ca13170f5aacb5b79ba83` (verified against
+///         `0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83` (verified against
 ///         docs.synthetix.io legacy registry, March 2023 snapshot). Every other
 ///         Synthetix system contract (Synthetix proxy, Exchanger, SystemSettings,
 ///         AtomicExchangeRates, ExchangeRatesWithDexPricing, ...) is looked up
@@ -70,7 +70,7 @@ contract F14_01_AtomicTriangular is StrategyBase, IFlashLoanRecipientBalancer {
     // AddressResolver verified against docs.synthetix.io (the address has been
     // stable since the V2x deploy in 2020). All other Synthetix contracts are
     // looked up via this resolver, so the PoC tolerates upgrades.
-    address constant SYNTHETIX_ADDRESS_RESOLVER = 0x823be81bbf96bec0e25ca13170f5aacb5b79ba83;
+    address constant SYNTHETIX_ADDRESS_RESOLVER = 0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83;
 
     // Synthetix V2x currency keys (right-padded ASCII -> bytes32).
     bytes32 constant CK_sETH = bytes32("sETH");
@@ -80,13 +80,13 @@ contract F14_01_AtomicTriangular is StrategyBase, IFlashLoanRecipientBalancer {
     // ---- Curve pools ----
     // sETH/ETH crypto-pool variant: i=0 ETH (sentinel), i=1 sETH. Uses int128
     // indices on the older pool; verified on etherscan @ block 17_500_000.
-    address constant CURVE_SETH_ETH = 0xc5424b857f758e906013f3555dad202e4bdb4567;
+    address constant CURVE_SETH_ETH = 0xc5424B857f758E906013F3555Dad202e4bdB4567;
 
     // sUSD/DAI/USDC/USDT 4pool (susd v2). Indices: 0=sUSD,1=DAI,2=USDC,3=USDT.
-    address constant CURVE_SUSD_4POOL = 0xa5407eae9ba41422680e2e00537571bcc53efbfd;
+    address constant CURVE_SUSD_4POOL = 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD;
 
     // ---- Uniswap ----
-    address constant UNIV3_ROUTER = 0xe592427a0aece92de3edee1f18e0157c05861564;
+    address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
     uint24  constant UNIV3_USDC_WETH_FEE = 500; // 0.05% deepest pool
 
     // ---- Block pin ----

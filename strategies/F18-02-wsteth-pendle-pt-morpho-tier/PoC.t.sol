@@ -43,16 +43,16 @@ contract F18_02_WstethPendlePtMorphoTier is StrategyBase {
     ///      with F07-02 and F09-05 in this corpus. SY-weETH accepts ETH/WETH
     ///      directly (via the router's mintSy wrap path), letting us feed the
     ///      Lido-derived ETH into the Pendle leg without an aggregator hop.
-    ///      Verified at https://etherscan.io/address/0x7d372819240d14fb477f17b964f95f33beb4c704
+    ///      Verified at https://etherscan.io/address/0x7d372819240D14fB477f17b964f95F33BeB4c704
     ///      on 2026-05-26.
     address constant LOCAL_PENDLE_MARKET_PT_WEETH_26DEC24 =
-        0x7d372819240d14fb477f17b964f95f33beb4c704;
+        0x7d372819240D14fB477f17b964f95F33BeB4c704;
 
     /// @dev Morpho Blue marketId for PT-weETH-26DEC2024 / WETH 86% LLTV. Same
     ///      id verified by F09-05's idToMarketParams() readback. setUp() here
     ///      re-asserts the recovered tuple matches expectations (catches stale
     ///      ids at fork time).
-    ///      Verified at https://etherscan.io/address/0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb#readContract
+    ///      Verified at https://etherscan.io/address/0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb#readContract
     ///      (idToMarketParams) on 2026-05-26.
     bytes32 constant LOCAL_MORPHO_PT_WEETH_WETH_ID =
         0xc581c5f70bd1afa283eed57d1418c6432cbff1d862f94eaf58fdd4e46afbb67e;

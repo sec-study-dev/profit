@@ -21,7 +21,7 @@ contract F07_03_YtWeethPointsSpecTest is StrategyBase {
     uint256 constant FORK_BLOCK = 20_650_000;
 
     // ---- Pendle market (PT/YT-weETH-26DEC2024) ----
-    address constant LOCAL_MARKET = 0x7d372819240d14fb477f17b964f95f33beb4c704;
+    address constant LOCAL_MARKET = 0x7d372819240D14fB477f17b964f95F33BeB4c704;
 
     // ---- Equity ----
     uint256 constant EQUITY_WETH = 100 ether;

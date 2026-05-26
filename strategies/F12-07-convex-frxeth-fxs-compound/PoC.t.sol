@@ -26,19 +26,19 @@ import {ICurveStableSwap, ICurveCryptoSwap} from "src/interfaces/amm/ICurvePool.
 ///         wrapper).
 contract F12_07_PoC is StrategyBase {
     // ---- Curve / Convex ----
-    address constant FRXETH_ETH_POOL = 0xa1f8a6807c402e4a15ef4eba36528a3fed24e577;
-    address constant CVX_FRXETH_REWARDS = 0xbd5445402b0a287cbc77cb67b2a52e2fc635dce4;
+    address constant FRXETH_ETH_POOL = 0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577;
+    address constant CVX_FRXETH_REWARDS = 0xbD5445402B0a287cbC77cb67B2a52e2FC635dce4;
     uint256 constant PID_FRXETH = 128;
 
     // ---- Frax / FXS / cvxFXS ----
-    address constant FXS = 0x3432b6a60d23ca0dfca7761b7ab56459d9c964d0;
-    address constant CVXFXS = 0xfeef77d3f69374f66429c91d732a244f074bdf74;
+    address constant FXS = 0x3432B6A60D23Ca0dFCa7761B7ab56459D9C964D0;
+    address constant CVXFXS = 0xFEEf77d3f69374f66429C91d732A244f074bdf74;
     // Curve FXS/cvxFXS factory crypto pool (i=0 FXS, i=1 cvxFXS).
     // Verified on Curve front-end + Etherscan as the deepest cvxFXS pair.
-    address constant CURVE_CVXFXS_FXS = 0xd658a338613198204dca1143ac3f01a722b5d94a;
+    address constant CURVE_CVXFXS_FXS = 0xd658A338613198204DCa1143Ac3F01A722b5d94A;
 
     // ---- CRV / ETH price helpers ----
-    address constant CRV = 0xd533a949740bb3306d119cc777fa900ba034cd52;
+    address constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
 
     // ---- Block ----
     uint256 constant FORK_BLOCK = 19_643_500;

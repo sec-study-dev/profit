@@ -33,16 +33,16 @@ contract F18_05_EigenSymbioticKarakTripleRestake is StrategyBase {
     uint256 constant FORK_BLOCK = 20_500_000;
 
     /// @dev EigenLayer stETH strategy.
-    address constant LOCAL_EIGEN_STETH_STRATEGY = 0x93c4b944d05dfe6df7645a86cd2206016c51564d;
+    address constant LOCAL_EIGEN_STETH_STRATEGY = 0x93c4b944D05dfe6df7645A86cd2206016c51564D;
 
     /// @dev Symbiotic DefaultCollateral wstETH vault (canonical address).
-    address constant LOCAL_SYMBIOTIC_WSTETH_VAULT = 0xc329400492c6ff2438472d4651ad17389fcb843a;
+    address constant LOCAL_SYMBIOTIC_WSTETH_VAULT = 0xC329400492c6ff2438472D4651Ad17389fCb843a;
 
     /// @dev Karak weETH Vault. Per Karak's mainnet deployment docs, the weETH
     ///      Vault is part of the `DelegationSupervisor` family of vaults
     ///      registered at mainnet launch (July 2024).
     ///      TODO verify: canonical weETH Karak vault at fork block.
-    address constant LOCAL_KARAK_WEETH_VAULT = 0x7c22725d1e0871f0043397c9761ad99a86ffd498;
+    address constant LOCAL_KARAK_WEETH_VAULT = 0x7C22725d1E0871f0043397c9761AD99A86ffD498;
 
     uint256 constant LEG_STETH = 50 ether;
     uint256 constant LEG_WSTETH = 50 ether;

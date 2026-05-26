@@ -29,11 +29,11 @@ contract F10_07_GhoUsdeCurveAave3Mech is StrategyBase {
 
     /// @notice Curve GHO/USDe factory NG-stableswap pool (verified Q4 2024).
     ///         Address pulled from Curve registry; coin order discovered on-chain.
-    address constant CURVE_GHO_USDE_POOL = 0x670a72e6d22b0956c0d2573288f82dcc5d6e3a61;
+    address constant CURVE_GHO_USDE_POOL = 0x670a72e6D22b0956C0D2573288F82DCc5d6E3a61;
 
     /// @notice Curve USDC/USDe pool (used to detour USDC -> USDe for LP pairing).
     ///         Verified address; coin order [USDe, USDC] with int128 indices.
-    address constant CURVE_USDC_USDE_POOL = 0x02950460e2b9529d0e00284a5fa2d7bdf3fa4d72;
+    address constant CURVE_USDC_USDE_POOL = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
     // ---- Notional sizing ----
     uint256 constant PRINCIPAL_USDC = 1_000_000e6;

@@ -15,7 +15,7 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 ///         APY) - (leverage - 1) * (Morpho USDC borrow APY).
 ///
 ///         The canonical Ethena minting contract address is
-///         `0xe3490297a08d6fc8da46edb7b6142e4f461b62d3` (EthenaMinting v2; see
+///         `0xe3490297a08d6fC8Da46Edb7B6142E4F461b62D3` (EthenaMinting v2; see
 ///         Mainnet.ETHENA_MINTING_V2 below - verified via Etherscan tags and the
 ///         Ethena docs). The contract gates mint/redeem on EIP-712 RFQ signatures
 ///         from Ethena's market-makers which cannot be reproduced inside a forge
@@ -32,14 +32,14 @@ contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
     ///      Verified: Curve factory crvUSD/USDe-style 2-coin plain pool deployed
     ///      Feb 2024; coins[0]=USDe, coins[1]=USDC. Confirmed by reading
     ///      pool.coins(0)/coins(1) at the fork block - the setUp asserts this.
-    address constant LOCAL_CURVE_USDE_USDC = 0x02950460e2b9529d0e00284a5fa2d7bdf3fa4d72;
+    address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
     /// @dev Ethena canonical minting contract (EthenaMinting v2). Inlined here
     ///      because Mainnet.ETHENA_MINTING was a placeholder. Verified via
     ///      Etherscan and the Ethena docs. Mint/redeem requires off-chain RFQ
     ///      signatures so we do not call it on-fork; constant retained for
     ///      reference and for the F08-09 minting-arb PoC.
-    address constant LOCAL_ETHENA_MINTING_V2 = 0xe3490297a08d6fc8da46edb7b6142e4f461b62d3;
+    address constant LOCAL_ETHENA_MINTING_V2 = 0xe3490297a08d6fC8Da46Edb7B6142E4F461b62D3;
 
     /// @dev Morpho Blue marketId for the sUSDe / USDC 91.5% LLTV market (the
     ///      flagship Gauntlet-curated leverage market). Verified by F09-04 /

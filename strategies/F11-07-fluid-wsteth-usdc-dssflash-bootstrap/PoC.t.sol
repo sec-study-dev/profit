@@ -24,18 +24,18 @@ contract F11_07_FluidWstethUsdcDssflashBootstrapTest is StrategyBase, IERC3156Fl
 
     // Fluid wstETH (collateral) / USDC (debt) vault T1.
     // verified at
-    // https://etherscan.io/address/0x40d9b8417e6e1dcd358f04e3328bced061018a82
+    // https://etherscan.io/address/0x40D9b8417E6E1DcD358f04E3328bCEd061018A82
     // (Fluid Vault T1 wstETH<>USDC, deployed by Fluid VaultFactoryT1, vault ID 14).
     address internal constant LOCAL_FLUID_WSTETH_USDC_VAULT =
-        0x40d9b8417e6e1dcd358f04e3328bced061018a82;
+        0x40D9b8417E6E1DcD358f04E3328bCEd061018A82;
 
     // DssFlash mainnet (DAI flash mint).
     // verified at
-    // https://etherscan.io/address/0x60744434d6339a6b27d73d9eda62b6f66a0a04fa
-    address internal constant LOCAL_DSS_FLASH = 0x60744434d6339a6b27d73d9eda62b6f66a0a04fa;
+    // https://etherscan.io/address/0x60744434d6339a6B27d73d9Eda62b6F66a0a04FA
+    address internal constant LOCAL_DSS_FLASH = 0x60744434d6339a6B27d73d9Eda62b6F66a0a04FA;
 
     // Curve 3pool DAI/USDC/USDT (idx 0=DAI, 1=USDC, 2=USDT).
-    address internal constant LOCAL_CURVE_3POOL = 0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7;
+    address internal constant LOCAL_CURVE_3POOL = 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7;
 
     // Borrow notional in DAI (flash-mint principal). Free under DSS toll==0.
     uint256 internal constant FLASH_DAI = 5_000_000e18; // 5M DAI
@@ -161,7 +161,7 @@ contract F11_07_FluidWstethUsdcDssflashBootstrapTest is StrategyBase, IERC3156Fl
     }
 
     function _ethUsdE8() internal view returns (uint256) {
-        (bool ok, bytes memory data) = address(0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419)
+        (bool ok, bytes memory data) = address(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)
             .staticcall(abi.encodeWithSignature("latestAnswer()"));
         if (!ok || data.length < 32) return 0;
         int256 ans = abi.decode(data, (int256));

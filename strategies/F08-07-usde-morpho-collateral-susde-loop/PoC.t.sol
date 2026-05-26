@@ -40,7 +40,7 @@ contract F08_07_UsdeMorphoCollateralSusdeLoopTest is StrategyBase, IMorphoFlashL
     uint256 constant FORK_BLOCK = 20_800_000;
 
     /// @dev Curve USDe/USDC pool (coin 0 = USDe, coin 1 = USDC).
-    address constant LOCAL_CURVE_USDE_USDC = 0x02950460e2b9529d0e00284a5fa2d7bdf3fa4d72;
+    address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
     /// @dev Morpho USDe/USDC 86% LLTV market.
     ///      Oracle: a USDe price oracle (typically Chainlink USDe/USD or
@@ -49,9 +49,9 @@ contract F08_07_UsdeMorphoCollateralSusdeLoopTest is StrategyBase, IMorphoFlashL
     ///      idToMarketParams; if Morpho returns the zero-struct, the market
     ///      does not exist at the fork block and we surface a clear revert.
     address constant LOCAL_MORPHO_ORACLE_USDE_USDC =
-        0xae4750d0813b5e37a51f7629beedd72af1f9ca35;
+        0xaE4750d0813B5E37A51f7629beedd72AF1f9cA35;
     address constant LOCAL_MORPHO_IRM_ADAPTIVE_CURVE =
-        0x870ac11d48b15db9a138cf899d20f13f79ba00bc;
+        0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
     uint256 constant LLTV_86 = 0.86e18;
 
     /// @dev Initial equity in USDe (we accumulate sUSDe entirely from the loop).

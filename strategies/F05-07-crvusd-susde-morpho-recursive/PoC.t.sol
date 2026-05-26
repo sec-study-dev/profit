@@ -36,17 +36,17 @@ import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 /// WETH-market borrow ~6%, giving a positive 3-mech basis.
 contract F05_07_PoC is StrategyBase {
     // ---- crvUSD WETH controller / LLAMMA (verified on etherscan) ----
-    address constant CONTROLLER_WETH = 0xa920de414ea4ab66b97da1bfe9e6eca7d4219635;
-    address constant LLAMMA_WETH = 0x1681195c176239ac5e72d9aebacf5b2492e0c4ee;
+    address constant CONTROLLER_WETH = 0xA920De414eA4Ab66b97dA1bFE9e6EcA7d4219635;
+    address constant LLAMMA_WETH = 0x1681195C176239ac5E72d9aeBaCf5b2492E0C4ee;
 
     // Curve crvUSD/USDC stableswap-NG: 0=crvUSD, 1=USDC.
-    address constant CURVE_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
+    address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
     // Curve USDe/USDC stableswap-NG: 0=USDe, 1=USDC.
-    address constant CURVE_USDE_USDC = 0x02950460e2b9529d0e00284a5fa2d7bdf3fa4d72;
+    address constant CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
     // Morpho sUSDe/USDC 91.5% LLTV market parameters (Gauntlet/MEV Capital).
-    address constant MORPHO_ORACLE_SUSDE_USDC = 0x5d916980d5ae1737a8330bf24df812b2911aae25;
-    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870ac11d48b15db9a138cf899d20f13f79ba00bc;
+    address constant MORPHO_ORACLE_SUSDE_USDC = 0x5D916980D5Ae1737a8330Bf24dF812b2911Aae25;
+    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
     uint256 constant LLTV_915 = 0.915e18;
 
     // ---- Sizing ----

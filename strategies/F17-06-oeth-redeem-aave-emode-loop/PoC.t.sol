@@ -49,14 +49,14 @@ contract F17_06_OETHRedeemAaveEmodeLoop is StrategyBase {
     uint256 internal constant FORK_BLOCK = 20_400_000;
 
     // ---- Hardcoded addresses ----
-    address internal constant OETH = 0x856c4efb76c1d1ae02e20ceb03a2a6a08b0b8dc3;
+    address internal constant OETH = 0x856c4Efb76C1D1AE02e20CEB03A2A6a08b0b8dC3;
     /// @dev Origin OETHVaultProxy (same as F17-03).
-    address internal constant OETH_VAULT = 0x39254033945aa2e4809cc2977e7087bee48bd7ab;
+    address internal constant OETH_VAULT = 0x39254033945AA2E4809Cc2977E7087BEE48bd7Ab;
     /// @dev Curve OETH/ETH pool (same as F17-03).
-    address internal constant CURVE_OETH_ETH = 0x94b17476a93b3262d87b9a326965d1e91f9c13e7;
+    address internal constant CURVE_OETH_ETH = 0x94B17476A93b3262d87B9a326965D1E91f9c13E7;
     /// @dev Origin wOETH (ERC-4626 wrapper). Source: Origin contract registry.
     ///      Runtime guard: `asset() == OETH` checked before deposit.
-    address internal constant WOETH = 0xdcee70654261af21c44c093c300ed3bb97b78192;
+    address internal constant WOETH = 0xDcEe70654261AF21C44c093C300eD3Bb97b78192;
 
     /// @dev Aave V3 ETH-correlated eMode (categoryId=1; same on Spark fork).
     ///      WETH, wstETH, weETH, cbETH and (where listed) wOETH share this

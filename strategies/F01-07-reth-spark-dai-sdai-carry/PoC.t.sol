@@ -20,7 +20,7 @@ contract F01_07_RethSparkDaiSdaiCarryTest is StrategyBase {
     uint256 constant FORK_BLOCK = 19_700_000;
 
     // Curve rETH/ETH pool - same address used in F01-03; verified on Curve registry.
-    address constant LOCAL_CURVE_RETH_ETH_POOL = 0x0f3159811670c117c372428d4e69ac32325e4d0f;
+    address constant LOCAL_CURVE_RETH_ETH_POOL = 0x0f3159811670c117c372428D4E69AC32325e4D0F;
 
     uint256 constant RATE_MODE_VARIABLE = 2;
 

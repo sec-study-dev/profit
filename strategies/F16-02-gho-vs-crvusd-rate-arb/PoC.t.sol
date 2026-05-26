@@ -57,14 +57,14 @@ interface ILLAMMARate {
 ///         "refinance GHO debt into crvUSD" decision.
 contract F16_02_GhoVsCrvUsdRateArb is StrategyBase {
     // ---- Curve wstETH market addresses ----
-    address constant CRVUSD_WSTETH_CONTROLLER = 0x100daa78fc509db39ef7d04de0c1abd299f4c6ce;
-    address constant CRVUSD_WSTETH_AMM = 0x37417b2238aa52d0dd2d6252d989e728e8f706e4;
+    address constant CRVUSD_WSTETH_CONTROLLER = 0x100dAa78fC509Db39Ef7D04DE0c1ABD299f4C6CE;
+    address constant CRVUSD_WSTETH_AMM = 0x37417B2238AA52D0DD2D6252d989E728e8f706e4;
 
     /// @dev Curve crvUSD/USDC stableswap-NG (index 0=crvUSD, 1=USDC).
-    address constant CURVE_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
+    address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
 
     // ---- Aave V3 Pool ----
-    address constant AAVE_POOL = 0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2;
+    address constant AAVE_POOL = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2;
 
     /// @dev Mid-Sep 2024 - GHO ~9%, crvUSD wstETH ~6.5%, ~250 bps basis.
     uint256 constant FORK_BLOCK = 20_500_000;

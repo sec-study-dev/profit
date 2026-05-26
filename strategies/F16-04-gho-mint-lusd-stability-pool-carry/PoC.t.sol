@@ -73,23 +73,23 @@ interface IStabilityPool {
 /// @title F16-04 - GHO mint -> LUSD Stability Pool carry
 contract F16_04_GhoMintLusdStabilityPoolCarry is StrategyBase {
     // ---- Aave V3 ----
-    address constant AAVE_POOL = 0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2;
+    address constant AAVE_POOL = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2;
 
     // ---- Liquity v1 Stability Pool ----
-    address constant LIQUITY_SP = 0x66017d22b0f8556afdd19fc67041899eb65a21bb;
+    address constant LIQUITY_SP = 0x66017D22b0f8556afDd19FC67041899Eb65a21bb;
     /// @dev LQTY token.
-    address constant LQTY = 0x6dea81c8171d0ba574754ef6f8b412f2ed88c54d;
+    address constant LQTY = 0x6DEA81C8171D0bA574754EF6F8b412F2Ed88c54D;
 
     // ---- Curve pools ----
     /// @dev Curve GHO/crvUSD 2-coin StableNG pool. Verified via Curve gov
     ///      `[crvUSD]: GHO Pegkeeper Review` (gov.curve.finance/t/.../11003).
     ///      Pool index ordering: 0=GHO, 1=crvUSD.
-    address constant CURVE_GHO_CRVUSD = 0x635ef0056a597d13863b73825cca297236578595;
+    address constant CURVE_GHO_CRVUSD = 0x635EF0056A597D13863B73825CcA297236578595;
     /// @dev Curve crvUSD/USDC StableNG (idx 0=crvUSD, 1=USDC). Used to bridge
     ///      GHO -> crvUSD -> USDC since no deep GHO/3CRV metapool exists.
-    address constant CURVE_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
+    address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
     /// @dev Curve LUSD/3pool meta-pool (underlying coins [LUSD, DAI, USDC, USDT]).
-    address constant CURVE_LUSD_3POOL = 0xed279fdd11ca84beef15af5d39bb4d4bee23f0ca;
+    address constant CURVE_LUSD_3POOL = 0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA;
 
     // ---- Tunables ----
     uint256 constant FORK_BLOCK = 20_500_000;

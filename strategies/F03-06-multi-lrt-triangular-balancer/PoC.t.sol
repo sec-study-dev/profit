@@ -22,15 +22,15 @@ contract F03_06_MultiLRTTriangularTest is StrategyBase, IFlashLoanRecipientBalan
         0x596192bb6e41802428ac943d2f1476c1af25cc0e000000000000000000000659;
 
     /// @dev Curve ezETH/WETH NG pool. coins[0] = ezETH, coins[1] = WETH.
-    address constant LOCAL_CURVE_EZETH_WETH = 0x85de3add465a219ee25e04d22c39ab027cf5c12e;
+    address constant LOCAL_CURVE_EZETH_WETH = 0x85dE3ADd465a219EE25E04d22c39aB027cF5C12E;
 
     /// @dev Curve weETH/WETH NG pool. coins[0] = weETH, coins[1] = WETH.
     ///      Curve.fi Factory NG Plain Pool: weETH/WETH.
-    address constant LOCAL_CURVE_WEETH_WETH = 0x13947303f63b363876868d070f14dc865c36463b;
+    address constant LOCAL_CURVE_WEETH_WETH = 0x13947303F63b363876868D070F14dc865C36463b;
 
     /// @dev UniV3 weETH/WETH 0.05% (fee tier 500) pool.
     ///      token0 = weETH (0xCd5f...), token1 = WETH (0xC02a...). lexicographic.
-    address constant LOCAL_UNIV3_WEETH_WETH_500 = 0x7a415b19932c0105c82fdb6b720bb01b0cc2cae3;
+    address constant LOCAL_UNIV3_WEETH_WETH_500 = 0x7A415B19932c0105c82FDB6b720bb01B0CC2CAe3;
 
     uint256 constant FLASH_NOTIONAL = 200 ether;
 

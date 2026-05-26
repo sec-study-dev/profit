@@ -16,16 +16,16 @@ contract F11_03_EulerEvcBatchRateArbTest is StrategyBase {
     uint256 internal constant FORK_BLOCK = 21_200_000;
 
     // Euler v2 EVC mainnet.
-    // verified at https://etherscan.io/address/0x0c9a3dd6b8f28529d72d7f9ce918d493519ee383
-    address internal constant EVC = 0x0c9a3dd6b8f28529d72d7f9ce918d493519ee383;
+    // verified at https://etherscan.io/address/0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383
+    address internal constant EVC = 0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383;
 
     // Euler Prime USDC vault.
-    // verified at https://etherscan.io/address/0x797dd80692c3b2dadabce8e30c07fde5307d48a9
-    address internal constant EVAULT_USDC_PRIME = 0x797dd80692c3b2dadabce8e30c07fde5307d48a9;
+    // verified at https://etherscan.io/address/0x797DD80692c3b2dAdabCe8e30C07fDE5307D48a9
+    address internal constant EVAULT_USDC_PRIME = 0x797DD80692c3b2dAdabCe8e30C07fDE5307D48a9;
 
     // Euler Yield USDC vault.
-    // verified at https://etherscan.io/address/0xcbc9b61177444a793b85442d3a953b90f6170b7d
-    address internal constant EVAULT_USDC_YIELD = 0xcbc9b61177444a793b85442d3a953b90f6170b7d;
+    // verified at https://etherscan.io/address/0xcBC9B61177444A793B85442D3a953B90f6170b7D
+    address internal constant EVAULT_USDC_YIELD = 0xcBC9B61177444A793B85442D3a953B90f6170b7D;
 
     // Notional borrowed via the deferred-check loan.
     uint256 internal constant NOTIONAL = 1_000_000e6; // 1M USDC

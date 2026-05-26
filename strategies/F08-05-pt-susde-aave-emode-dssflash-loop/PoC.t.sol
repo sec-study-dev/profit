@@ -43,11 +43,11 @@ contract F08_05_PtSusdeAaveEmodeDssFlashLoopTest is StrategyBase, IERC3156FlashB
     /// @dev Curve USDe/DAI 4-coin pool (USDe + DAI + sDAI + sUSDe-style).
     ///      We use the simpler USDe/USDC pool and route DAI->USDC->USDe via
     ///      Curve 3pool to avoid hardcoding a less liquid factory pool.
-    address constant LOCAL_CURVE_USDE_USDC = 0x02950460e2b9529d0e00284a5fa2d7bdf3fa4d72;
+    address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
     /// @dev Pendle PT-sUSDe-26SEP2024 market (canonical, used by F07-01/F08-03).
     address constant LOCAL_PENDLE_MARKET_PT_SUSDE_26SEP24 =
-        0x19588f29f9402bb508007feadd415c875ee3f19f;
+        0x19588F29f9402Bb508007FeADd415c875Ee3f19F;
 
     /// @dev DAI flashmint principal. Stays well below DssFlash.max() (~500M DAI).
     ///      Set to 4M DAI so the post-flash Aave borrow capacity at 90% e-mode

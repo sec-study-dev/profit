@@ -40,12 +40,12 @@ contract F13_07_UniV3FlashBalancerCurveStablePegArbTest is StrategyBase, IUniswa
     ///      pool, deepest liquidity).
     ///      token0 = USDC (0xA0...), token1 = WETH (0xC0...) since
     ///      USDC < WETH lexicographically. Fee tier 500 (= 0.05%).
-    address constant UNIV3_USDC_WETH_500 = 0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640;
+    address constant UNIV3_USDC_WETH_500 = 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640;
 
     /// @dev Balancer DAI/USDC/USDT ComposableStable v3 ("Balancer USD").
     ///      Common reference: pool id below corresponds to the canonical
     ///      DAI/USDC/USDT CSP (post-bb-aUSD-3 era).
-    address constant BAL_DAI_USDC_USDT_POOL = 0x79c58f70905f734641735bc61e45c19dd9ad60bc;
+    address constant BAL_DAI_USDC_USDT_POOL = 0x79c58f70905F734641735BC61e45c19dD9Ad60bC;
     bytes32 constant BAL_DAI_USDC_USDT_POOL_ID =
         0x79c58f70905f734641735bc61e45c19dd9ad60bc0000000000000000000004e7;
 

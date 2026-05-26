@@ -37,12 +37,12 @@ contract F17_05_SusdeSusdsAaveEmodeRotation is StrategyBase, IFlashLoanRecipient
 
     // ---- Curve USDe/USDT pool (Ethena's deepest USDT venue) ----
     /// @dev Source: Curve factory deployment used by F08-04. coins[0]=USDe, coins[1]=USDT.
-    address internal constant CURVE_USDE_USDT = 0xa8a04e5d50e16fafd127dbe9d5d2d5dcf4946e0c;
+    address internal constant CURVE_USDE_USDT = 0xa8A04E5d50e16FAFD127dBE9d5D2d5dcf4946E0C;
 
     // ---- Curve USDS/USDT (or USDS/USDC + 3pool hop) ----
     /// @dev Curve USDS/USDC stableswap-NG factory pool (same as F17-02).
     ///      coins[0]=USDS, coins[1]=USDC.
-    address internal constant CURVE_USDS_USDC = 0x00e6fd108c4640d21b40d02f18dd6fe7c7f725ca;
+    address internal constant CURVE_USDS_USDC = 0x00e6Fd108C4640d21B40d02f18Dd6fE7c7F725CA;
 
     // ---- Aave V3 stablecoin e-mode category ----
     /// @dev Aave V3 stablecoin e-mode category id (post-AIP-369 sUSDe inclusion).

@@ -33,7 +33,7 @@ interface IDaiUsds {
 ///   - (3) the post-warp sUSDS redeem yields strictly *more* USDS than was
 ///         deposited at the same nominal share count (drip works).
 contract F04_05_DaiUsdsRoundTrip is StrategyBase {
-    address internal constant LOCAL_DAI_USDS = 0x3225737a9bbb6473cb4a45b7244aca2befdb276a;
+    address internal constant LOCAL_DAI_USDS = 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A;
 
     uint256 internal constant FORK_BLOCK = 21_500_000;
     uint256 internal constant PROBE = 1_000_000e18;

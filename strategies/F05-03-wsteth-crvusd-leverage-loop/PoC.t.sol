@@ -19,15 +19,15 @@ import {IUniswapV3Router} from "src/interfaces/amm/IUniswapV3Router.sol";
 ///         into more wstETH collateral via Curve, accreting wstETH per-block
 ///         stake yield on the levered notional.
 contract F05_03_PoC is StrategyBase {
-    address constant LLAMMA_WSTETH = 0x37417b2238aa52d0dd2d6252d989e728e8f706e4;
-    address constant CONTROLLER_WSTETH = 0x100daa78fc509db39ef7d04de0c1abd299f4c6ce;
+    address constant LLAMMA_WSTETH = 0x37417B2238AA52D0DD2D6252d989E728e8f706e4;
+    address constant CONTROLLER_WSTETH = 0x100dAa78fC509Db39Ef7D04DE0c1ABD299f4C6CE;
 
     // Curve crvUSD/USDC stableswap-NG: 0=crvUSD, 1=USDC
-    address constant CURVE_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
+    address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
     // Curve stETH/ETH classic stableswap: 0=ETH, 1=stETH
-    address constant CURVE_STETH_ETH = 0xdc24316b9ae028f1497c275eb9192a3ea0f67022;
+    address constant CURVE_STETH_ETH = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
 
-    address constant UNIV3_ROUTER = 0xe592427a0aece92de3edee1f18e0157c05861564;
+    address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
 
     // Block where crvUSD borrow rate was low (~1.5%) & stake APR ~3.0%.
     uint256 constant FORK_BLOCK = 20_650_000;

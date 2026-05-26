@@ -11,7 +11,7 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
 // ============================================================================
 // Local Synthetix V2x interfaces (inline; do not modify shared interfaces).
-// AddressResolver mainnet: 0x823be81bbf96bec0e25ca13170f5aacb5b79ba83.
+// AddressResolver mainnet: 0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83.
 // ============================================================================
 
 interface ISynthetixAddressResolver {
@@ -72,19 +72,19 @@ interface IUniV3RouterMinimal {
 ///         (2) Curve sBTC tri-pool. Uni v3 and the sUSD 4pool are settle-back
 ///         conveniences, not the priced mechanisms.
 contract F14_08_SbtcChainlinkPreSandwich is StrategyBase {
-    address constant SYNTHETIX_ADDRESS_RESOLVER = 0x823be81bbf96bec0e25ca13170f5aacb5b79ba83;
+    address constant SYNTHETIX_ADDRESS_RESOLVER = 0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83;
 
     bytes32 constant CK_sUSD = bytes32("sUSD");
     bytes32 constant CK_sBTC = bytes32("sBTC");
     bytes32 constant TRACKING_CODE = bytes32("F14-08-snd");
 
     // Inline synth + token addresses per family policy.
-    address constant SBTC = 0xfe18be6b3bd88a2d2a7f928d00292e7a9963cfc6;
-    address constant WBTC = 0x2260fac5e5542a773aa44fbcfedf7c193bc2c599;
+    address constant SBTC = 0xfE18be6b3Bd88A2D2A7f928d00292E7a9963CfC6;
+    address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 
-    address constant CURVE_SBTC_POOL = 0x7fc77b5c7614e1533320ea6ddc2eb61fa00a9714;
-    address constant CURVE_SUSD_4POOL = 0xa5407eae9ba41422680e2e00537571bcc53efbfd;
-    address constant UNIV3_ROUTER = 0xe592427a0aece92de3edee1f18e0157c05861564;
+    address constant CURVE_SBTC_POOL = 0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714;
+    address constant CURVE_SUSD_4POOL = 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD;
+    address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
     uint24 constant UNIV3_FEE_WETH_WBTC = 3000;
     uint24 constant UNIV3_FEE_USDC_WETH = 500;
 

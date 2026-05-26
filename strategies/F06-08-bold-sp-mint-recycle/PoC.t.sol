@@ -54,20 +54,20 @@ contract F06_08_BoldSpMintRecycleTest is StrategyBase {
 
     /// @dev Canonical BOLD (post 2025-05-19 redeployment).
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_BOLD = 0x6440f144b7e50d6a8439336510312d2f54beb01d;
+    address constant LOCAL_BOLD = 0x6440f144b7e50D6a8439336510312d2F54beB01D;
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_COLLATERAL_REGISTRY = 0xf949982b91c8c61e952b3ba942cbbfaef5386684;
+    address constant LOCAL_COLLATERAL_REGISTRY = 0xf949982B91C8c61e952B3bA942cbbfaef5386684;
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_HINT_HELPERS_V2 = 0xf0cae19c96e572234398d6665cc1147a16cbe657;
+    address constant LOCAL_HINT_HELPERS_V2 = 0xF0caE19C96E572234398d6665cC1147A16cBe657;
 
     // ---- wstETH branch (branch index 1) ----
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_ADDRESSES_REGISTRY_WSTETH = 0x8d733f7ea7c23cbea7c613b6ebd845d46d3aac54;
-    address constant LOCAL_BORROWER_OPS_WSTETH       = 0xa741a32f9dcfe6adba088fd0f97e90742d7d5da3;
-    address constant LOCAL_TROVE_MANAGER_WSTETH      = 0xa2895d6a3bf110561dfe4b71ca539d84e1928b22;
-    address constant LOCAL_SORTED_TROVES_WSTETH      = 0x84eb85a8c25049255614f0536bea8f31682e86f1;
-    address constant LOCAL_STABILITY_POOL_WSTETH     = 0x9502b7c397e9aa22fe9db7ef7daf21cd2aebe56b;
-    address constant LOCAL_ACTIVE_POOL_WSTETH        = 0x531a8f99c70d6a56a7cee02d6b4281650d7919a0;
+    address constant LOCAL_ADDRESSES_REGISTRY_WSTETH = 0x8d733F7ea7c23Cbea7C613B6eBd845d46d3aAc54;
+    address constant LOCAL_BORROWER_OPS_WSTETH       = 0xa741A32f9dcFe6aDBa088fD0f97e90742d7d5DA3;
+    address constant LOCAL_TROVE_MANAGER_WSTETH      = 0xA2895d6A3bf110561Dfe4b71cA539d84e1928B22;
+    address constant LOCAL_SORTED_TROVES_WSTETH      = 0x84eb85a8C25049255614F0536Bea8F31682e86F1;
+    address constant LOCAL_STABILITY_POOL_WSTETH     = 0x9502b7c397E9aa22FE9dB7EF7DAF21cD2AEBe56B;
+    address constant LOCAL_ACTIVE_POOL_WSTETH        = 0x531a8f99c70D6A56A7CEe02d6B4281650d7919a0;
 
     // ---- Tunables ----
     /// @dev Post-redeployment block.

@@ -57,24 +57,24 @@ contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3
     // post-redeployment addresses come from liquity/bold contracts/addresses/1.json.
 
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_BOLD = 0x6440f144b7e50d6a8439336510312d2f54beb01d;
+    address constant LOCAL_BOLD = 0x6440f144b7e50D6a8439336510312d2F54beB01D;
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_COLLATERAL_REGISTRY = 0xf949982b91c8c61e952b3ba942cbbfaef5386684;
+    address constant LOCAL_COLLATERAL_REGISTRY = 0xf949982B91C8c61e952B3bA942cbbfaef5386684;
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_HINT_HELPERS_V2 = 0xf0cae19c96e572234398d6665cc1147a16cbe657;
+    address constant LOCAL_HINT_HELPERS_V2 = 0xF0caE19C96E572234398d6665cC1147A16cBe657;
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_MULTI_TROVE_GETTER = 0xfa61db085510c64b83056db3a7acf3b6f631d235;
+    address constant LOCAL_MULTI_TROVE_GETTER = 0xFA61dB085510C64B83056Db3A7Acf3b6f631D235;
 
     // ---- Per-branch TroveManagers - used to introspect basket composition ----
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_TROVE_MANAGER_ETH    = 0x7bcb64b2c9206a5b699ed43363f6f98d4776cf5a;
-    address constant LOCAL_TROVE_MANAGER_WSTETH = 0xa2895d6a3bf110561dfe4b71ca539d84e1928b22;
-    address constant LOCAL_TROVE_MANAGER_RETH   = 0xb2b2abeb5c357a234363ff5d180912d319e3e19e;
+    address constant LOCAL_TROVE_MANAGER_ETH    = 0x7bcb64B2c9206a5B699eD43363f6F98D4776Cf5A;
+    address constant LOCAL_TROVE_MANAGER_WSTETH = 0xA2895d6A3bf110561Dfe4b71cA539d84e1928B22;
+    address constant LOCAL_TROVE_MANAGER_RETH   = 0xb2B2ABEb5C357a234363FF5D180912D319e3e19e;
 
     /// @dev Curve Stableswap-NG USDC/BOLD pool (from governance config in
     ///      the same deployment manifest).
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
-    address constant LOCAL_CURVE_BOLD_USDC = 0xefc6516323fbd28e80b85a497b65a86243a54b3e;
+    address constant LOCAL_CURVE_BOLD_USDC = 0xEFc6516323FbD28e80B85A497B65A86243a54B3E;
 
     // ---- Tunables ----
 

@@ -21,8 +21,8 @@ contract F11_06_CometEthLidoWstethLoopTest is StrategyBase {
 
     // Compound v3 ETH Comet (cWETHv3) mainnet.
     // verified at
-    // https://etherscan.io/address/0xa17581a9e3356d9a858b789d68b4d866e593ae94
-    address internal constant LOCAL_COMET_WETH = 0xa17581a9e3356d9a858b789d68b4d866e593ae94;
+    // https://etherscan.io/address/0xA17581A9E3356d9A858b789D68B4d866e593aE94
+    address internal constant LOCAL_COMET_WETH = 0xA17581A9E3356d9A858b789D68B4d866e593aE94;
 
     // Per-loop LTV target. Comet wstETH has a borrow-collateral-factor of 90%;
     // we leave a buffer.
