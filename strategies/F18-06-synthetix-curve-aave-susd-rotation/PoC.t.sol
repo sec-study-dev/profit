@@ -23,14 +23,14 @@ interface ISynthetixV2x {
     ) external returns (uint256 amountReceived);
 }
 
-/// @notice F18-06 — Tri-protocol sUSD-discount harvest → aDAI carry.
+/// @notice F18-06 - Tri-protocol sUSD-discount harvest -> aDAI carry.
 ///
 /// Mechanisms (3):
-///   1. Curve sUSD/3pool (4-coin pool, coins[0]=sUSD)  — discount entry surface.
-///   2. Synthetix V2x atomic exchange                  — oracle-priced sUSD exit leg.
-///   3. Aave v3 DAI supply (aDAI)                      — perpetual carry on closed-arb residual.
+///   1. Curve sUSD/3pool (4-coin pool, coins[0]=sUSD)  - discount entry surface.
+///   2. Synthetix V2x atomic exchange                  - oracle-priced sUSD exit leg.
+///   3. Aave v3 DAI supply (aDAI)                      - perpetual carry on closed-arb residual.
 contract F18_06_SynthetixCurveAaveSusdRotation is StrategyBase {
-    /// @dev Pinned: mid-July 2024 — sUSD trades sub-peg; Synthetix atomic still live.
+    /// @dev Pinned: mid-July 2024 - sUSD trades sub-peg; Synthetix atomic still live.
     uint256 constant FORK_BLOCK = 20_300_000;
 
     /// @dev Curve sUSD 4pool: sUSD(0) / DAI(1) / USDC(2) / USDT(3).
@@ -143,7 +143,7 @@ contract F18_06_SynthetixCurveAaveSusdRotation is StrategyBase {
             }
         }
 
-        // ---- Mech 3: Aave v3 — supply DAI as aDAI for ongoing carry ----
+        // ---- Mech 3: Aave v3 - supply DAI as aDAI for ongoing carry ----
         uint256 daiBal = IERC20(Mainnet.DAI).balanceOf(address(this));
         if (daiBal > 0) {
             IAavePool aave = IAavePool(Mainnet.AAVE_V3_POOL);

@@ -14,18 +14,18 @@ import {IPot} from "src/interfaces/cdp/IPot.sol";
 /// @title F01-07 rETH on Spark with DAI borrow re-deployed to sDAI
 /// @notice THREE distinct DeFi mechanisms in one position:
 ///         (1) Rocket Pool rETH (LST internal exchange rate)
-///         (2) Spark Protocol (Aave v3 fork) lending — borrow DAI vs rETH
-///         (3) MakerDAO Pot DSR via sDAI ERC-4626 — hedges the Spark DAI cost
+///         (2) Spark Protocol (Aave v3 fork) lending - borrow DAI vs rETH
+///         (3) MakerDAO Pot DSR via sDAI ERC-4626 - hedges the Spark DAI cost
 contract F01_07_RethSparkDaiSdaiCarryTest is StrategyBase {
     uint256 constant FORK_BLOCK = 19_700_000;
 
-    // Curve rETH/ETH pool — same address used in F01-03; verified on Curve registry.
+    // Curve rETH/ETH pool - same address used in F01-03; verified on Curve registry.
     address constant LOCAL_CURVE_RETH_ETH_POOL = 0x0f3159811670c117c372428D4E69AC32325e4D0F;
 
     uint256 constant RATE_MODE_VARIABLE = 2;
 
-    // Effective LTV target — Spark's rETH borrow LTV at fork is ~0.74; we
-    // target 0.85 * 0.74 ≈ 0.63 to leave a wide buffer (this is a *carry*
+    // Effective LTV target - Spark's rETH borrow LTV at fork is ~0.74; we
+    // target 0.85 * 0.74 ~= 0.63 to leave a wide buffer (this is a *carry*
     // strategy, not a max-LTV looper).
     uint256 constant BORROW_LTV_BPS = 6300;
 

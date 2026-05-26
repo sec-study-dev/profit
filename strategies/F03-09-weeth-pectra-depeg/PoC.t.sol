@@ -13,7 +13,7 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 
 /// @title F03-09 weETH post-Pectra depeg arb (Curve + UniV3 + Balancer flash)
 /// @notice Event-pinned PoC for the May 7 2025 Pectra-activation weETH dip.
-///         The Pectra hard fork (epoch 364032, mainnet block ≈ 22_431_000) coincided
+///         The Pectra hard fork (epoch 364032, mainnet block ~= 22_431_000) coincided
 ///         with a ~30-40 bps weETH/WETH discount on Curve as leveraged loops
 ///         unwound pre-fork. Strategy buys weETH cheap across Curve + UniV3,
 ///         marks it at WeETH.getRate() via PriceOracle for PnL.
@@ -51,7 +51,7 @@ contract F03_09_WeETHPectraDepegTest is StrategyBase, IFlashLoanRecipientBalance
         uint256 rWeETH = IWeETH(Mainnet.WEETH).getRate(); // 1e18, WETH per weETH fair value.
         emit log_named_uint("F03-09: WeETH.getRate (1e18)", rWeETH);
 
-        // Curve get_dy(weETH=0 -> WETH=1, 1e18) — WETH out per 1 weETH in (AMM spot).
+        // Curve get_dy(weETH=0 -> WETH=1, 1e18) - WETH out per 1 weETH in (AMM spot).
         uint256 wethPerWeethAmm =
             ICurveStableSwap(LOCAL_CURVE_WEETH_WETH).get_dy(0, 1, 1e18);
         emit log_named_uint("F03-09: curve weth_per_weeth (1e18)", wethPerWeethAmm);

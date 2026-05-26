@@ -72,7 +72,7 @@ contract F11_07_FluidWstethUsdcDssflashBootstrapTest is StrategyBase, IERC3156Fl
         //   a. swap DAI->USDC on Curve 3pool,
         //   b. open Fluid NFT supplying wstETH as collateral and borrowing
         //      USDC up to LTV target (the flash USDC bridges the cost of
-        //      acquiring extra wstETH if we wanted to lever — for PoC we use
+        //      acquiring extra wstETH if we wanted to lever - for PoC we use
         //      the flash purely to provision USDC to repay the position
         //      immediately, validating that DssFlash + Fluid compose in one tx),
         //   c. swap USDC borrowed from Fluid back to DAI on Curve,
@@ -118,7 +118,7 @@ contract F11_07_FluidWstethUsdcDssflashBootstrapTest is StrategyBase, IERC3156Fl
         // (a) Swap a slice of the DAI flash to USDC on Curve 3pool so we have
         //     USDC headroom to mirror Fluid's debt leg.
         // We swap 1.05x the Fluid debt notional in DAI to USDC.
-        // Fluid LTV target ~70% — wstAmt * stEthPerToken * ethUsd * 0.70.
+        // Fluid LTV target ~70% - wstAmt * stEthPerToken * ethUsd * 0.70.
         // For PoC we hard-cap the borrow at 50% of wstETH USD value via
         // a conservative scaling (stEthPerToken*1e18 ~ 1.17e18, ethUsd~3500e8).
         uint256 ethUsdE8 = _ethUsdE8();

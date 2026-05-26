@@ -18,7 +18,7 @@ import {IUniswapV3Router} from "src/interfaces/amm/IUniswapV3Router.sol";
 /// @title F05-05 sfrxETH/crvUSD leverage loop
 /// @notice 3-mechanism composition:
 ///         (1) Curve crvUSD sfrxETH-market LLAMMA borrow.
-///         (2) Frax sfrxETH ERC-4626 staking vault — auto-compounds frxETH
+///         (2) Frax sfrxETH ERC-4626 staking vault - auto-compounds frxETH
 ///             validator yield onto the levered notional.
 ///         (3) Curve crvUSD/USDC stableswap-NG + Uni v3 USDC/WETH for the
 ///             borrow-recycle leg.
@@ -43,7 +43,7 @@ contract F05_05_PoC is StrategyBase {
 
     // Uni v3 router for USDC <-> WETH.
     address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    uint24 constant UNIV3_FEE_USDC_WETH = 500; // 0.05% — deepest pool
+    uint24 constant UNIV3_FEE_USDC_WETH = 500; // 0.05% - deepest pool
 
     // Block where sfrxETH market crvUSD borrow rate was depressed (~3%).
     uint256 constant FORK_BLOCK = 20_650_000;

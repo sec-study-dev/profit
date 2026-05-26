@@ -15,13 +15,13 @@ import {IUSDM} from "src/interfaces/stable/IUSDM.sol";
 ///         pattern that is unique to permissioned-issued stables (USDM, USDY).
 ///
 ///         Two forks are used: a `_fork(START_BLOCK)` for the entry swap and a
-///         `_fork(END_BLOCK)` (≈7 days later in wall time) for the exit. Within
+///         `_fork(END_BLOCK)` (~=7 days later in wall time) for the exit. Within
 ///         a fork, vm.warp does NOT cause Mountain's off-chain oracle to push
 ///         a new `rewardMultiplier`; only block-time progression backed by a
 ///         later fork captures the real rebase.
 contract F17_01_USDMCurveRebase is StrategyBase {
     // ---- Pinned blocks ----
-    /// @dev Aug 2 2024. Mountain's Curve pool live, USDM APY ≈ 4.7%.
+    /// @dev Aug 2 2024. Mountain's Curve pool live, USDM APY ~= 4.7%.
     uint256 internal constant START_BLOCK = 20_500_000;
     /// @dev Aug 9 2024, ~7 days later. Captures one week of rebase.
     uint256 internal constant END_BLOCK = 20_550_000;
@@ -111,7 +111,7 @@ contract F17_01_USDMCurveRebase is StrategyBase {
         // ---- Re-fork to END_BLOCK to materialize the rebase ----
         // We carry over only the *shares* concept by simulating a holder:
         // re-fund at END_BLOCK using `deal` is not viable (rebase token), so
-        // we use a different approach — measure the rebase rate via the
+        // we use a different approach - measure the rebase rate via the
         // multiplier difference at the new fork, then compute the implied
         // end balance for the same sharesStart.
         _fork(END_BLOCK);
@@ -139,10 +139,10 @@ contract F17_01_USDMCurveRebase is StrategyBase {
         // 7 days at ~4.7% APY -> ~9 bps. Allow 3-25 bps band to account for
         // block-window drift and any partial-week rebase pacing.
         assertGt(rebaseDeltaBps, 3, "rebase too small (less than 0.03%)");
-        assertLt(rebaseDeltaBps, 25, "rebase too large (>0.25%) — re-check window");
+        assertLt(rebaseDeltaBps, 25, "rebase too large (>0.25%) - re-check window");
 
         // ---- Quote the exit swap at END_BLOCK (analytical, no actual swap) ----
-        // We do NOT attempt to deal-USDM into address(this) and swap — USDM is
+        // We do NOT attempt to deal-USDM into address(this) and swap - USDM is
         // an allow-listed rebasing token where `deal` would corrupt the
         // shares/multiplier accounting and transfer-from a non-whitelisted
         // address would revert. The honest carry-only measurement is the
@@ -166,6 +166,6 @@ contract F17_01_USDMCurveRebase is StrategyBase {
         // Post-condition (analytical): exit quote >= 99.5% of seed crvUSD.
         // On a well-behaved pool with a positive 7-day rebase, we expect this
         // to clear and ideally exceed 100% (net positive carry).
-        assertGt(exitQuote, SEED_CRVUSD * 995 / 1000, "net implied loss >0.5% — rebase insufficient or pool too thin");
+        assertGt(exitQuote, SEED_CRVUSD * 995 / 1000, "net implied loss >0.5% - rebase insufficient or pool too thin");
     }
 }

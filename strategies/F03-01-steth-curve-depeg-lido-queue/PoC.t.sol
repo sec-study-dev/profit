@@ -21,7 +21,7 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 ///            the *flash-loan repayment* itself is a wash on PnL.
 ///            (The actual profit is the stETH > flashed-WETH delta.)
 contract F03_01_StETHDepegTest is StrategyBase, IFlashLoanRecipientBalancer {
-    /// @dev July 4 2023 — post-Shanghai, mild stETH discount on Curve.
+    /// @dev July 4 2023 - post-Shanghai, mild stETH discount on Curve.
     uint256 constant FORK_BLOCK = 17_560_000;
 
     /// @dev Curve stETH/ETH pool: coins[0] = ETH (native sentinel), coins[1] = stETH.
@@ -29,7 +29,7 @@ contract F03_01_StETHDepegTest is StrategyBase, IFlashLoanRecipientBalancer {
 
     uint256 constant FLASH_NOTIONAL = 1_000 ether;
 
-    /// @dev Repayment buffer — funded via `deal` to make flash repay non-blocking
+    /// @dev Repayment buffer - funded via `deal` to make flash repay non-blocking
     ///      when stETH cannot be atomically sold back to ETH for the same notional.
     ///      The PoC then *retains* the bought stETH so the PnL line shows the
     ///      stETH-vs-WETH delta priced 1:1 (i.e. theoretical Lido-queue payoff).

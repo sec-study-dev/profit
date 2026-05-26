@@ -25,24 +25,24 @@ interface ISYRewards {
     function claimRewards(address user) external returns (uint256[] memory);
 }
 
-/// @title F07-09 — YT-pufETH point speculation + PT in Symbiotic vault (3-mech)
+/// @title F07-09 - YT-pufETH point speculation + PT in Symbiotic vault (3-mech)
 ///
 /// @notice 3-mechanism stack:
-///         1. Puffer pufETH — restaked-ETH LRT issuing Puffer points + EigenLayer
+///         1. Puffer pufETH - restaked-ETH LRT issuing Puffer points + EigenLayer
 ///            points on the underlying stETH-validated NoOps.
-///         2. Pendle PT/YT-pufETH split — YT carries the *entire* pufETH yield
+///         2. Pendle PT/YT-pufETH split - YT carries the *entire* pufETH yield
 ///            stream (Puffer + EigenLayer points + native staking) until expiry
-///            and is purchased for ~3-5% of pufETH price (≈30-50x point leverage
+///            and is purchased for ~3-5% of pufETH price (~=30-50x point leverage
 ///            per dollar at trade time).
-///         3. Symbiotic pufETH vault — accepts pufETH/PT-pufETH as collateral
+///         3. Symbiotic pufETH vault - accepts pufETH/PT-pufETH as collateral
 ///            for opt-in shared security, accruing Symbiotic points on top.
-///            By splitting equity in 2 — buying YT for points-on-Pendle, and
-///            depositing the PT-half (after SY → PT split) into Symbiotic for
-///            shared-security points — the strategy stacks three independent
+///            By splitting equity in 2 - buying YT for points-on-Pendle, and
+///            depositing the PT-half (after SY -> PT split) into Symbiotic for
+///            shared-security points - the strategy stacks three independent
 ///            point streams from a single equity unit.
 ///
 ///         Strategy: split equity 70/30. With 70%: buy YT-pufETH on Pendle
-///         (max point exposure). With 30%: mint SY, split SY → PT + YT via
+///         (max point exposure). With 30%: mint SY, split SY -> PT + YT via
 ///         `mintPyFromToken`, keep the PT, deposit it into the Symbiotic pufETH
 ///         vault for restake-on-restake points. Aggregate exposure: Pendle YT
 ///         points + Pendle PT residual + Symbiotic vault points.
@@ -53,7 +53,7 @@ contract F07_09_YtPufethSymbioticStackTest is StrategyBase {
     uint256 constant FORK_BLOCK = 20_650_000;
 
     // ---- Pendle market (PT/YT/SY-pufETH-26DEC2024) ----
-    /// @dev Pendle Market for PT/YT/SY-pufETH — maturity 26-DEC-2024.
+    /// @dev Pendle Market for PT/YT/SY-pufETH - maturity 26-DEC-2024.
     ///      Source: Pendle markets registry (pufETH Dec-26-2024).
     address constant LOCAL_MARKET = 0x58612beB0e8a126735b19BB222cbC7fC2C162D2a;
 
@@ -96,7 +96,7 @@ contract F07_09_YtPufethSymbioticStackTest is StrategyBase {
         uint256 ytOut = _swapWethForYt(ytLeg, 0);
         emit log_named_uint("yt_received_1e18", ytOut);
 
-        // ---- 2. PT leg: mintPyFromToken splits SY → PT + YT 1:1; keep the PT.
+        // ---- 2. PT leg: mintPyFromToken splits SY -> PT + YT 1:1; keep the PT.
         //          The freshly-minted YT is also held (it's the same YT token,
         //          adding to the YT stack), and the PT goes into Symbiotic.
         uint256 pyOut = _mintPyFromWeth(ptLeg);
@@ -104,7 +104,7 @@ contract F07_09_YtPufethSymbioticStackTest is StrategyBase {
         // After this, balance increments: +pyOut PT, +pyOut YT.
 
         // ---- 3. Symbiotic deposit: pufETH-vault accepts PT-pufETH as collateral
-        //          (this is the 3rd mechanism — restake-on-restake points).
+        //          (this is the 3rd mechanism - restake-on-restake points).
         IERC20(_pt).approve(SYMBIOTIC_PUFETH_VAULT, type(uint256).max);
         try ISymbioticVault(SYMBIOTIC_PUFETH_VAULT).deposit(address(this), pyOut) returns (
             uint256 depositedAmount, uint256 mintedShares
@@ -178,10 +178,10 @@ contract F07_09_YtPufethSymbioticStackTest is StrategyBase {
     }
 
     function _fallbackSymbioticDeposit(uint256 ptAmount) internal {
-        // PT not accepted directly. Convert PT → SY → pufETH (requires either
+        // PT not accepted directly. Convert PT -> SY -> pufETH (requires either
         // expiry or paired YT). At fork block we have matching YT amount, so
-        // we can use YT.redeemPY to convert PT+YT 1:1 → SY immediately, then
-        // SY.redeem → pufETH, then deposit pufETH to the Symbiotic vault.
+        // we can use YT.redeemPY to convert PT+YT 1:1 -> SY immediately, then
+        // SY.redeem -> pufETH, then deposit pufETH to the Symbiotic vault.
         IERC20(_pt).transfer(_yt, ptAmount);
         uint256 syOut = IPYieldToken(_yt).redeemPY(address(this));
 

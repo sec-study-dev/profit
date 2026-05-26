@@ -11,14 +11,14 @@ import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {IMorphoFlashLoanCallback} from "src/interfaces/common/IFlashLoanReceiver.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// Minimal Karak v0 Vault interface — ERC-4626-like with whitelist gating.
+/// Minimal Karak v0 Vault interface - ERC-4626-like with whitelist gating.
 interface IKarakVault {
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
     function asset() external view returns (address);
     function totalAssets() external view returns (uint256);
 }
 
-/// @notice F02-05 — rsETH triple-points stack via Karak + Pendle YT + Morpho flashloan.
+/// @notice F02-05 - rsETH triple-points stack via Karak + Pendle YT + Morpho flashloan.
 ///
 /// Combines THREE distinct mechanisms on rsETH notional:
 ///   1. Kelp DAO Miles + EigenLayer rs-pts (held on raw rsETH).
@@ -27,18 +27,18 @@ interface IKarakVault {
 ///
 /// Two execution paths are implemented; both use Morpho's free flashloan as the
 /// transient capital source:
-///   - Bulk leg: flashloan WETH → mint rsETH (Kelp) → Karak-stake the bulk
-///     → unwind via PT-rsETH (sell SY-position via Pendle Router) → repay flash.
+///   - Bulk leg: flashloan WETH -> mint rsETH (Kelp) -> Karak-stake the bulk
+///     -> unwind via PT-rsETH (sell SY-position via Pendle Router) -> repay flash.
 ///   - Spike leg: spend a small slice of post-equity WETH on YT-rsETH directly
 ///     via `swapExactTokenForYt` for the points-leverage tranche.
 contract F02_05_RsethKarakPendleYtMorphoTest is StrategyBase, IMorphoFlashLoanCallback {
     // ---- Pinned constants ----
 
-    /// @dev Block 19,750,000 — mid-Apr 2024. Karak live; Pendle rsETH-27JUN24
+    /// @dev Block 19,750,000 - mid-Apr 2024. Karak live; Pendle rsETH-27JUN24
     /// market active; Kelp deposit pool open.
     uint256 constant FORK_BLOCK = 19_750_000;
 
-    /// @dev Kelp DAO LRTDepositPool — ETH/asset → rsETH minting.
+    /// @dev Kelp DAO LRTDepositPool - ETH/asset -> rsETH minting.
     /// Verified: https://etherscan.io/address/0x036676389e48133b63a802f8635ad39e752d375d
     address constant LOCAL_KELP_DEPOSIT_POOL = 0x036676389e48133B63a802f8635AD39E752D375D;
 
@@ -46,7 +46,7 @@ contract F02_05_RsethKarakPendleYtMorphoTest is StrategyBase, IMorphoFlashLoanCa
     /// https://etherscan.io/address/0x54e44dbb92dba848ace27f44c0cb4268981ef1cc
     address constant LOCAL_KARAK_VAULT_SUPERVISOR = 0x54e44dbB92dBA848ACe27F44c0CB4268981eF1CC;
 
-    /// @dev Karak rsETH vault — deployed by VaultSupervisor for Kelp rsETH.
+    /// @dev Karak rsETH vault - deployed by VaultSupervisor for Kelp rsETH.
     /// Reachable from app.karak.network/pool/ethereum/rsETH. The Karak v0 per-
     /// asset vault is a beacon-proxy created by `VaultSupervisor.deployVault()`;
     /// at FORK_BLOCK 19,750,000 it exists for rsETH but its address is not
@@ -59,7 +59,7 @@ contract F02_05_RsethKarakPendleYtMorphoTest is StrategyBase, IMorphoFlashLoanCa
     /// @dev Pendle market token (LP) for PT-rsETH-27JUN24 / SY-rsETH.
     /// https://etherscan.io/address/0x4f43c77872db6ba177c270986cd30c3381af37ee
     address constant LOCAL_PENDLE_RSETH_MARKET_27JUN24 = 0x4f43C77872Db6BA177c270986CD30c3381AF37EE;
-    /// @dev YT-rsETH-27JUN2024 — https://etherscan.io/token/0x0ed3a1d45dfdcf85bcc6c7bafdc0170a357b974c
+    /// @dev YT-rsETH-27JUN2024 - https://etherscan.io/token/0x0ed3a1d45dfdcf85bcc6c7bafdc0170a357b974c
     address constant LOCAL_PENDLE_YT_RSETH_27JUN24 = 0x0eD3A1D45dfdcF85BcC6c7BAFDc0170A357B974C;
 
     uint256 constant EQUITY = 100 ether;
@@ -165,9 +165,9 @@ contract F02_05_RsethKarakPendleYtMorphoTest is StrategyBase, IMorphoFlashLoanCa
             revert("PT sale failed; cannot repay flash");
         }
 
-        // ---- 3. Also Karak-stake the YT-side? No — YT is an ERC20 but Karak
+        // ---- 3. Also Karak-stake the YT-side? No - YT is an ERC20 but Karak
         // accepts rsETH only. We hold the YT directly (extra point exposure).
-        // If any residual raw rsETH is on hand (shouldn't be — all went into PT/YT),
+        // If any residual raw rsETH is on hand (shouldn't be - all went into PT/YT),
         // deposit it to Karak.
         uint256 rsethRes = IERC20(Mainnet.RSETH).balanceOf(address(this));
         if (rsethRes > 0) {
@@ -229,7 +229,7 @@ contract F02_05_RsethKarakPendleYtMorphoTest is StrategyBase, IMorphoFlashLoanCa
         (bool ok, bytes memory ret) = yt.staticcall(abi.encodeWithSignature("PT()"));
         if (ok && ret.length >= 32) return abi.decode(ret, (address));
         // Fallback: empirically resolved PT-rsETH-27JUN2024 (must verify on-fork).
-        // The Pendle YT contract always exposes `PT()` — the static call above
+        // The Pendle YT contract always exposes `PT()` - the static call above
         // should not fail in practice; this fallback is for defensive parsing only.
         // If used, the caller is responsible for verifying via Pendle SDK / Etherscan
         // event logs (look for `MarketCreated` from MarketFactoryV3 0x1A6fCc85...).

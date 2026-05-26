@@ -38,7 +38,7 @@ contract F12_04_PoC is StrategyBase {
     address constant VECRV = 0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2;
     // GaugeController (same as Mainnet.CURVE_GAUGE_CONTROLLER).
     address constant GAUGE_CONTROLLER = 0x2F50D538606Fa9EDD2B11E2446BEb18C9D5846bB;
-    // Target gauge: frxETH/ETH (low TVL relative to stETH/3pool — vote moves it).
+    // Target gauge: frxETH/ETH (low TVL relative to stETH/3pool - vote moves it).
     address constant FRXETH_GAUGE = 0x0Cad1700FaA86B33b5f8094B2cE94D4Cfd14Cd2c;
 
     uint256 constant FORK_BLOCK = 19_643_500;

@@ -7,7 +7,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IUniswapV3Pool} from "src/interfaces/amm/IUniswapV3Pool.sol";
 import {IUniswapV3Router} from "src/interfaces/amm/IUniswapV3Router.sol";
 
-/// @dev Local UniV3 pool LP subset (mint/burn/collect) — same as F13-04.
+/// @dev Local UniV3 pool LP subset (mint/burn/collect) - same as F13-04.
 interface IUniswapV3PoolLP {
     function mint(
         address recipient,
@@ -69,7 +69,7 @@ contract F13_05_UniV3WstETHJITLPBackrunTest is StrategyBase, IUniswapV3MintCallb
     ///      crossing for a normally-loaded pool.
     uint256 constant VICTIM_SWAP_WETH = 50 ether;
 
-    /// @dev Target JIT liquidity. Sized to dominate a ±1 tick band.
+    /// @dev Target JIT liquidity. Sized to dominate a +/-1 tick band.
     ///      Roughly 5x typical resting liquidity at this pool's tightest tick.
     uint128 constant JIT_LIQUIDITY = 5e22;
 

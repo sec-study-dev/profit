@@ -15,7 +15,7 @@ import {ICurveStableSwap, ICurveCryptoSwap} from "src/interfaces/amm/ICurvePool.
 ///         compounding leg* that F12-01 explicitly omitted:
 ///           a) Claim base + extras from Convex (CRV + CVX + FXS).
 ///           b) Sell the claimed FXS into cvxFXS via the Curve FXS/cvxFXS
-///              pool — capturing the cvxFXS discount (cvxFXS typically
+///              pool - capturing the cvxFXS discount (cvxFXS typically
 ///              trades 1-5% below FXS because of the irreversible lock
 ///              into Frax's veFXS proxy).
 ///           c) Hold the cvxFXS (or, in a production system, deposit it
@@ -64,7 +64,7 @@ contract F12_07_PoC is StrategyBase {
         require(pi.crvRewards == CVX_FRXETH_REWARDS, "PID 128 rewards mismatch");
 
         // Sanity: Curve cvxFXS/FXS pool coins are (FXS, cvxFXS).
-        // This is a Curve V2 crypto factory pool — uint256 indices via
+        // This is a Curve V2 crypto factory pool - uint256 indices via
         // `ICurveCryptoSwap`. The `coins(uint256)` getter in both Stable
         // and Crypto interfaces accepts a uint256 by ABI; we read via the
         // crypto interface for clarity.

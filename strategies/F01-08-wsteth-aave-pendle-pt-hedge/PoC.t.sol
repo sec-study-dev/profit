@@ -15,7 +15,7 @@ import {IPPrincipalToken} from "src/interfaces/pendle/IPPrincipalToken.sol";
 /// @notice THREE distinct DeFi mechanisms in one risk-adjusted position:
 ///   (1) Lido wstETH LST (collateral & PT underlying)
 ///   (2) Aave v3 ETH-correlated eMode (variable-rate leverage)
-///   (3) Pendle PT-wstETH (fixed-rate decoupling — hedges Aave-utilisation risk)
+///   (3) Pendle PT-wstETH (fixed-rate decoupling - hedges Aave-utilisation risk)
 ///
 /// The Aave loop draws variable-rate WETH debt; the PT leg locks a fixed
 /// implied yield. Aggregate PnL = loop_carry + PT_appreciation, with the PT
@@ -24,9 +24,9 @@ contract F01_08_WstethAavePendlePtHedgeTest is StrategyBase {
     // Aligned with F01-02 for cross-comparability.
     uint256 constant FORK_BLOCK = 21_400_000;
 
-    // PT-wstETH-26JUN2025 market — VERIFY at fork via
+    // PT-wstETH-26JUN2025 market - VERIFY at fork via
     // `IPendleMarket(LOCAL_PENDLE_PT_WSTETH_MARKET).readTokens()` and confirm
-    // the SY underlying is wstETH and `expiry()` ≈ 2025-06-26.
+    // the SY underlying is wstETH and `expiry()` ~= 2025-06-26.
     // Sourced from app.pendle.finance/trade/markets at the time of writing;
     // exact address must be re-verified at FORK_BLOCK because Pendle markets
     // are tenor-rolled.
@@ -37,12 +37,12 @@ contract F01_08_WstethAavePendlePtHedgeTest is StrategyBase {
     uint8 constant EMODE_ETH_CORRELATED = 1;
     uint256 constant RATE_MODE_VARIABLE = 2;
 
-    // Loop sizing — 80% of principal in the Aave loop, 20% allocated to PT.
+    // Loop sizing - 80% of principal in the Aave loop, 20% allocated to PT.
     uint256 constant LOOP_ALLOCATION_BPS = 8000;
     uint256 constant LOOP_LTV_BPS = 9000;
     uint256 constant LOOPS = 5;
 
-    // PT implied APY at purchase — pinned-block expectation; the PoC uses this
+    // PT implied APY at purchase - pinned-block expectation; the PoC uses this
     // to *simulate* PT appreciation over the 30-day horizon (real execution
     // would replace this with `swapExactTokenForPt` calldata from the Pendle
     // SDK).
@@ -67,7 +67,7 @@ contract F01_08_WstethAavePendlePtHedgeTest is StrategyBase {
         // ---- Pendle market discovery & PT identification ----
         // Verify the market resolves to (SY, PT, YT). Pendle markets are
         // tenor-rolled so the address constant may not exist at every fork
-        // block — in that case we gracefully degrade to "loop-only" mode and
+        // block - in that case we gracefully degrade to "loop-only" mode and
         // log the gap. (Wave-5: enumerate from PMarketFactory at fork.)
         (address ptToken, bool ptResolved) = _resolvePtToken();
         if (ptResolved) {
@@ -82,7 +82,7 @@ contract F01_08_WstethAavePendlePtHedgeTest is StrategyBase {
                 IPPrincipalToken(ptToken).isExpired() ? 1 : 0
             );
         } else {
-            emit log("pendle market unresolved at fork — PT leg disabled");
+            emit log("pendle market unresolved at fork - PT leg disabled");
         }
 
         // ---- (A) Aave eMode loop with loopPrincipal ----
@@ -97,16 +97,16 @@ contract F01_08_WstethAavePendlePtHedgeTest is StrategyBase {
         // without depending on Pendle SDK calldata.
         //
         // PT amount at implied APY r and tenor T years: pt_amt = wsteth_value /
-        // discount where discount = 1 / (1+r)^T. We assume T ≈ 180/365.
+        // discount where discount = 1 / (1+r)^T. We assume T ~= 180/365.
         uint256 wstFromPt = _wethToWstEthLocal(ptPrincipal);
         if (ptResolved) {
             // PT face = wstFromPt (at expiry it redeems for 1 wstETH-equiv).
-            // Implied PT discount over 180 days: ≈ wstFromPt * (1 - 0.04 *
-            // 180/365) ≈ 98% of face. The PoC credits the user with `face` PT
+            // Implied PT discount over 180 days: ~= wstFromPt * (1 - 0.04 *
+            // 180/365) ~= 98% of face. The PoC credits the user with `face` PT
             // (i.e. the PT count) acquired at this discount; the discount drag
             // is captured by burning the wstETH that "paid for" the PT.
             try this._dealPt(ptToken, wstFromPt) {} catch {
-                emit log("deal() against PT token failed — PT leg degraded");
+                emit log("deal() against PT token failed - PT leg degraded");
             }
             // Burn the wstETH that funded the PT purchase (consumed by the
             // simulated Pendle swap).
@@ -115,7 +115,7 @@ contract F01_08_WstethAavePendlePtHedgeTest is StrategyBase {
                 IERC20(Mainnet.WSTETH).transfer(address(0xdEaD), wstHere);
             }
         } else {
-            // PT leg disabled — re-supply the would-be PT wstETH into the
+            // PT leg disabled - re-supply the would-be PT wstETH into the
             // Aave loop so the PoC still reflects a continuous principal.
             IERC20(Mainnet.WSTETH).approve(Mainnet.AAVE_V3_POOL, type(uint256).max);
             IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.WSTETH, wstFromPt, address(this), 0);
@@ -129,7 +129,7 @@ contract F01_08_WstethAavePendlePtHedgeTest is StrategyBase {
         deal(Mainnet.WSTETH, address(this), 1);
         IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.WSTETH, 1, address(this), 0);
 
-        // Simulate PT mark-up over 30 days at PT_IMPLIED_APY_BPS — credit
+        // Simulate PT mark-up over 30 days at PT_IMPLIED_APY_BPS - credit
         // additional PT shares to address(this) corresponding to 30/365 of
         // the implied yield on the PT notional. This is the *PnL-relevant*
         // crystallisation of the PT leg.

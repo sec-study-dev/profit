@@ -9,12 +9,12 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
 /// @title F10-07 GHO mint + Curve GHO/USDe LP + Aave USDe borrow short (3-mechanism)
 /// @notice Three-mechanism composition for a USDe-hedged GHO carry:
-///         1) Aave V3 — GHO facilitator borrow (long GHO).
-///         2) Curve GHO/USDe pool — LP for fee + CRV yield.
-///         3) Aave V3 — USDe borrow against the *same* USDC collateral
+///         1) Aave V3 - GHO facilitator borrow (long GHO).
+///         2) Curve GHO/USDe pool - LP for fee + CRV yield.
+///         3) Aave V3 - USDe borrow against the *same* USDC collateral
 ///            (short USDe), used to hedge the USDe leg of the LP.
 ///
-///         All Curve pool addresses are wrapped in try/catch — at the pinned
+///         All Curve pool addresses are wrapped in try/catch - at the pinned
 ///         block the GHO/USDe pool may be the factory NG-stableswap
 ///         deployment whose address has historically shifted. The PoC reads
 ///         the pool's `coins(0)` / `coins(1)` to identify the canonical
@@ -107,7 +107,7 @@ contract F10_07_GhoUsdeCurveAave3Mech is StrategyBase {
         uint256 ghoForLp = ghoBal / 2;
         uint256 usdeForLp = IERC20(Mainnet.USDE).balanceOf(address(this));
 
-        // Inspect pool coin ordering — at this block coins(0) should be USDe
+        // Inspect pool coin ordering - at this block coins(0) should be USDe
         // or GHO depending on factory-deployment convention.
         bool lpOk = false;
         uint256 lpMinted = 0;
@@ -168,7 +168,7 @@ contract F10_07_GhoUsdeCurveAave3Mech is StrategyBase {
         );
         emit log_named_uint("aave_health_factor_e18", hf);
 
-        // Report LP virtual_price drift — surfaces fee accrual.
+        // Report LP virtual_price drift - surfaces fee accrual.
         try ICurveStableSwap(CURVE_GHO_USDE_POOL).get_virtual_price() returns (uint256 vp) {
             emit log_named_uint("curve_pool_virtual_price_post_warp", vp);
         } catch {

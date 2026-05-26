@@ -9,7 +9,7 @@ import {IEigenStrategyManager, IEigenStrategy} from "src/interfaces/restake/IEig
 import {IEigenDelegationManager} from "src/interfaces/restake/IEigenDelegationManager.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F15-05 — EigenLayer operator-delegation alpha: deposit stETH into
+/// @notice F15-05 - EigenLayer operator-delegation alpha: deposit stETH into
 ///         the EL stETH strategy AND delegate the resulting shares to a
 ///         multi-AVS operator (P2P.org's well-known operator address). The
 ///         operator runs EigenDA + a second AVS (e.g. AltLayer MACH or Witness
@@ -30,20 +30,20 @@ contract F15_05_EigenOperatorMultiAvsDelegationTest is StrategyBase {
     /// @dev EigenLayer stETH strategy proxy (same as F15-01..04).
     address constant STETH_STRATEGY = 0x93c4b944D05dfe6df7645A86cd2206016c51564D;
 
-    /// @dev P2P.org operator address — registered EigenLayer operator since
+    /// @dev P2P.org operator address - registered EigenLayer operator since
     ///      EL mainnet launch (April 2023). Runs multiple AVSs (EigenDA +
     ///      others); the operator's metadata is published on the EL operator
     ///      registry. This is one of the largest operators by delegated stake
     ///      at the pinned block. If `isOperator(...)` returns false at the
     ///      pinned block, the PoC falls back to a self-delegated path
-    ///      (delegate to address(this) — only legal if address(this) is itself
+    ///      (delegate to address(this) - only legal if address(this) is itself
     ///      registered, otherwise the call reverts and the PoC logs).
     ///
     ///      Cross-reference: EigenLayer operator registry
     ///      (https://app.eigenlayer.xyz/operator) at block ~20,200,000.
     address constant P2P_OPERATOR = 0xDbEd88D83176316fc46797B43aDeE927Dc2ff2F5;
 
-    /// @dev Late-Jul 2024 — multi-AVS rewards live, cap windows open.
+    /// @dev Late-Jul 2024 - multi-AVS rewards live, cap windows open.
     uint256 constant FORK_BLOCK = 20_300_000;
 
     uint256 constant EQUITY_STETH = 50 ether;

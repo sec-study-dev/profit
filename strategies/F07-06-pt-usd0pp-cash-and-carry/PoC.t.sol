@@ -9,9 +9,9 @@ import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IPYieldToken} from "src/interfaces/pendle/IPYieldToken.sol";
 import {IPPrincipalToken} from "src/interfaces/pendle/IPPrincipalToken.sol";
 
-/// @title F07-06 — PT-USD0++ cash-and-carry (Usual + Pendle)
+/// @title F07-06 - PT-USD0++ cash-and-carry (Usual + Pendle)
 ///
-/// @notice Usual's USD0++ is the "enhanced" version of USD0 — a 4-year locked,
+/// @notice Usual's USD0++ is the "enhanced" version of USD0 - a 4-year locked,
 ///         tokenized RWA-collateralized stablecoin that streams USUAL governance
 ///         token emissions to holders. Pendle splits USD0++ into PT/YT: PT
 ///         redeems for 1 USD0++ at maturity, currently trading at a steep
@@ -19,7 +19,7 @@ import {IPPrincipalToken} from "src/interfaces/pendle/IPPrincipalToken.sol";
 ///         which is essentially a forward on the price of USUAL.
 ///
 ///         Strategy: buy PT-USD0++ at discount with USDC, hold to maturity,
-///         redeem for USD0++, swap USD0++ → USD0 (via Usual peg) → USDC.
+///         redeem for USD0++, swap USD0++ -> USD0 (via Usual peg) -> USDC.
 ///         Risk-free in USD0 terms; risk in USDC terms is the USD0++/USD0
 ///         secondary-market peg.
 contract F07_06_PtUsd0ppCashAndCarryTest is StrategyBase {
@@ -29,7 +29,7 @@ contract F07_06_PtUsd0ppCashAndCarryTest is StrategyBase {
     uint256 constant FORK_BLOCK = 20_950_000;
 
     // ---- Pendle market (PT/YT/SY-USD0++-26JUN2025) ----
-    /// @dev Pendle Market for PT/YT/SY-USD0++ — maturity 26-JUN-2025.
+    /// @dev Pendle Market for PT/YT/SY-USD0++ - maturity 26-JUN-2025.
     ///      Source: Pendle markets registry (USD0++ Jun-26-2025).
     address constant LOCAL_MARKET = 0xaFDC922d0059147486cC1F0f32e3A2354b0d35CC;
 
@@ -76,7 +76,7 @@ contract F07_06_PtUsd0ppCashAndCarryTest is StrategyBase {
         vm.roll(block.number + ((_expiry - block.timestamp + 1 hours) / 12 + 1));
         assertTrue(IPPrincipalToken(_pt).isExpired(), "PT should be expired");
 
-        // ---- 3. Redeem PT 1:1 for SY → USD0++ → USDC ----
+        // ---- 3. Redeem PT 1:1 for SY -> USD0++ -> USDC ----
         IERC20(_pt).approve(Mainnet.PENDLE_ROUTER_V4, ptOut);
 
         // Attempt direct redemption via router. Some SY-USD0++ implementations
@@ -135,7 +135,7 @@ contract F07_06_PtUsd0ppCashAndCarryTest is StrategyBase {
     }
 
     function _fallbackRedeemToUsd0pp(uint256 ptAmount) internal {
-        // Manual unwind: PT → SY → USD0++ (no USDC tokenOut path supported).
+        // Manual unwind: PT -> SY -> USD0++ (no USDC tokenOut path supported).
         IERC20(_pt).transfer(_yt, ptAmount);
         uint256 syOut = IPYieldToken(_yt).redeemPY(address(this));
         emit log_named_uint("sy_received_1e18", syOut);

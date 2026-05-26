@@ -64,7 +64,7 @@ contract F04_02_SDaiSparkLoop is StrategyBase {
             // availableBorrowsBase is in 8-decimal USD; convert to 18-decimal DAI
             // assuming DAI = $1 (Spark price oracle returns ~1e8 for DAI).
             // availBorrowsBase is USD-e8; SAFE_FRAC is 0.85e18.
-            // borrowDai (1e18) = availE8 * 0.85e18 / 1e8 — i.e. 85% of headroom in DAI.
+            // borrowDai (1e18) = availE8 * 0.85e18 / 1e8 - i.e. 85% of headroom in DAI.
             uint256 borrowDai = (availBorrowsBase * SAFE_FRAC) / 1e8;
             if (borrowDai == 0) break;
 

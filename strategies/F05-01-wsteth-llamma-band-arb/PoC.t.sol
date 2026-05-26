@@ -29,7 +29,7 @@ contract F05_01_PoC is StrategyBase, IFlashLoanRecipientBalancer {
 
     // Uni v3 routers / pools
     address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    uint24 constant UNIV3_FEE_USDC_WETH = 500; // 0.05% — deepest pool
+    uint24 constant UNIV3_FEE_USDC_WETH = 500; // 0.05% - deepest pool
 
     // Balancer V2 Vault for flashloan
     address constant BAL_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
@@ -66,7 +66,7 @@ contract F05_01_PoC is StrategyBase, IFlashLoanRecipientBalancer {
         _endPnL("F05-01-wsteth-llamma-band-arb");
     }
 
-    /// @dev Balancer callback — implements the round trip.
+    /// @dev Balancer callback - implements the round trip.
     function receiveFlashLoan(
         address[] memory tokens,
         uint256[] memory amounts,

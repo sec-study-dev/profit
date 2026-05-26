@@ -32,7 +32,7 @@ interface ITroveManagerV1 {
 }
 
 /// @dev Liquity v1 HintHelpers (off-chain hint computation). Hints are advisory
-///      — passing all-zero hints simply forces the on-chain code to walk the
+///      - passing all-zero hints simply forces the on-chain code to walk the
 ///      sorted list with `_maxIterations` cap, which on a fork is acceptable.
 interface IHintHelpers {
     function getRedemptionHints(
@@ -64,7 +64,7 @@ interface ICurveMeta {
     function coins(uint256 i) external view returns (address);
 }
 
-/// @title F06-01 — LUSD redemption arbitrage using Maker DSS flashmint
+/// @title F06-01 - LUSD redemption arbitrage using Maker DSS flashmint
 /// @notice When LUSD trades below $1 on Curve, flashmint DAI, buy cheap LUSD,
 ///         redeem 1:1 against the Liquity v1 TroveManager for ETH, swap ETH
 ///         back to DAI, repay flashmint. Profit = (1/p_curve - (1-R)) * notional
@@ -84,11 +84,11 @@ contract F06_01_LusdRedemptionArbFlashmintTest is StrategyBase, IERC3156FlashBor
 
     // ---- Tunables ----
 
-    /// @dev Pinned block — LUSD ~99 cents on Curve, baseRate near floor.
+    /// @dev Pinned block - LUSD ~99 cents on Curve, baseRate near floor.
     /// TODO verify: 14_400_000 is around mid-March 2022 (post-LFG/Anchor wobble).
     uint256 constant FORK_BLOCK = 14_400_000;
 
-    /// @dev DAI flashmint size — keep modest so Curve sandwich isn't required.
+    /// @dev DAI flashmint size - keep modest so Curve sandwich isn't required.
     uint256 constant FLASH_DAI = 5_000_000e18;
 
     /// @dev Max acceptable Liquity redemption fee percentage (1e18 = 100%).
@@ -120,7 +120,7 @@ contract F06_01_LusdRedemptionArbFlashmintTest is StrategyBase, IERC3156FlashBor
 
         // Sanity: confirm DSS Flash is open and zero-fee at this block.
         uint256 fee = IDssFlash(Mainnet.DSS_FLASH).flashFee(Mainnet.DAI, FLASH_DAI);
-        require(fee == 0, "DSS toll bumped — re-evaluate");
+        require(fee == 0, "DSS toll bumped - re-evaluate");
         require(IDssFlash(Mainnet.DSS_FLASH).maxFlashLoan(Mainnet.DAI) >= FLASH_DAI, "flash cap");
 
         // Snapshot Liquity redemption rate for the PnL preview.
@@ -169,7 +169,7 @@ contract F06_01_LusdRedemptionArbFlashmintTest is StrategyBase, IERC3156FlashBor
         IERC20(Mainnet.DAI).approve(CURVE_LUSD_3POOL, amount);
         // underlying index: 0 LUSD, 1 DAI, 2 USDC, 3 USDT
         uint256 lusdOut = ICurveMeta(CURVE_LUSD_3POOL).exchange_underlying(
-            1, 0, amount, 0 /* PoC: no min — production must set */
+            1, 0, amount, 0 /* PoC: no min - production must set */
         );
         require(lusdOut > 0, "curve buy");
 

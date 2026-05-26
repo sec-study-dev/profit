@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice EtherFi liquidity pool — accepts ETH, mints eETH 1:1 (rebasing).
+/// @notice EtherFi liquidity pool - accepts ETH, mints eETH 1:1 (rebasing).
 interface IEtherFiLiquidityPool {
     function deposit() external payable returns (uint256);
     function deposit(address referral) external payable returns (uint256);

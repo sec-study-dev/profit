@@ -57,7 +57,7 @@ contract F14_03_SynthTriangular is StrategyBase {
         _trackToken(Mainnet.SUSD);
         // sBTC and sETH have no entry in PriceOracle (sBTC isn't in
         // Mainnet.sol; sETH isn't priced). Their starting and ending balances
-        // are both zero, so they contribute 0 to PnL — that's correct.
+        // are both zero, so they contribute 0 to PnL - that's correct.
     }
 
     function test_synthTriangular() public {

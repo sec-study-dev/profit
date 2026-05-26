@@ -11,19 +11,19 @@ import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 
 /// @title F17-07 syrupUSDC carry on Morpho with Pendle PT hedge (3-mech)
 /// @notice Composes:
-///         1. MAPLE — syrupUSDC ERC4626 share over Maple v2 institutional
+///         1. MAPLE - syrupUSDC ERC4626 share over Maple v2 institutional
 ///            lending pool (~11% APY mid-2024).
-///         2. MORPHO BLUE — supplies syrupUSDC as collateral in a Maple-Morpho
+///         2. MORPHO BLUE - supplies syrupUSDC as collateral in a Maple-Morpho
 ///            curated market (`syrupUSDC/USDC`, if a curator has spun up such a
 ///            market at FORK_BLOCK), borrows USDC at the variable rate.
-///         3. PENDLE — hedges the variable-rate exposure on Maple's lending APY
+///         3. PENDLE - hedges the variable-rate exposure on Maple's lending APY
 ///            by *selling* the borrowed USDC into a PT-syrupUSDC position. PT
 ///            locks in the implied fixed APY; when Maple's variable APY drops
 ///            below PT-implied APY, the PT side outperforms.
 ///
 ///         End state: a long-syrupUSDC variable carry + short-USDC borrow +
 ///         long-PT-syrupUSDC fixed carry. Net exposure is approximately
-///         L·r_variable - (L-1)·r_borrow + r_fixed_PT, with the PT acting as a
+///         L.r_variable - (L-1).r_borrow + r_fixed_PT, with the PT acting as a
 ///         partial duration hedge.
 contract F17_07_SyrupMorphoPendleHedge is StrategyBase {
     // ---- Pinned block ----

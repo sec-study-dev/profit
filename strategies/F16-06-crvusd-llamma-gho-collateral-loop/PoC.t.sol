@@ -8,7 +8,7 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {ICrvUSDController} from "src/interfaces/cdp/ICrvUSDController.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 
-/// @title F16-06 — crvUSD LLAMMA borrow → swap to GHO → Aave V3 GHO-collateral USDC borrow
+/// @title F16-06 - crvUSD LLAMMA borrow -> swap to GHO -> Aave V3 GHO-collateral USDC borrow
 /// @notice 3-mechanism cross-CDP loop that mints **crvUSD** against wstETH on
 ///         Curve's LLAMMA, swaps the proceeds into **GHO** via the Curve
 ///         GHO/crvUSD StableNG pool, and uses GHO as collateral on Aave V3
@@ -19,11 +19,11 @@ import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 ///         crvUSD wstETH-market rate plus the Curve swap fee.
 ///
 /// 3-mechanism stack:
-///   (1) Curve crvUSD LLAMMA — algorithmic CDP with per-second rate.
-///   (2) Curve GHO/crvUSD StableNG pool — the only on-chain venue with
+///   (1) Curve crvUSD LLAMMA - algorithmic CDP with per-second rate.
+///   (2) Curve GHO/crvUSD StableNG pool - the only on-chain venue with
 ///       non-trivial GHO depth that lets crvUSD acquire GHO without
 ///       touching Aave's borrow path.
-///   (3) Aave V3 — GHO supply (now collateral-eligible after the
+///   (3) Aave V3 - GHO supply (now collateral-eligible after the
 ///       Aave-GHO-as-collateral 2024 spell) + USDC borrow.
 ///
 /// PnL one-liner:
@@ -101,7 +101,7 @@ contract F16_06_CrvUsdLlammaGhoCollateralLoop is StrategyBase {
         uint256 crvUsdHeld = IERC20(Mainnet.CRVUSD).balanceOf(address(this));
         require(crvUsdHeld >= crvUsdBorrow, "borrow shortfall");
 
-        // ---- Mechanism 2: Swap crvUSD → GHO on Curve GHO/crvUSD pool ----
+        // ---- Mechanism 2: Swap crvUSD -> GHO on Curve GHO/crvUSD pool ----
         IERC20(Mainnet.CRVUSD).approve(CURVE_GHO_CRVUSD, crvUsdHeld);
         uint256 ghoHeld;
         try ICurveStableSwap(CURVE_GHO_CRVUSD).exchange(int128(1), int128(0), crvUsdHeld, 0)
@@ -146,7 +146,7 @@ contract F16_06_CrvUsdLlammaGhoCollateralLoop is StrategyBase {
         }
 
         // ---- Mechanism 3b: Borrow USDC against GHO collateral ----
-        // Sizing: USDC_BORROW_LTV_BPS * gho_held (treating GHO ≈ $1, USDC ≈ $1)
+        // Sizing: USDC_BORROW_LTV_BPS * gho_held (treating GHO ~= $1, USDC ~= $1)
         //   GHO 18 dec, USDC 6 dec.
         uint256 usdcBorrow = (ghoHeld * USDC_BORROW_LTV_BPS) / 10_000 / 1e12;
 

@@ -8,7 +8,7 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IBalancerVault} from "src/interfaces/amm/IBalancerVault.sol";
 import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
-/// @title F08-09 — Ethena minting arbitrage: mint USDe at $1, sell at premium on Curve
+/// @title F08-09 - Ethena minting arbitrage: mint USDe at $1, sell at premium on Curve
 /// @notice **Three-mechanism composition** capturing the structural arb between
 ///         Ethena's RFQ minting (always fair-value at $1) and Curve's secondary
 ///         USDe market (which can trade at a premium during yield-event deposit
@@ -17,7 +17,7 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 ///         The canonical loop:
 ///         1. **Balancer V2 flashloan** funds the mint collateral (USDT/USDC).
 ///         2. **EthenaMinting v2** (`0xE3490297a08d6fC8Da46Edb7B6142E4F461b62D3`)
-///            mints USDe at $1 in exchange for the collateral asset — gated on
+///            mints USDe at $1 in exchange for the collateral asset - gated on
 ///            an EIP-712 signed RFQ from one of Ethena's market makers.
 ///         3. **Curve USDe/USDC** sells the freshly-minted USDe at the
 ///            secondary-market premium for clean USDC. Excess USDC closes the
@@ -26,13 +26,13 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 ///         ## RFQ-signature simulation
 ///
 ///         The real EthenaMinting flow requires a signed Order from one of
-///         Ethena's whitelisted market makers — not reproducible inside a
+///         Ethena's whitelisted market makers - not reproducible inside a
 ///         forge fork. The PoC simulates the mint atomically by:
 ///           - Deducting `collateral_amount` of the input asset from the
 ///             contract (representing the mint outflow).
 ///           - Crediting `usde_amount == collateral_amount` USDe at $1 par
 ///             via `deal()` (representing the protocol mint).
-///         The simulation preserves accounting invariants — the strategy's
+///         The simulation preserves accounting invariants - the strategy's
 ///         net cash flow is identical to a real RFQ mint at $1.
 ///
 ///         When EthenaMinting is exercised in production, the simulation
@@ -52,7 +52,7 @@ contract F08_09_EthenaMintCurveBalancerArbTest is StrategyBase, IFlashLoanRecipi
     /// @dev Curve USDe/USDC factory pool (coin 0 = USDe, coin 1 = USDC).
     address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
-    /// @dev Notional probe — flashloan in USDC, mint USDe, sell USDe back to USDC.
+    /// @dev Notional probe - flashloan in USDC, mint USDe, sell USDe back to USDC.
     uint256 constant FLASH_USDC = 2_000_000e6;
 
     /// @dev Minimum premium (bps over face) to execute. Below this, the arb is
@@ -77,7 +77,7 @@ contract F08_09_EthenaMintCurveBalancerArbTest is StrategyBase, IFlashLoanRecipi
         );
 
         // Sanity-check the EthenaMinting address has code at the fork block.
-        // We don't call it — only verify the contract exists so the PoC
+        // We don't call it - only verify the contract exists so the PoC
         // surfaces a clear failure if the address constant drifts.
         uint256 size;
         address addr = LOCAL_ETHENA_MINTING_V2;
@@ -105,7 +105,7 @@ contract F08_09_EthenaMintCurveBalancerArbTest is StrategyBase, IFlashLoanRecipi
         emit log_named_uint("quote_usdc_out", usdcFromSell);
 
         if (usdcFromSell <= FLASH_USDC) {
-            // Premium is negative (USDe below par on Curve) — no arb path.
+            // Premium is negative (USDe below par on Curve) - no arb path.
             emit log("no_arb: USDe trading at discount; mint arb not profitable");
             _endPnL("F08-09: Ethena mint arb (no-op)");
             return;

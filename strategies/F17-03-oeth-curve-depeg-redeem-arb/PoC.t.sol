@@ -34,7 +34,7 @@ contract F17_03_OETHCurveRedeemArb is StrategyBase, IFlashLoanRecipientBalancer 
 
     // ---- Hardcoded token & pool addresses (per spec) ----
     address internal constant OETH = 0x856c4Efb76C1D1AE02e20CEB03A2A6a08b0b8dC3;
-    /// @dev Origin OETH vault. Source: Origin Protocol deployments registry —
+    /// @dev Origin OETH vault. Source: Origin Protocol deployments registry -
     ///      canonical OETHVaultProxy on mainnet. Exposes `redeem(uint256,uint256)`,
     ///      `redeemAll`, `redeemFeeBps()`. Runtime: `redeemFeeBps()` is called
     ///      inside `test_oethCurveRedeemArb`; if the selector is not present at
@@ -110,7 +110,7 @@ contract F17_03_OETHCurveRedeemArb is StrategyBase, IFlashLoanRecipientBalancer 
             redeemFeeBps = 50; // default Origin 0.5%
         }
         emit log_named_uint("vault_redeemFeeBps", redeemFeeBps);
-        // Break-even: ratio > 1 / (1 - feeBps/10000) ≈ 1 + feeBps/10000
+        // Break-even: ratio > 1 / (1 - feeBps/10000) ~= 1 + feeBps/10000
         uint256 breakEven1e18 = 1e18 + (redeemFeeBps * 1e18) / 10_000 + 5e14; // + 5bps cushion
         if (ratio < breakEven1e18) {
             emit log("discount fails break-even after fee+cushion");
@@ -133,7 +133,7 @@ contract F17_03_OETHCurveRedeemArb is StrategyBase, IFlashLoanRecipientBalancer 
         // Post-condition: contract has net positive WETH after repay.
         uint256 endWeth = IERC20(Mainnet.WETH).balanceOf(address(this));
         emit log_named_uint("end_weth_balance", endWeth);
-        assertGt(endWeth, 0, "no residual WETH — arb netted to 0");
+        assertGt(endWeth, 0, "no residual WETH - arb netted to 0");
     }
 
     function receiveFlashLoan(
@@ -213,7 +213,7 @@ contract F17_03_OETHCurveRedeemArb is StrategyBase, IFlashLoanRecipientBalancer 
         emit log_named_uint("basket_weth_proceeds", wethGain);
 
         // ---- Repay flash ----
-        require(wethGain >= principal + feeAmounts[0], "basket value < flash principal — arb unprofitable");
+        require(wethGain >= principal + feeAmounts[0], "basket value < flash principal - arb unprofitable");
         IERC20(Mainnet.WETH).transfer(Mainnet.BAL_VAULT, principal + feeAmounts[0]);
 
         _arbExecuted = true;

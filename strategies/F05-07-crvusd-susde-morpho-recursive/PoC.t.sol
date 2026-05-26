@@ -18,8 +18,8 @@ import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 ///         (1) Curve crvUSD WETH-market LLAMMA borrow (WETH collateral).
 ///         (2) Curve crvUSD/USDC + Curve USDC/USDe swaps.
 ///         (3) Ethena sUSDe ERC-4626 vault (USDe staking).
-///         (4) Morpho Blue sUSDe/USDC market — collateralise sUSDe shares and
-///             recycle the borrowed USDC into more USDe → sUSDe.
+///         (4) Morpho Blue sUSDe/USDC market - collateralise sUSDe shares and
+///             recycle the borrowed USDC into more USDe -> sUSDe.
 ///
 ///         Carry chain: WETH (base) -> crvUSD debt @ LLAMMA rate
 ///                   -> USDC -> USDe -> sUSDe (Ethena funding yield)

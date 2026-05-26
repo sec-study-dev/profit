@@ -11,7 +11,7 @@ import {IPufETH} from "src/interfaces/lrt/IPufETH.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice Symbiotic DefaultCollateral interface — wrapper-style deposit pattern.
+/// @notice Symbiotic DefaultCollateral interface - wrapper-style deposit pattern.
 interface ISymbioticDefaultCollateral {
     function deposit(address recipient, uint256 amount) external returns (uint256);
     function withdraw(address recipient, uint256 amount) external;
@@ -20,20 +20,20 @@ interface ISymbioticDefaultCollateral {
     function asset() external view returns (address);
 }
 
-/// @notice F02-06 — pufETH triple-stack: Puffer + Symbiotic + Aave eMode.
+/// @notice F02-06 - pufETH triple-stack: Puffer + Symbiotic + Aave eMode.
 ///
 /// Combines THREE distinct mechanisms on correlated wstETH/pufETH notionals:
-///   1. Puffer (pufETH) on Aave V3 eMode (cat 1, ETH-correlated) — leverage loop.
-///   2. Symbiotic DC_wstETH side-deposit — unencumbered Symbiotic-point stream.
+///   1. Puffer (pufETH) on Aave V3 eMode (cat 1, ETH-correlated) - leverage loop.
+///   2. Symbiotic DC_wstETH side-deposit - unencumbered Symbiotic-point stream.
 ///   3. Lido + EigenLayer point streams compound through the pufETH leg.
 contract F02_06_PufethSymbioticAaveEmodeTripleTest is StrategyBase {
     // ---- Pinned constants ----
 
-    /// @dev Block 20,100,000 — early June 2024. pufETH on Aave eMode; Symbiotic
+    /// @dev Block 20,100,000 - early June 2024. pufETH on Aave eMode; Symbiotic
     /// DC_wstETH live and deposit-cap not full.
     uint256 constant FORK_BLOCK = 20_100_000;
 
-    /// @dev Symbiotic DC_wstETH — DefaultCollateral wrapper over wstETH.
+    /// @dev Symbiotic DC_wstETH - DefaultCollateral wrapper over wstETH.
     /// https://etherscan.io/address/0xc329400492c6ff2438472d4651ad17389fcb843a
     address constant LOCAL_SYMBIOTIC_DC_WSTETH = 0xC329400492c6ff2438472D4651Ad17389fCb843a;
 
@@ -45,7 +45,7 @@ contract F02_06_PufethSymbioticAaveEmodeTripleTest is StrategyBase {
     uint256 constant EQUITY = 100 ether;
     /// @dev 25% of equity goes to Symbiotic side-stack; 75% is the Aave loop seed.
     uint256 constant SYMBIOTIC_BPS = 2500;
-    /// @dev Number of Aave loop iterations (5 → ~3.4x leverage at 85% borrow ratio).
+    /// @dev Number of Aave loop iterations (5 -> ~3.4x leverage at 85% borrow ratio).
     uint8 constant LOOPS = 5;
     /// @dev Per-iteration borrow as a fraction of `availableBorrowsBase`.
     uint256 constant BORROW_RATIO_BPS = 8500;
@@ -79,11 +79,11 @@ contract F02_06_PufethSymbioticAaveEmodeTripleTest is StrategyBase {
         try ISymbioticDefaultCollateral(LOCAL_SYMBIOTIC_DC_WSTETH).deposit(address(this), symAmount) returns (uint256 dcOut) {
             console2.log("DC_wstETH minted:", dcOut);
         } catch {
-            // DC cap reached or paused — leg degrades to raw wstETH (Lido pts only).
+            // DC cap reached or paused - leg degrades to raw wstETH (Lido pts only).
             console2.log("Symbiotic DC_wstETH deposit failed");
         }
 
-        // ---- 3. Puffer leg: wstETH → pufETH ----
+        // ---- 3. Puffer leg: wstETH -> pufETH ----
         IERC20(Mainnet.WSTETH).approve(Mainnet.PUFETH, pufAmount);
         IPufETH(Mainnet.PUFETH).depositWstETH(pufAmount, address(this));
         uint256 pufBal = IERC20(Mainnet.PUFETH).balanceOf(address(this));
@@ -100,7 +100,7 @@ contract F02_06_PufethSymbioticAaveEmodeTripleTest is StrategyBase {
         try IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.PUFETH, pufBal, address(this), 0) {
             try IAavePool(Mainnet.AAVE_V3_POOL).setUserUseReserveAsCollateral(Mainnet.PUFETH, true) {} catch {}
         } catch {
-            // pufETH not yet listed on Aave at this block — fall back: supply wstETH instead.
+            // pufETH not yet listed on Aave at this block - fall back: supply wstETH instead.
             console2.log("pufETH supply failed; falling back to wstETH supply path");
             IERC20(Mainnet.PUFETH).approve(Mainnet.PUFETH, pufBal);
             // Redeem pufETH back to wstETH (best-effort via ERC4626 withdraw API).
@@ -134,7 +134,7 @@ contract F02_06_PufethSymbioticAaveEmodeTripleTest is StrategyBase {
             uint256 newWeth = IERC20(Mainnet.WETH).balanceOf(address(this)) - wethBefore;
             if (newWeth == 0) break;
 
-            // WETH → stETH → wstETH → pufETH
+            // WETH -> stETH -> wstETH -> pufETH
             IWETH(Mainnet.WETH).withdraw(newWeth);
             IStETH(Mainnet.STETH).submit{value: newWeth}(address(0));
             uint256 stEthNow = IERC20(Mainnet.STETH).balanceOf(address(this));

@@ -8,11 +8,11 @@ import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 
-/// @title F07-01 — PT-sUSDe cash-and-carry, leveraged on Morpho
+/// @title F07-01 - PT-sUSDe cash-and-carry, leveraged on Morpho
 ///
 /// @notice Buys discounted PT-sUSDe via Pendle Router V4, posts as collateral on
 ///         Morpho's PT-sUSDe/USDC market (linear-discount oracle), borrows USDC,
-///         buys more PT, repeats. Captures implied fixed APY × leverage minus
+///         buys more PT, repeats. Captures implied fixed APY * leverage minus
 ///         the USDC borrow cost.
 contract F07_01_PtSusdeMorphoLoopTest is StrategyBase {
     // ---- Block ----
@@ -158,7 +158,7 @@ contract F07_01_PtSusdeMorphoLoopTest is StrategyBase {
         if (p.borrowShares == 0) return 0;
         IMorpho.Market memory m = IMorpho(Mainnet.MORPHO).market(_marketId());
         if (m.totalBorrowShares == 0) return 0;
-        // assetsBorrowed ≈ borrowShares * totalBorrowAssets / totalBorrowShares
+        // assetsBorrowed ~= borrowShares * totalBorrowAssets / totalBorrowShares
         return (uint256(p.borrowShares) * m.totalBorrowAssets) / m.totalBorrowShares;
     }
 }

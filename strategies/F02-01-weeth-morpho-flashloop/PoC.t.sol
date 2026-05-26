@@ -11,7 +11,7 @@ import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {IMorphoFlashLoanCallback} from "src/interfaces/common/IFlashLoanReceiver.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F02-01 — weETH leveraged restake using Morpho free flashloan.
+/// @notice F02-01 - weETH leveraged restake using Morpho free flashloan.
 ///
 /// Mechanism: borrow WETH from Morpho (free flash), mint weETH via EtherFi pool,
 /// post weETH collateral to Morpho's weETH/WETH market, borrow WETH equal to
@@ -33,7 +33,7 @@ contract F02_01_WeethMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCallba
     bytes32 constant WEETH_WETH_MARKET_ID =
         0x37e7484d642d90f14451f1910ba4b7b8e4c3ccdd0ec28f8b2bdb35479e472ba7;
 
-    /// @dev MorphoChainlinkOracleV2 for weETH/WETH — wraps EtherFi's getRate().
+    /// @dev MorphoChainlinkOracleV2 for weETH/WETH - wraps EtherFi's getRate().
     /// Verified from the Morpho weETH/WETH market parameters at FORK_BLOCK.
     address constant MORPHO_ORACLE_WEETH_WETH = 0x3fa58b74e9a8eA8768eb33c8453e9C2Ed089A40a;
     /// @dev Morpho Blue AdaptiveCurveIRM.
@@ -41,7 +41,7 @@ contract F02_01_WeethMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCallba
     uint256 constant LLTV_86 = 0.86e18;
 
     uint256 constant EQUITY = 100 ether;
-    /// @dev 4x leverage on equity → 5x total notional.
+    /// @dev 4x leverage on equity -> 5x total notional.
     uint256 constant FLASH_AMOUNT = 400 ether;
 
     IMorpho.MarketParams internal _market;
@@ -101,7 +101,7 @@ contract F02_01_WeethMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCallba
         IEtherFiLiquidityPool(Mainnet.ETHERFI_LIQUIDITY_POOL).deposit{value: total}();
         uint256 eethBal = IERC20(Mainnet.EETH).balanceOf(address(this));
 
-        // Wrap eETH → weETH.
+        // Wrap eETH -> weETH.
         IERC20(Mainnet.EETH).approve(Mainnet.WEETH, eethBal);
         uint256 weethOut = IWeETH(Mainnet.WEETH).wrap(eethBal);
 

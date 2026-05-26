@@ -22,7 +22,7 @@ contract F10_04_GhoStkAaveDiscountedMint is StrategyBase {
 
     uint256 constant RATE_MODE_VARIABLE = 2;
 
-    // stkAAVE Safety Module token — canonical mainnet address.
+    // stkAAVE Safety Module token - canonical mainnet address.
     address constant STK_AAVE = 0x4da27a545c0c5B758a6BA100e3a049001de870f5;
 
     // AAVE token.
@@ -48,7 +48,7 @@ contract F10_04_GhoStkAaveDiscountedMint is StrategyBase {
         _fund(Mainnet.USDC, address(this), principalUsdc);
 
         // Best-effort: fund stkAAVE via deal. The SM token uses non-standard
-        // storage so this may zero out or fail silently — we read post-fund
+        // storage so this may zero out or fail silently - we read post-fund
         // balance and log if it's still zero.
         uint256 targetStk = 1_000e18;
         try this._fundStk(targetStk) {
@@ -152,7 +152,7 @@ contract F10_04_GhoStkAaveDiscountedMint is StrategyBase {
         );
         emit log_named_uint("health_factor_e18", hf);
 
-        // Read final GHO debt token balance — surfaces accrued discounted interest.
+        // Read final GHO debt token balance - surfaces accrued discounted interest.
         IAavePool.ReserveDataLegacy memory ghoResPost = pool.getReserveData(Mainnet.GHO);
         uint256 ghoDebt = IERC20(ghoResPost.variableDebtTokenAddress).balanceOf(address(this));
         emit log_named_uint("gho_debt_post_30d", ghoDebt);

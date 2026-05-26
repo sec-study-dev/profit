@@ -9,14 +9,14 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F18-03 — Tri-protocol stable-dollar carry stack.
+/// @notice F18-03 - Tri-protocol stable-dollar carry stack.
 ///
 /// Mechanisms (3):
-///   1. Curve USDe/USDT NG pool   — only on-chain permissionless entry to USDe.
-///   2. Ethena sUSDe (ERC-4626)   — yield-bearing wrapper of USDe (perp-basis).
-///   3. Aave v3 stable-eMode      — high-LTV listing of sUSDe collateral / USDC debt.
+///   1. Curve USDe/USDT NG pool   - only on-chain permissionless entry to USDe.
+///   2. Ethena sUSDe (ERC-4626)   - yield-bearing wrapper of USDe (perp-basis).
+///   3. Aave v3 stable-eMode      - high-LTV listing of sUSDe collateral / USDC debt.
 contract F18_03_EthenaCurveAaveUsdeCarry is StrategyBase {
-    /// @dev Pinned: early Aug 2024 — Aave stables-eMode (id = 2 historically) listing USDe+sUSDe.
+    /// @dev Pinned: early Aug 2024 - Aave stables-eMode (id = 2 historically) listing USDe+sUSDe.
     uint256 constant FORK_BLOCK = 20_400_000;
 
     /// @dev Curve USDe/USDT factory plain-pool. coins[0]=USDe, coins[1]=USDT.
@@ -115,8 +115,8 @@ contract F18_03_EthenaCurveAaveUsdeCarry is StrategyBase {
             return;
         }
 
-        // Compute borrow target: LTV_BPS / 1e4 × sUSDe_USD.
-        // sUSDe ≈ USDe ≈ $1 → use shares directly as 18-dec USD approximation
+        // Compute borrow target: LTV_BPS / 1e4 * sUSDe_USD.
+        // sUSDe ~= USDe ~= $1 -> use shares directly as 18-dec USD approximation
         // and convert to 6-dec USDC.
         uint256 borrowUsdc = (sUsdeOut * LTV_BPS / 10_000) / 1e12;
         if (borrowUsdc > 800_000e6) borrowUsdc = 800_000e6; // cap

@@ -12,7 +12,7 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IBalancerVault} from "src/interfaces/amm/IBalancerVault.sol";
 import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
-/// @title F17-05 sUSDe → sUSDS Aave e-mode collateral rotation (3-mech)
+/// @title F17-05 sUSDe -> sUSDS Aave e-mode collateral rotation (3-mech)
 /// @notice When Ethena funding compresses and sUSDe APY falls below Sky SSR
 ///         (which has happened in bear-funding regimes), a holder of an Aave
 ///         e-mode-levered sUSDe position can atomically rotate to sUSDS to
@@ -82,7 +82,7 @@ contract F17_05_SusdeSusdsAaveEmodeRotation is StrategyBase, IFlashLoanRecipient
 
         // sUSDe APY proxy: read share price now vs ~7d ago via two reads. We
         // approximate by reading totalAssets / totalSupply, but at a single
-        // block we lack a window — fall back to a conservative anchor of 6%
+        // block we lack a window - fall back to a conservative anchor of 6%
         // (Ethena's published sUSDe APY in late-Sep 2024). The test logs the
         // assumption and uses it for the rotation gate.
         uint256 susdeApyBpsAssumed = 600;
@@ -221,7 +221,7 @@ contract F17_05_SusdeSusdsAaveEmodeRotation is StrategyBase, IFlashLoanRecipient
         emit log_named_uint("usdt_from_usde_swap", usdtFromSwap);
 
         // ---- 3e. Repay the Balancer flash ----
-        // Balancer V2 pulls via push pattern — caller transfers principal
+        // Balancer V2 pulls via push pattern - caller transfers principal
         // back to the vault; no approve needed (push, not pull).
         require(usdtFromSwap >= flashAmt, "USDe->USDT swap shortfall");
         IERC20(Mainnet.USDT).transfer(Mainnet.BAL_VAULT, flashAmt);

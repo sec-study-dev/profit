@@ -10,7 +10,7 @@ import {IRenzoRestakeManager} from "src/interfaces/lrt/IRenzoRestakeManager.sol"
 import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IPYieldToken} from "src/interfaces/pendle/IPYieldToken.sol";
 
-/// @notice F02-02 — Buy YT-ezETH-27JUN2024 with WETH for leveraged point exposure.
+/// @notice F02-02 - Buy YT-ezETH-27JUN2024 with WETH for leveraged point exposure.
 ///
 /// Holding YT-ezETH gives the buyer the full underlying ezPoints + EigenLayer-point
 /// stream of 1 ezETH, until expiry, at ~3% of ezETH price (huge points-per-$ uplift).
@@ -18,13 +18,13 @@ import {IPYieldToken} from "src/interfaces/pendle/IPYieldToken.sol";
 contract F02_02_EzethPendleYtPointsTest is StrategyBase {
     // ---- Pinned constants ----
 
-    /// @dev Block 19,400,000 — early March 2024, Pendle ezETH market hot.
+    /// @dev Block 19,400,000 - early March 2024, Pendle ezETH market hot.
     uint256 constant FORK_BLOCK = 19_400_000;
 
     // Verified: at FORK_BLOCK 19,400,000 (early Mar 2024) the live Pendle ezETH
     // market on Ethereum mainnet is the **25APR2024** maturity (the 27JUN2024
-    // maturity is Arbitrum-only — `0x8ea5040d...` on Arbiscan; mainnet does not
-    // have a 27JUN24 ezETH listing — the prior addresses confused weETH/zircuit).
+    // maturity is Arbitrum-only - `0x8ea5040d...` on Arbiscan; mainnet does not
+    // have a 27JUN24 ezETH listing - the prior addresses confused weETH/zircuit).
     // Sources:
     //   PT-ezETH-25APR2024 : https://etherscan.io/token/0xeee8aed1957ca1545a0508afb51b53cca7e3c0d1
     //   YT-ezETH-25APR2024 : https://etherscan.io/token/0x256fb830945141f7927785c06b65dabc3744213c
@@ -77,12 +77,12 @@ contract F02_02_EzethPendleYtPointsTest is StrategyBase {
 
         IPendleRouter.LimitOrderData memory lim; // all-zeros (no limit fills)
 
-        // Swap 100 WETH → max YT-ezETH at current implied APY.
+        // Swap 100 WETH -> max YT-ezETH at current implied APY.
         // At YT/SY price ratio ~3.3% we expect ~3000 YT.
         IPendleRouter(Mainnet.PENDLE_ROUTER_V4).swapExactTokenForYt(
             address(this),
             PENDLE_EZETH_MARKET_25APR24,
-            0, // minPtOut — leave 0 in PoC; production must set slippage
+            0, // minPtOut - leave 0 in PoC; production must set slippage
             guess,
             tin,
             lim

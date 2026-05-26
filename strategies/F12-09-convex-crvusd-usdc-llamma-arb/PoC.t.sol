@@ -18,7 +18,7 @@ import {ILLAMMA} from "src/interfaces/cdp/ILLAMMA.sol";
 ///           1. Hold + stake crvUSD/USDC LP into Convex Booster PID 182.
 ///              Earn CRV+CVX on the stableswap, plus accrued swap fees.
 ///           2. When a soft-liquidation pulse hits a LLAMMA (e.g.
-///              wstETH LLAMMA — F05 uses it), crvUSD trades briefly off
+///              wstETH LLAMMA - F05 uses it), crvUSD trades briefly off
 ///              its $1 peg as the LLAMMA accumulates USD-side balances
 ///              and dumps them through the crvUSD/USDC pool. Spot moves
 ///              5-20 bps.
@@ -37,11 +37,11 @@ contract F12_09_PoC is StrategyBase {
     // Convex Booster PID for crvUSD/USDC: PID 182 (Convex's pool registry,
     // verified via Convex front-end). Inlined per family rule.
     uint256 constant PID_CRVUSD_USDC = 182;
-    // BaseRewardPool for PID 182 — resolved at runtime via Booster.poolInfo
+    // BaseRewardPool for PID 182 - resolved at runtime via Booster.poolInfo
     // because Convex re-deploys rewards contracts occasionally.
     address internal _cvxCrvUsdRewards;
 
-    // ---- LLAMMA (wstETH market — biggest crvUSD market by USD outstanding) ----
+    // ---- LLAMMA (wstETH market - biggest crvUSD market by USD outstanding) ----
     address constant LLAMMA_WSTETH = 0x37417B2238AA52D0DD2D6252d989E728e8f706e4;
 
     // ---- Reward tokens ----
@@ -50,7 +50,7 @@ contract F12_09_PoC is StrategyBase {
     // ---- Block ----
     uint256 constant FORK_BLOCK = 19_643_500;
 
-    // 100k of crvUSD/USDC LP (~$100k notional; LP ≈ $1.0).
+    // 100k of crvUSD/USDC LP (~$100k notional; LP ~= $1.0).
     uint256 constant LP_NOTIONAL = 100_000 ether;
 
     // Synthetic peg-shift size: USDC traded against the pool to *create*
@@ -106,7 +106,7 @@ contract F12_09_PoC is StrategyBase {
             "stake mismatch"
         );
 
-        // ---- 3) Steady-state warp — earn LP-side rewards ----
+        // ---- 3) Steady-state warp - earn LP-side rewards ----
         vm.warp(block.timestamp + 7 days);
         vm.roll(block.number + 7 days / 12);
 
@@ -127,7 +127,7 @@ contract F12_09_PoC is StrategyBase {
         // After this dump the pool has excess USDC and crvUSD is now
         // *trading above $1* (USDC was the dumped side). For the arb leg
         // we want to push crvUSD back toward peg by *selling crvUSD into
-        // USDC* — exactly what a stableswap arbitrageur would do.
+        // USDC* - exactly what a stableswap arbitrageur would do.
 
         // ---- 5) Peg-shift arb leg: sell crvUSD back into USDC ----
         uint256 myCrvUsd = IERC20(Mainnet.CRVUSD).balanceOf(address(this));
@@ -152,7 +152,7 @@ contract F12_09_PoC is StrategyBase {
             console2.log("No peg shift -> no arb leg this round.");
         }
 
-        // ---- 6) Steady-state claim — CRV + CVX from the LP-side leg ----
+        // ---- 6) Steady-state claim - CRV + CVX from the LP-side leg ----
         bool claimed = IConvexBaseRewardPool(_cvxCrvUsdRewards).getReward(address(this), true);
         require(claimed, "getReward failed");
 

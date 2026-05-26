@@ -53,7 +53,7 @@ contract F17_08_USDMCrossPoolTriangulation is StrategyBase {
 
     // ---- Sizing ----
     uint256 internal constant SEED_CRVUSD = 100_000e18; // $100k probe
-    uint256 internal constant MIN_PROFIT_BPS = 5; // require ≥5 bps positive
+    uint256 internal constant MIN_PROFIT_BPS = 5; // require >=5 bps positive
 
     function setUp() public {
         _fork(FORK_BLOCK);

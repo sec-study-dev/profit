@@ -50,11 +50,11 @@ interface IAuraBaseRewardPool {
 ///         3. Warp two weeks; claim BAL+AURA (and any extraRewards).
 ///         4. Inject a single-leaf Hidden Hand identifier for AURA bribes on
 ///            this gauge, fund the Bribe Vault, and call claim() with empty
-///            proof — the on-chain composition of Aura LP staking + Hidden
+///            proof - the on-chain composition of Aura LP staking + Hidden
 ///            Hand vote-bribe collection.
 contract F12_05_PoC is StrategyBase {
     // ---- Balancer rETH/WETH pool ----
-    // ComposableStable pool — primary LST pool on Balancer. BPT token == pool.
+    // ComposableStable pool - primary LST pool on Balancer. BPT token == pool.
     address constant BAL_RETH_WETH_BPT = 0x1E19CF2D73a72Ef1332C882F20534B6519Be0276;
 
     // ---- Aura ----
@@ -74,15 +74,15 @@ contract F12_05_PoC is StrategyBase {
     uint256 constant AURA_PID_RETH_WETH = 109;
 
     // ---- Hidden Hand (Aura side) ----
-    // Hidden Hand Bribe Vault (Redacted Cartel) — for Aura/Balancer bribes.
+    // Hidden Hand Bribe Vault (Redacted Cartel) - for Aura/Balancer bribes.
     address constant HIDDEN_HAND_REWARDS = 0xa9b08B4CeEC1EF29EdEC7F9C94583270337D6416;
 
     // ---- Block ----
-    // Apr 13 2024 — Aura PID 109 live, rETH/WETH BPT TVL ~$60M, Hidden Hand
+    // Apr 13 2024 - Aura PID 109 live, rETH/WETH BPT TVL ~$60M, Hidden Hand
     // round 35 had recently closed; pulled-down state lets us simulate claim.
     uint256 constant FORK_BLOCK = 19_643_500;
 
-    // 100 BPT ≈ 100 ETH ≈ $330k (BPT trades very close to underlying ETH).
+    // 100 BPT ~= 100 ETH ~= $330k (BPT trades very close to underlying ETH).
     uint256 constant BPT_NOTIONAL = 100 ether;
 
     // Hidden-Hand bribe basket assumed for this round, sized to a vlAURA
@@ -147,7 +147,7 @@ contract F12_05_PoC is StrategyBase {
 
         require(bBal > 0, "no BAL streamed");
         // AURA emission ratio is positive at block 19.6M (TBP > AURA supply
-        // / 2.5e8 floor) — assert a positive accrual.
+        // / 2.5e8 floor) - assert a positive accrual.
         require(bAura > 0, "no AURA minted");
 
         // ---- 5) Hidden Hand bribe claim simulation ----
@@ -198,7 +198,7 @@ contract F12_05_PoC is StrategyBase {
         // Fund the distributor with the bribe payload.
         _fund(token, HIDDEN_HAND_REWARDS, amount);
 
-        // Single claim — empty proof for 1-leaf tree.
+        // Single claim - empty proof for 1-leaf tree.
         IHiddenHand.Claim[] memory claims = new IHiddenHand.Claim[](1);
         claims[0] = IHiddenHand.Claim({
             identifier: identifier,
@@ -212,7 +212,7 @@ contract F12_05_PoC is StrategyBase {
             console2.log("HH claim amount (raw):", amount);
         } catch {
             // Real-world layout has additional fields (timestamp, paused,
-            // signer). Tolerate revert and emit hint — the BAL/AURA leg
+            // signer). Tolerate revert and emit hint - the BAL/AURA leg
             // above remains the load-bearing on-chain composition.
             console2.log("HH claim reverted (layout/version mismatch); BAL+AURA still claimed.");
         }

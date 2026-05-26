@@ -8,7 +8,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IEigenStrategyManager} from "src/interfaces/restake/IEigenStrategyManager.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice Symbiotic DefaultCollateral vault — `deposit(recipient, amount)`.
+/// @notice Symbiotic DefaultCollateral vault - `deposit(recipient, amount)`.
 interface ISymbioticCollateral {
     function deposit(address recipient, uint256 amount) external returns (uint256);
     function totalSupply() external view returns (uint256);
@@ -22,14 +22,14 @@ interface IKarakVault {
     function asset() external view returns (address);
 }
 
-/// @notice F18-05 — Same-user triple restaking across three protocols.
+/// @notice F18-05 - Same-user triple restaking across three protocols.
 ///
 /// Mechanisms (3):
-///   1. EigenLayer (StrategyManager) — stETH strategy deposit.
-///   2. Symbiotic (DefaultCollateral) — wstETH vault deposit.
-///   3. Karak (DelegationSupervisor vault) — weETH vault deposit.
+///   1. EigenLayer (StrategyManager) - stETH strategy deposit.
+///   2. Symbiotic (DefaultCollateral) - wstETH vault deposit.
+///   3. Karak (DelegationSupervisor vault) - weETH vault deposit.
 contract F18_05_EigenSymbioticKarakTripleRestake is StrategyBase {
-    /// @dev Pinned: mid-Aug 2024 — all three restaking protocols deposit-open.
+    /// @dev Pinned: mid-Aug 2024 - all three restaking protocols deposit-open.
     uint256 constant FORK_BLOCK = 20_500_000;
 
     /// @dev EigenLayer stETH strategy.
@@ -63,7 +63,7 @@ contract F18_05_EigenSymbioticKarakTripleRestake is StrategyBase {
             vm.prank(stWhale);
             IERC20(Mainnet.STETH).transfer(address(this), LEG_STETH);
         } else {
-            // Fallback: deal() (may not work for rebasing — accept that the
+            // Fallback: deal() (may not work for rebasing - accept that the
             // EL leg may then revert and we report no-op for that leg).
             _fund(Mainnet.STETH, address(this), LEG_STETH);
         }

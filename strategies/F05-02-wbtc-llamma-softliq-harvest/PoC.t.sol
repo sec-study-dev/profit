@@ -25,7 +25,7 @@ contract F05_02_PoC is StrategyBase, IFlashLoanSimpleReceiverAave {
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
 
     address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    uint24 constant UNIV3_FEE_WBTC_USDC = 3000; // 0.3% — deepest pool
+    uint24 constant UNIV3_FEE_WBTC_USDC = 3000; // 0.3% - deepest pool
 
     uint256 constant FORK_BLOCK = 19_643_500; // Apr 13 2024 mid-fall
 

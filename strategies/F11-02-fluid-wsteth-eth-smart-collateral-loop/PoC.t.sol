@@ -16,7 +16,7 @@ contract F11_02_FluidWstEthEthSmartCollateralLoopTest is StrategyBase {
     // Block where Fluid wstETH/ETH vault is live and liquid.
     uint256 internal constant FORK_BLOCK = 21_000_000;
 
-    // Fluid VaultFactoryT1 — verified on-chain (deployed Jan 2024).
+    // Fluid VaultFactoryT1 - verified on-chain (deployed Jan 2024).
     // verified at https://etherscan.io/address/0x324c5dc1fc42c7a4d43d92df1eba58a54d13bf2d
     address internal constant FLUID_VAULT_FACTORY_T1 = 0x324c5Dc1fC42c7a4D43d92df1eBA58a54d13Bf2d;
 

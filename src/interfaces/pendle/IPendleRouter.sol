@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice Pendle Router V4 — entrypoint for swaps and PT/YT/SY operations.
+/// @notice Pendle Router V4 - entrypoint for swaps and PT/YT/SY operations.
 /// @dev    The Pendle SDK encodes a number of approx/limit structs; the most-used
 ///         signatures are listed here. Extend in family F07 as needed.
 interface IPendleRouter {

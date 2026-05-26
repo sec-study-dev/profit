@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 
-/// @notice Pendle Standardized Yield (SY) token — wraps a yield-bearing asset
+/// @notice Pendle Standardized Yield (SY) token - wraps a yield-bearing asset
 ///         into a single-token interface.
 interface IStandardizedYield is IERC20 {
     function deposit(address receiver, address tokenIn, uint256 amountTokenToDeposit, uint256 minSharesOut)

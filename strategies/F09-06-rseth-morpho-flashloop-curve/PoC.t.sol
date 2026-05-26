@@ -10,7 +10,7 @@ import {IMorphoFlashLoanCallback} from "src/interfaces/common/IFlashLoanReceiver
 import {IKelpDepositPool} from "src/interfaces/lrt/IRsETH.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F09-06 — rsETH/WETH Morpho loop bootstrapped by Morpho free flashloan
+/// @notice F09-06 - rsETH/WETH Morpho loop bootstrapped by Morpho free flashloan
 ///         and Kelp DAO native ETH deposit. Three-mechanism:
 ///
 ///         Mechanism 1: Morpho Blue zero-fee flashLoan (singleton callback)
@@ -29,7 +29,7 @@ contract F09_06_RsethMorphoFlashloopCurveTest is StrategyBase, IMorphoFlashLoanC
     ///      saturated for our flash size.
     uint256 constant FORK_BLOCK = 21_400_000;
 
-    /// @dev Kelp DAO LRTDepositPool — entry point for native ETH -> rsETH at NAV.
+    /// @dev Kelp DAO LRTDepositPool - entry point for native ETH -> rsETH at NAV.
     address constant KELP_DEPOSIT_POOL = 0x036676389e48133B63a802f8635AD39E752D375D;
 
     /// @dev rsETH/WETH 86% LLTV market id on Morpho Blue.
@@ -66,7 +66,7 @@ contract F09_06_RsethMorphoFlashloopCurveTest is StrategyBase, IMorphoFlashLoanC
         _fund(Mainnet.WETH, address(this), EQUITY);
         _startPnL();
 
-        // Approvals — Morpho pulls WETH (flash repay) and rsETH (collateral).
+        // Approvals - Morpho pulls WETH (flash repay) and rsETH (collateral).
         IERC20(Mainnet.WETH).approve(Mainnet.MORPHO, type(uint256).max);
         IERC20(Mainnet.RSETH).approve(Mainnet.MORPHO, type(uint256).max);
 
@@ -87,7 +87,7 @@ contract F09_06_RsethMorphoFlashloopCurveTest is StrategyBase, IMorphoFlashLoanC
         uint256 totalWeth = IERC20(Mainnet.WETH).balanceOf(address(this));
         IWETH(Mainnet.WETH).withdraw(totalWeth);
 
-        // Step 2: Kelp depositETH — mints rsETH at NAV. We pass minRSETHOut as
+        // Step 2: Kelp depositETH - mints rsETH at NAV. We pass minRSETHOut as
         //         98.5% of `getRsETHAmountToMint` (1.5% bps slippage cushion;
         //         realistic depeg-protection floor).
         uint256 quote = IKelpDepositPool(KELP_DEPOSIT_POOL).getRsETHAmountToMint(

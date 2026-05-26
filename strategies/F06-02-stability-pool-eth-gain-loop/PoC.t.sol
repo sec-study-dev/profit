@@ -35,7 +35,7 @@ interface ICurveMeta {
         returns (uint256);
 }
 
-/// @title F06-02 — Liquity v1 Stability Pool yield + ETH gain compounding loop
+/// @title F06-02 - Liquity v1 Stability Pool yield + ETH gain compounding loop
 /// @notice Deposit LUSD to the Stability Pool; on liquidations, the deposit is
 ///         reduced (LUSD debt absorbed) and the depositor receives ETH at a
 ///         discount. We claim the ETH, swap back to LUSD, redeposit.
@@ -87,7 +87,7 @@ contract F06_02_StabilityPoolEthGainLoopTest is StrategyBase {
             emit log_named_uint("loop_eth_gain_wei", ethGain);
 
             if (ethGain == 0) {
-                // Nothing to compound this iteration — note and continue.
+                // Nothing to compound this iteration - note and continue.
                 continue;
             }
 

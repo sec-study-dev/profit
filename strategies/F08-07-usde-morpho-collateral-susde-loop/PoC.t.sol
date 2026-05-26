@@ -9,7 +9,7 @@ import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {IMorphoFlashLoanCallback} from "src/interfaces/common/IFlashLoanReceiver.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
-/// @title F08-07 — USDe-collateral Morpho loop, sUSDe held off-Morpho (3-mech)
+/// @title F08-07 - USDe-collateral Morpho loop, sUSDe held off-Morpho (3-mech)
 /// @notice **Three-mechanism composition** distinct from F08-01:
 ///         - F08-01 puts sUSDe as collateral; collateral grows with NAV.
 ///         - F08-07 puts USDe as collateral (flat ~$1) and holds sUSDe in the
@@ -18,7 +18,7 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 ///           marked by the Morpho oracle.
 ///
 ///         Why is this useful?
-///         - Liquidation threshold is decoupled from sUSDe NAV variance —
+///         - Liquidation threshold is decoupled from sUSDe NAV variance -
 ///           a sUSDe oracle hiccup cannot trigger liquidation because no
 ///           sUSDe is collateral.
 ///         - The off-Morpho sUSDe is *withdrawable on demand* (via cooldown
@@ -28,9 +28,9 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 ///         Mechanisms stacked:
 ///         1. **Morpho Blue** USDe/USDC isolated market (collateral leg) plus
 ///            Morpho **free flashloan** for atomic bootstrap.
-///         2. **Curve USDe/USDC** for the USDC→USDe surrogate-mint conversion
+///         2. **Curve USDe/USDC** for the USDC->USDe surrogate-mint conversion
 ///            (Ethena mint requires off-chain RFQ; same rationale as F08-01).
-///         3. **Ethena sUSDe** ERC-4626 stake — the yield-bearing receipt that
+///         3. **Ethena sUSDe** ERC-4626 stake - the yield-bearing receipt that
 ///            holds the accrual sleeve outside the lending venue.
 contract F08_07_UsdeMorphoCollateralSusdeLoopTest is StrategyBase, IMorphoFlashLoanCallback {
     // ---- Pinned constants ----
@@ -102,7 +102,7 @@ contract F08_07_UsdeMorphoCollateralSusdeLoopTest is StrategyBase, IMorphoFlashL
         IERC20(Mainnet.USDC).approve(LOCAL_CURVE_USDE_USDC, type(uint256).max);
         IERC20(Mainnet.USDC).approve(Mainnet.MORPHO, type(uint256).max);
 
-        // Morpho flashloan in USDe — bootstraps the entire position atomically.
+        // Morpho flashloan in USDe - bootstraps the entire position atomically.
         IMorpho(Mainnet.MORPHO).flashLoan(Mainnet.USDE, FLASH_USDE, abi.encode("usde-loop"));
 
         // ---- Post-flash state surface ----
@@ -144,7 +144,7 @@ contract F08_07_UsdeMorphoCollateralSusdeLoopTest is StrategyBase, IMorphoFlashL
         // ---- Borrow USDC against the USDe collateral ----
         // At LLTV 86% with USDe oracle at $1, max borrow = 0.86 * totalUsde (in USDC).
         // Keep a 1% buffer; borrow 85% LTV = 0.85 * totalUsde (in USDC).
-        // USDe is 18 dec, USDC is 6 dec — scale by 1e12.
+        // USDe is 18 dec, USDC is 6 dec - scale by 1e12.
         uint256 borrowUsdc = (totalUsde * 8500) / 10_000 / 1e12;
         IMorpho(Mainnet.MORPHO).borrow(_market, borrowUsdc, 0, address(this), address(this));
 
@@ -161,7 +161,7 @@ contract F08_07_UsdeMorphoCollateralSusdeLoopTest is StrategyBase, IMorphoFlashL
         // The yield-bearing sUSDe stays in the wallet; it is NOT supplied to
         // Morpho. NAV growth accrues to the wallet sleeve untouched.
         // We can use the freshly-bought USDe to repay the flash AFTER we
-        // covered the flash principal — but here we use a different path:
+        // covered the flash principal - but here we use a different path:
         // use FLASH_USDE worth of newly-bought USDe to repay the flash, and
         // stake the residual.
         //
@@ -172,8 +172,8 @@ contract F08_07_UsdeMorphoCollateralSusdeLoopTest is StrategyBase, IMorphoFlashL
         // If usdeFromUsdc < assets (e.g. due to Curve slippage > collateral
         // headroom), we'd be short the repay. The 85% LTV with 99.5% min-out
         // gives us:  borrowUsdc = 0.85 * 5M = 4.25M USDC.
-        //            usdeFromUsdc ≈ 4.225M USDe (5 bps slippage).
-        // Flash principal = 4M USDe. So the residual ≈ 225k USDe gets staked.
+        //            usdeFromUsdc ~= 4.225M USDe (5 bps slippage).
+        // Flash principal = 4M USDe. So the residual ~= 225k USDe gets staked.
 
         require(usdeFromUsdc >= assets, "F08-07: insufficient USDe to repay flash");
         uint256 stakingAmt = usdeFromUsdc - assets;

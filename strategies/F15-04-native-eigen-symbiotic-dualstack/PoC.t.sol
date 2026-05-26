@@ -8,7 +8,7 @@ import {IWstETH} from "src/interfaces/lst/IWstETH.sol";
 import {IEigenStrategyManager} from "src/interfaces/restake/IEigenStrategyManager.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice Minimal Symbiotic DefaultCollateral interface — `deposit(recipient, amount)`
+/// @notice Minimal Symbiotic DefaultCollateral interface - `deposit(recipient, amount)`
 ///         pattern used by Symbiotic's collateral vaults.
 interface ISymbioticCollateral {
     function deposit(address recipient, uint256 amount) external returns (uint256);
@@ -17,11 +17,11 @@ interface ISymbioticCollateral {
     function limit() external view returns (uint256);
 }
 
-/// @notice F15-04 — wstETH dual-stack across EigenLayer (via stETH unwrap) and Symbiotic.
+/// @notice F15-04 - wstETH dual-stack across EigenLayer (via stETH unwrap) and Symbiotic.
 ///
 /// Split 100 wstETH 50/50:
-///   - 50 wstETH unwrapped → stETH → EigenLayer stETH strategy.
-///   - 50 wstETH directly → Symbiotic wstETH vault.
+///   - 50 wstETH unwrapped -> stETH -> EigenLayer stETH strategy.
+///   - 50 wstETH directly -> Symbiotic wstETH vault.
 contract F15_04_NativeEigenSymbioticDualstackTest is StrategyBase {
     address constant STETH_STRATEGY = 0x93c4b944D05dfe6df7645A86cd2206016c51564D;
 
@@ -32,7 +32,7 @@ contract F15_04_NativeEigenSymbioticDualstackTest is StrategyBase {
     ///      Mellow/Symbiotic governance. Live at FORK_BLOCK (Aug 2024).
     address constant SYMBIOTIC_WSTETH_VAULT = 0xC329400492c6ff2438472D4651Ad17389fCb843a;
 
-    /// @dev Aug 2024 — Symbiotic mainnet live.
+    /// @dev Aug 2024 - Symbiotic mainnet live.
     uint256 constant FORK_BLOCK = 20_400_000;
 
     uint256 constant EQUITY_WSTETH = 100 ether;
@@ -45,12 +45,12 @@ contract F15_04_NativeEigenSymbioticDualstackTest is StrategyBase {
     }
 
     function testStrategy_F15_04() public {
-        // wstETH is non-rebasing & allow-list-free → deal() works.
+        // wstETH is non-rebasing & allow-list-free -> deal() works.
         _fund(Mainnet.WSTETH, address(this), EQUITY_WSTETH);
 
         _startPnL();
 
-        // ---- Leg A: wstETH → stETH → EigenLayer ----
+        // ---- Leg A: wstETH -> stETH -> EigenLayer ----
         // Unwrap 50 wstETH.
         uint256 stETHAmount = IWstETH(Mainnet.WSTETH).unwrap(LEG_WSTETH);
         console2.log("unwrapped stETH (1e18):", stETHAmount);
@@ -72,10 +72,10 @@ contract F15_04_NativeEigenSymbioticDualstackTest is StrategyBase {
             }
         }
 
-        // ---- Leg B: 50 wstETH → Symbiotic vault ----
+        // ---- Leg B: 50 wstETH -> Symbiotic vault ----
         IERC20(Mainnet.WSTETH).approve(SYMBIOTIC_WSTETH_VAULT, LEG_WSTETH);
 
-        // Symbiotic vault may be capped or paused — try/catch.
+        // Symbiotic vault may be capped or paused - try/catch.
         uint256 symBefore;
         try ISymbioticCollateral(SYMBIOTIC_WSTETH_VAULT).totalSupply() returns (uint256 ts) {
             symBefore = ts;

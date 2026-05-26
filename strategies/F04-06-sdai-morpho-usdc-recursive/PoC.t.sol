@@ -9,21 +9,21 @@ import {IPot} from "src/interfaces/cdp/IPot.sol";
 import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
-/// @title F04-06 — sDAI/USDC recursive loop across Morpho + Curve 3pool
+/// @title F04-06 - sDAI/USDC recursive loop across Morpho + Curve 3pool
 /// @notice Three mechanisms in one position:
-///         1. sDAI (Maker DSR-bearing 4626) — collateral that pays DSR while
+///         1. sDAI (Maker DSR-bearing 4626) - collateral that pays DSR while
 ///            it sits posted.
-///         2. Morpho Blue isolated sDAI/USDC market — variable USDC borrow
+///         2. Morpho Blue isolated sDAI/USDC market - variable USDC borrow
 ///            against sDAI at ~86% LLTV. Borrow rate is set independently of
 ///            the Spark DAI IRM.
-///         3. Curve 3pool — converts the borrowed USDC back to DAI so it can
+///         3. Curve 3pool - converts the borrowed USDC back to DAI so it can
 ///            re-enter sDAI. Replaces the PSM hop used by F04-02 / F04-03
 ///            (which keeps everything DAI-side). Going via USDC opens the
 ///            position to a different rate market (Morpho > Spark when LLTV
 ///            is higher) at the cost of a small Curve slippage.
 ///
 /// The thesis: Morpho's permissionless markets have allowed sDAI/USDC to ship
-/// with LLTV = 86% — materially higher than Spark's sDAI/DAI LTV of 74%. The
+/// with LLTV = 86% - materially higher than Spark's sDAI/DAI LTV of 74%. The
 /// extra 12 pp of LLTV means at the same safety frac you reach ~3.7x leverage
 /// instead of ~2.5x, which more than pays for the Curve slippage on the USDC
 /// recycle.
@@ -69,7 +69,7 @@ contract F04_06_SDaiMorphoUsdcRecursive is StrategyBase {
         _market = IMorpho(Mainnet.MORPHO).idToMarketParams(LOCAL_SDAI_USDC_MARKET_ID);
         require(_market.loanToken == Mainnet.USDC, "F04-06: market loan token not USDC");
         require(_market.collateralToken == Mainnet.SDAI, "F04-06: market collateral not sDAI");
-        require(_market.lltv >= 0.86e18, "F04-06: LLTV below 86% — wrong market");
+        require(_market.lltv >= 0.86e18, "F04-06: LLTV below 86% - wrong market");
     }
 
     function test_sdaiMorphoUsdcRecursive() public {
@@ -174,7 +174,7 @@ contract F04_06_SDaiMorphoUsdcRecursive is StrategyBase {
                 // Need DAI to swap for USDC. Sources: balance + collateral
                 // withdraw (but we can't withdraw collateral yet without
                 // repaying first). On the first iteration we have no DAI on
-                // hand — so seed the unwind by withdrawing *just enough* of
+                // hand - so seed the unwind by withdrawing *just enough* of
                 // the LLTV-free slack: `freeColl = collateral - debt/LLTV`.
                 uint256 daiHere = IERC20(Mainnet.DAI).balanceOf(address(this));
                 if (daiHere < stepUsdc * 1e12) {
@@ -242,8 +242,8 @@ contract F04_06_SDaiMorphoUsdcRecursive is StrategyBase {
 
         uint256 endDai = IERC20(Mainnet.DAI).balanceOf(address(this));
         emit log_named_uint("end_DAI", endDai);
-        // Loose lower bound — the loop can lose to flat USDC-supply rates and a
+        // Loose lower bound - the loop can lose to flat USDC-supply rates and a
         // 30 bp Curve round trip; cap that drag at 2% of seed.
-        assertGt(endDai, SEED_DAI * 98 / 100, "loss > 2% — Morpho IRM likely inverted vs DSR");
+        assertGt(endDai, SEED_DAI * 98 / 100, "loss > 2% - Morpho IRM likely inverted vs DSR");
     }
 }

@@ -21,7 +21,7 @@ import {IVotium} from "src/interfaces/bribe/IVotium.sol";
 ///         6. PnL = total bribe-token deltas (CVX delta is 0; still locked).
 /// @dev Real-round PoC requires off-chain Votium JSON proofs. See README.
 contract F12_02_PoC is StrategyBase {
-    // Apr 13 2024 — well after a Votium round was posted.
+    // Apr 13 2024 - well after a Votium round was posted.
     uint256 constant FORK_BLOCK = 19_643_500;
 
     // CVX to lock (16-week, vote-bearing).
@@ -66,7 +66,7 @@ contract F12_02_PoC is StrategyBase {
         // Note: on the canonical CvxLockerV2 the `delegate()` function may not
         // exist (delegation lives on a separate Gnosis DelegateRegistry at
         // 0x469788fE6E9E9681C6ebF3bF78e7Fd26Fc015446). We try the locker call
-        // and tolerate a revert — the bribe claim path below is independent of
+        // and tolerate a revert - the bribe claim path below is independent of
         // delegation state, since we are injecting the merkle root ourselves.
         (bool delegOk,) = Mainnet.VLCVX.call(
             abi.encodeWithSignature("delegate(address)", VOTIUM_VOTE_PROXY)
@@ -134,7 +134,7 @@ contract F12_02_PoC is StrategyBase {
         // Fund the stash with the bribe payload.
         _fund(token, Mainnet.VOTIUM_MULTI_MERKLE_STASH, amount);
 
-        // Empty proof — one-leaf tree.
+        // Empty proof - one-leaf tree.
         bytes32[] memory proof = new bytes32[](0);
 
         IVotium(Mainnet.VOTIUM_MULTI_MERKLE_STASH).claim(
@@ -149,7 +149,7 @@ contract F12_02_PoC is StrategyBase {
     ///      the public getter's return value. Falls back to `type(uint256).max`.
     ///
     /// @dev TASK A (informational, Wave 4): the slot probe below is **purely
-    ///      diagnostic** — Votium's MultiMerkleStash is unverified-Vyper-style
+    ///      diagnostic** - Votium's MultiMerkleStash is unverified-Vyper-style
     ///      Solidity in places and we cannot derive the layout statically. The
     ///      probe is wrapped in try/catch-equivalent semantics (it returns
     ///      `type(uint256).max` rather than reverting on no-match), and the

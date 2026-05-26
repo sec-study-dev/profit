@@ -12,7 +12,7 @@ interface IDaiUsds {
     function usdsToDai(address usr, uint256 wad) external;
 }
 
-/// @title F04-05 — DaiUsds wrapper round-trip + sUSDS deposit slippage probe
+/// @title F04-05 - DaiUsds wrapper round-trip + sUSDS deposit slippage probe
 /// @notice Two-mechanism stack (DaiUsds wrapper + sUSDS ERC-4626). The PoC's job
 ///         is to *measure* whether the headline "zero-fee 1:1" DAI<->USDS path
 ///         and the ERC-4626 share rounding ever introduce wei-level loss when
@@ -38,7 +38,7 @@ contract F04_05_DaiUsdsRoundTrip is StrategyBase {
     uint256 internal constant FORK_BLOCK = 21_500_000;
     uint256 internal constant PROBE = 1_000_000e18;
     uint256 internal constant WARP_SECONDS = 60 days;
-    // Tight tolerance — anything more than this means the wrapper is taking a
+    // Tight tolerance - anything more than this means the wrapper is taking a
     // fee or the 4626 is reporting bad shares.
     uint256 internal constant MAX_ROUND_TRIP_LOSS_WEI = 2;
 
@@ -61,7 +61,7 @@ contract F04_05_DaiUsdsRoundTrip is StrategyBase {
         uint256 daiStart = IERC20(Mainnet.DAI).balanceOf(address(this));
         wrapper.daiToUsds(address(this), PROBE);
         uint256 usdsMid = IERC20(Mainnet.USDS).balanceOf(address(this));
-        // Wrapper is canonical 1:1 — must mint exactly PROBE USDS.
+        // Wrapper is canonical 1:1 - must mint exactly PROBE USDS.
         assertEq(usdsMid, PROBE, "daiToUsds not exact 1:1");
 
         wrapper.usdsToDai(address(this), usdsMid);
@@ -151,9 +151,9 @@ contract F04_05_DaiUsdsRoundTrip is StrategyBase {
         // (corresponds to ~2.5% SSR floor).
         uint256 gainBps = ((usdsOut - usdsIn) * 10_000) / usdsIn;
         emit log_named_uint("gain_bps_over_60d", gainBps);
-        assertGt(gainBps, 40, "SSR yield over 60d < 0.4% — SSR effectively off");
+        assertGt(gainBps, 40, "SSR yield over 60d < 0.4% - SSR effectively off");
         // Upper-bound sanity: more than 5% over 60d would imply SSR > 32% APR.
-        assertLt(gainBps, 500, "implied APR > 30% — fork param drift?");
+        assertLt(gainBps, 500, "implied APR > 30% - fork param drift?");
 
         // Wrap back to DAI to harvest in canonical denomination.
         wrapper.usdsToDai(address(this), usdsOut);

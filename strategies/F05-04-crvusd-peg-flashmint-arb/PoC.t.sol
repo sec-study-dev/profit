@@ -19,7 +19,7 @@ import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.so
 contract F05_04_PoC is StrategyBase, IERC3156FlashBorrower {
     address constant DSS_FLASH = 0x60744434d6339a6B27d73d9Eda62b6F66a0a04FA;
     address constant DSS_PSM_USDC = 0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A;
-    // PSM gemJoin (where USDC actually moves to) — required only if we needed
+    // PSM gemJoin (where USDC actually moves to) - required only if we needed
     // to approve the join contract directly. PSM.buyGem pulls DAI from msg.sender
     // and pushes USDC; PSM.sellGem pulls USDC from msg.sender. We only need to
     // approve USDC to the gemJoin contract (queried at runtime).

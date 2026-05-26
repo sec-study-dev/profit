@@ -10,13 +10,13 @@ import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
-/// @title F08-03 — PT-sUSDe leveraged buy on Morpho with USDC flashloan
+/// @title F08-03 - PT-sUSDe leveraged buy on Morpho with USDC flashloan
 /// @notice Cash-and-carry: borrow USDC via Morpho free flashloan, swap USDC->USDe
 ///         on Curve, buy PT-sUSDe-26SEP2024 on Pendle, post PT as Morpho
 ///         collateral on a curated PT-sUSDe/USDC market, borrow USDC equal to
 ///         the flash, repay. Result: ~5x PT-sUSDe stack on the original equity.
-///         PT-sUSDe matures at par into 1 sUSDe — PnL is the fixed discount
-///         (~12-20% annualised premium) × leverage.
+///         PT-sUSDe matures at par into 1 sUSDe - PnL is the fixed discount
+///         (~12-20% annualised premium) * leverage.
 contract F08_03_PtSusdeMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCallback {
     // ---- Pinned constants ----
 
@@ -24,7 +24,7 @@ contract F08_03_PtSusdeMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCall
     ///      Morpho PT-sUSDe-26SEP/USDC market curated by MEV-Capital with 86% LLTV.
     uint256 constant FORK_BLOCK = 19_950_000;
 
-    /// @dev Pendle PT-sUSDe-26SEP2024 market — canonical address used by F07-01
+    /// @dev Pendle PT-sUSDe-26SEP2024 market - canonical address used by F07-01
     ///      and F07-04 at the same maturity. Verified via Pendle SDK / registry.
     ///      We recover the underlying PT (and SY/YT) via IPendleMarket.readTokens()
     ///      in setUp() to avoid hardcoding the PT address (which may differ across
@@ -59,7 +59,7 @@ contract F08_03_PtSusdeMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCall
 
     function setUp() public {
         _fork(FORK_BLOCK);
-        // Read SY/PT/YT directly from the Pendle market — avoids hardcoding the
+        // Read SY/PT/YT directly from the Pendle market - avoids hardcoding the
         // PT token address (which has differed across Pendle factory redeploys).
         (_sy, _pt, _yt) = IPendleMarket(LOCAL_PENDLE_MARKET_PT_SUSDE_26SEP24).readTokens();
 

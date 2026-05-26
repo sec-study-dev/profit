@@ -12,7 +12,7 @@ import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {IMorphoFlashLoanCallback} from "src/interfaces/common/IFlashLoanReceiver.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F02-07 — weETH PT/YT split: sell PT for cash, keep YT.
+/// @notice F02-07 - weETH PT/YT split: sell PT for cash, keep YT.
 ///
 /// THREE distinct mechanisms compose: EtherFi LRT mint + Pendle mintPyFromToken
 /// (atomic PT+YT split) + Morpho free flashloan. Net effect: each WETH spent
@@ -21,7 +21,7 @@ import {console2} from "forge-std/console2.sol";
 contract F02_07_WeethPendlePtYtSplitFlashloopTest is StrategyBase, IMorphoFlashLoanCallback {
     // ---- Pinned constants ----
 
-    /// @dev Block 19,400,000 — early Mar 2024. Pendle weETH-27JUN24 market live.
+    /// @dev Block 19,400,000 - early Mar 2024. Pendle weETH-27JUN24 market live.
     uint256 constant FORK_BLOCK = 19_400_000;
 
     /// @dev Pendle PT-eETH-27JUN24 / SY-weETH market (LP token).
@@ -60,7 +60,7 @@ contract F02_07_WeethPendlePtYtSplitFlashloopTest is StrategyBase, IMorphoFlashL
     function onMorphoFlashLoan(uint256 assets, bytes calldata) external {
         require(msg.sender == Mainnet.MORPHO, "only morpho");
 
-        // ---- 1. WETH → ETH → eETH → weETH ----
+        // ---- 1. WETH -> ETH -> eETH -> weETH ----
         uint256 totalWeth = IERC20(Mainnet.WETH).balanceOf(address(this));
         IWETH(Mainnet.WETH).withdraw(totalWeth);
         IEtherFiLiquidityPool(Mainnet.ETHERFI_LIQUIDITY_POOL).deposit{value: totalWeth}();
@@ -89,7 +89,7 @@ contract F02_07_WeethPendlePtYtSplitFlashloopTest is StrategyBase, IMorphoFlashL
         try IPendleRouter(Mainnet.PENDLE_ROUTER_V4).mintPyFromToken(
             address(this),
             LOCAL_PENDLE_YT_WEETH_27JUN24,
-            0, // minPyOut — PoC skips slippage
+            0, // minPyOut - PoC skips slippage
             tin
         ) returns (uint256 pyOut, uint256) {
             console2.log("PT+YT minted:", pyOut);

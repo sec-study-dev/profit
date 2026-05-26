@@ -18,7 +18,7 @@ import {IConvexBooster, IConvexBaseRewardPool} from "src/interfaces/bribe/IConve
 ///
 ///         Each leg is wrapped in try/catch so a failure on any one mechanism
 ///         (e.g. Convex PID missing at this block) emits a log and falls
-///         through to the next layer's PnL — the test still surfaces the
+///         through to the next layer's PnL - the test still surfaces the
 ///         healthy legs' results.
 contract F10_05_GhoCurveConvex3MechBoost is StrategyBase {
     uint256 constant FORK_BLOCK = 20_900_000;
@@ -34,7 +34,7 @@ contract F10_05_GhoCurveConvex3MechBoost is StrategyBase {
     /// @notice CRV reward token (standard).
     address constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
 
-    /// @notice Convex Booster — canonical mainnet. Inlined here per Wave 4
+    /// @notice Convex Booster - canonical mainnet. Inlined here per Wave 4
     ///         constraint #3 (also matches Mainnet.CONVEX_BOOSTER for cross-ref).
     address constant CVX_BOOSTER = 0xF403C135812408BFbE8713b5A23a04b3D48AAE31;
 
@@ -47,7 +47,7 @@ contract F10_05_GhoCurveConvex3MechBoost is StrategyBase {
     /// @notice Target GHO borrow (capped on-chain by availableBorrowsBase).
     uint256 constant TARGET_GHO_BORROW = 700_000e18;
 
-    /// @notice Warp duration — one Convex epoch.
+    /// @notice Warp duration - one Convex epoch.
     uint256 constant WARP_DURATION = 14 days;
 
     function setUp() public {
@@ -108,7 +108,7 @@ contract F10_05_GhoCurveConvex3MechBoost is StrategyBase {
             emit log_named_uint("curve_lp_minted", lpReceived);
         } catch {
             emit log("curve_add_liquidity_failed: coin order or pool layout mismatch");
-            // Fall through to warp / report — GHO debt still accrues, no LP yield.
+            // Fall through to warp / report - GHO debt still accrues, no LP yield.
         }
 
         // ---- 3. Mechanism 3: Convex Booster stake ----

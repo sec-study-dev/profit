@@ -70,7 +70,7 @@ interface IStabilityPool {
     function getTotalLUSDDeposits() external view returns (uint256);
 }
 
-/// @title F16-04 — GHO mint -> LUSD Stability Pool carry
+/// @title F16-04 - GHO mint -> LUSD Stability Pool carry
 contract F16_04_GhoMintLusdStabilityPoolCarry is StrategyBase {
     // ---- Aave V3 ----
     address constant AAVE_POOL = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2;

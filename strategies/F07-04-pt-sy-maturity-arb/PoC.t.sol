@@ -9,10 +9,10 @@ import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IPYieldToken} from "src/interfaces/pendle/IPYieldToken.sol";
 import {IPPrincipalToken} from "src/interfaces/pendle/IPPrincipalToken.sol";
 
-/// @title F07-04 — PT/SY redemption arbitrage near maturity
+/// @title F07-04 - PT/SY redemption arbitrage near maturity
 ///
 /// @notice Buy PT-sUSDe in the final ~3-5 days at <1.0 SY/PT discount, then
-///         warp past maturity and redeem PT 1:1 for SY → USDC via the Pendle
+///         warp past maturity and redeem PT 1:1 for SY -> USDC via the Pendle
 ///         router. Returns the redemption gap (minus Pendle/SY fees).
 contract F07_04_PtSyMaturityArbTest is StrategyBase {
     // ---- Block (3-4 days pre-maturity) ----

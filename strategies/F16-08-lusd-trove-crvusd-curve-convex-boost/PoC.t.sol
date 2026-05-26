@@ -24,7 +24,7 @@ interface ILiquityV1TroveManager {
     function getTroveColl(address _borrower) external view returns (uint256);
 }
 
-/// @title F16-08 — LUSD trove (0% running rate) + crvUSD/LUSD Curve LP + Convex boost
+/// @title F16-08 - LUSD trove (0% running rate) + crvUSD/LUSD Curve LP + Convex boost
 /// @notice 3-mechanism cross-CDP stack that earns CRV+CVX emissions on a
 ///         basis-trade LP between two CDP-issued stables (LUSD and crvUSD)
 ///         while the funding side carries **zero running interest** thanks
@@ -34,11 +34,11 @@ interface ILiquityV1TroveManager {
 ///           (1) **Liquity v1** open-trove with the operator's ETH collateral;
 ///               LUSD draws cost a one-time fee (decayed since last
 ///               redemption) and then accrue 0% interest indefinitely.
-///           (2) **Curve crvUSD/LUSD stableswap pool** — single-sided LP
+///           (2) **Curve crvUSD/LUSD stableswap pool** - single-sided LP
 ///               using the freshly minted LUSD on one side. The pool earns
 ///               swap fees + CRV gauge emissions through the Convex
 ///               proxy.
-///           (3) **Convex Booster** — stake the Curve LP into Convex's
+///           (3) **Convex Booster** - stake the Curve LP into Convex's
 ///               BaseRewardPool to receive boosted CRV + native CVX
 ///               emissions on top of the gauge.
 ///
@@ -75,7 +75,7 @@ contract F16_08_LusdTroveCrvUsdCurveConvexBoost is StrategyBase {
     /// @dev Operator ETH collateral.
     uint256 constant ETH_COLLATERAL = 100 ether;
 
-    /// @dev LUSD draw target — conservative at $200k against $310k ETH.
+    /// @dev LUSD draw target - conservative at $200k against $310k ETH.
     uint256 constant LUSD_DRAW = 200_000e18;
 
     /// @dev Max one-time borrow fee cap (1e18 = 100%).

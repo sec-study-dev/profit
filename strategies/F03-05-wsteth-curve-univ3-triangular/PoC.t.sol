@@ -21,7 +21,7 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 ///           -> WETH via UniV3 wstETH/WETH 1bp pool
 ///         repay flash
 contract F03_05_WstETHTriangularTest is StrategyBase, IFlashLoanRecipientBalancer {
-    /// @dev Same pin as F03-01 / F03-04 — post-Shanghai Curve stETH/ETH discount.
+    /// @dev Same pin as F03-01 / F03-04 - post-Shanghai Curve stETH/ETH discount.
     uint256 constant FORK_BLOCK = 17_560_000;
 
     /// @dev UniV3 wstETH/WETH 0.01% (fee tier 100) pool. token0 = wstETH, token1 = WETH
@@ -71,7 +71,7 @@ contract F03_05_WstETHTriangularTest is StrategyBase, IFlashLoanRecipientBalance
             int128(0), int128(1), amounts[0], minStEth
         );
 
-        // stETH is rebasing; read live balance (may differ by ±1-2 wei from the return).
+        // stETH is rebasing; read live balance (may differ by +/-1-2 wei from the return).
         uint256 stEthBal = IStETH(Mainnet.STETH).balanceOf(address(this));
         require(stEthBal > 0, "curve: zero stETH out");
 
@@ -89,7 +89,7 @@ contract F03_05_WstETHTriangularTest is StrategyBase, IFlashLoanRecipientBalance
             recipient: address(this),
             deadline: block.timestamp,
             amountIn: wstEthOut,
-            // No tight floor — if the triangle is under-water at this block, the
+            // No tight floor - if the triangle is under-water at this block, the
             // _endPnL output records the loss rather than reverting silently.
             amountOutMinimum: 0,
             sqrtPriceLimitX96: 0

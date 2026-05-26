@@ -9,7 +9,7 @@ import {IStETH} from "src/interfaces/lst/IStETH.sol";
 import {IPufETH} from "src/interfaces/lrt/IPufETH.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice Minimal Karak v2 vault — ERC-4626-style deposit(assets, receiver).
+/// @notice Minimal Karak v2 vault - ERC-4626-style deposit(assets, receiver).
 interface IKarakVault {
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
     function balanceOf(address account) external view returns (uint256);
@@ -17,32 +17,32 @@ interface IKarakVault {
     function asset() external view returns (address);
 }
 
-/// @notice Minimal EtherFi liquidity pool — eETH mint via ETH deposit.
+/// @notice Minimal EtherFi liquidity pool - eETH mint via ETH deposit.
 interface IEtherFiLiquidityPool {
     function deposit() external payable returns (uint256);
 }
 
-/// @notice Minimal weETH wrapper — wrap rebasing eETH into non-rebasing weETH.
+/// @notice Minimal weETH wrapper - wrap rebasing eETH into non-rebasing weETH.
 interface IWeETHWrapper {
     function wrap(uint256 eETHAmount) external returns (uint256);
 }
 
-/// @notice F15-07 — Karak v2 multi-LRT basket: deposit pufETH + weETH + wstETH
+/// @notice F15-07 - Karak v2 multi-LRT basket: deposit pufETH + weETH + wstETH
 ///         into three Karak vaults in one transaction for a layered point stack.
 ///
 /// 3-mechanism compose:
-///   1. **Karak restaking** — Karak XP + (eventual) KAR token airdrop on every
+///   1. **Karak restaking** - Karak XP + (eventual) KAR token airdrop on every
 ///      deposited asset.
-///   2. **LRT layer (EtherFi + Puffer)** — each pufETH and weETH share keeps
+///   2. **LRT layer (EtherFi + Puffer)** - each pufETH and weETH share keeps
 ///      accruing its native LRT points (ETHFI loyalty, Puffer Carrot)
 ///      *while sitting inside the Karak vault* (Karak deposits do NOT
 ///      surrender the underlying claim; the user is the vault-share owner).
-///   3. **LST layer (Lido via wstETH)** — wstETH continues to compound Lido
+///   3. **LST layer (Lido via wstETH)** - wstETH continues to compound Lido
 ///      staking yield inside Karak's wstETH vault.
 ///
 /// All three vaults hold their respective assets simultaneously on the same
 /// equity, with no cross-collateralisation. This is a **point-diversification
-/// PoC** — the cash leg at fork-block is ~$0; the value is the airdrop
+/// PoC** - the cash leg at fork-block is ~$0; the value is the airdrop
 /// expectation of (KAR + ETHFI + PUFFER + LDO) all earning on overlapping
 /// notionals.
 contract F15_07_KarakMultiLrtBasketVaultTest is StrategyBase {
@@ -61,7 +61,7 @@ contract F15_07_KarakMultiLrtBasketVaultTest is StrategyBase {
     /// @dev Karak weETH vault.
     address constant KARAK_WEETH_VAULT = 0x7C22725d1E0871f0043397c9761AD99A86ffD498;
 
-    /// @dev Sep 2024 — Karak v2 live, multi-LRT vaults all accepting deposits.
+    /// @dev Sep 2024 - Karak v2 live, multi-LRT vaults all accepting deposits.
     uint256 constant FORK_BLOCK = 20_700_000;
 
     /// @dev Per-leg equity: 30 ETH-equivalent in each of the three LRTs.
@@ -78,7 +78,7 @@ contract F15_07_KarakMultiLrtBasketVaultTest is StrategyBase {
 
     function testStrategy_F15_07() public {
         // Fund with WETH then unwrap to ETH for downstream minting.
-        // We treat 90 ETH total equity = 30 ETH × 3 legs.
+        // We treat 90 ETH total equity = 30 ETH * 3 legs.
         vm.deal(address(this), 90 ether);
 
         _startPnL();

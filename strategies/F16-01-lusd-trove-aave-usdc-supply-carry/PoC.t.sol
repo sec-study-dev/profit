@@ -73,7 +73,7 @@ interface IAaveV3Pool {
         );
 }
 
-/// @title F16-01 — LUSD trove (0% borrow) -> USDC -> Aave V3 supply carry
+/// @title F16-01 - LUSD trove (0% borrow) -> USDC -> Aave V3 supply carry
 contract F16_01_LusdTroveAaveUsdcSupplyCarry is StrategyBase {
     // ---- Liquity v1 mainnet addresses (immutable since 2021) ----
     address constant BORROWER_OPS = 0x24179CD81c9e782A4096035f7eC97fB8B783e007;
@@ -86,7 +86,7 @@ contract F16_01_LusdTroveAaveUsdcSupplyCarry is StrategyBase {
     address constant AAVE_POOL = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2;
 
     // ---- Tunables ----
-    /// @dev Aug 31 2024 — LUSD baseRate near floor, Aave USDC supply ~3.8%.
+    /// @dev Aug 31 2024 - LUSD baseRate near floor, Aave USDC supply ~3.8%.
     uint256 constant FORK_BLOCK = 20_400_000;
 
     /// @dev Probe size: 50 ETH collateral.
@@ -175,7 +175,7 @@ contract F16_01_LusdTroveAaveUsdcSupplyCarry is StrategyBase {
         );
         emit log_named_uint("usdc_withdrawn", withdrawn);
 
-        // ---- 6) Leave the trove open — closure requires repurchasing LUSD on
+        // ---- 6) Leave the trove open - closure requires repurchasing LUSD on
         //         the open market which adds back-end depeg noise. The PnL is
         //         measured directly off the residual USDC vs. starting nothing.
         //         The outstanding LUSD debt is tracked on the trove and would

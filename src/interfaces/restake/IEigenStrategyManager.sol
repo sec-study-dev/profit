@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice EigenLayer StrategyManager — deposit LSTs into per-asset strategies.
+/// @notice EigenLayer StrategyManager - deposit LSTs into per-asset strategies.
 interface IEigenStrategyManager {
     function depositIntoStrategy(address strategy, address token, uint256 amount) external returns (uint256 shares);
 

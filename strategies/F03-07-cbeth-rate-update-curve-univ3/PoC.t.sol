@@ -32,7 +32,7 @@ contract F03_07_CbETHRateUpdateTest is StrategyBase, IFlashLoanRecipientBalancer
 
     uint256 constant FLASH_NOTIONAL = 300 ether;
 
-    /// @dev Repayment buffer — we retain cbETH at end of tx (no atomic redemption).
+    /// @dev Repayment buffer - we retain cbETH at end of tx (no atomic redemption).
     ///      Net PnL line: cbETH @ exchangeRate value vs WETH consumed from buffer.
     uint256 constant REPAY_BUFFER = 320 ether;
 

@@ -11,14 +11,14 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IWstETH} from "src/interfaces/lst/IWstETH.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F09-09 — Morpho liquidation auction harvest via free flashLoan and
+/// @notice F09-09 - Morpho liquidation auction harvest via free flashLoan and
 ///         multi-venue exit. Three-mechanism:
 ///
 ///         Mechanism 1: Morpho Blue zero-fee flashLoan on WETH (provides
 ///                      repay-token bootstrap)
 ///         Mechanism 2: Morpho Blue `liquidate(...)` on a hypothetically-
-///                      underwater wstETH/WETH 94.5% position — seizes
-///                      collateral at `1/LLTV - 1 ≈ 5.8%` bonus
+///                      underwater wstETH/WETH 94.5% position - seizes
+///                      collateral at `1/LLTV - 1 ~= 5.8%` bonus
 ///         Mechanism 3: Curve stETH/ETH pool exit (or Uniswap V3 wstETH/WETH
 ///                      pool exit) to convert seized wstETH back to WETH and
 ///                      repay the flash, locking the liquidation bonus
@@ -30,7 +30,7 @@ import {console2} from "forge-std/console2.sol";
 contract F09_09_MorphoLiquidationFlashHarvestTest is StrategyBase, IMorphoFlashLoanCallback {
     // ---- Constants ----
 
-    /// @dev Block 21,400,000 — same as F09-01. wstETH/WETH 94.5% market live and
+    /// @dev Block 21,400,000 - same as F09-01. wstETH/WETH 94.5% market live and
     ///      deep. We do NOT depend on an underwater borrower existing at this
     ///      block; we manufacture one via direct setup-and-liquidate in the PoC
     ///      to deterministically exercise the liquidation primitive.
@@ -44,7 +44,7 @@ contract F09_09_MorphoLiquidationFlashHarvestTest is StrategyBase, IMorphoFlashL
     int128 constant CRV_IDX_ETH = 0;
     int128 constant CRV_IDX_STETH = 1;
 
-    /// @dev Synthetic borrower address — we set up a victim position via
+    /// @dev Synthetic borrower address - we set up a victim position via
     ///      vm.startPrank on this address to make it liquidatable.
     address constant BORROWER = address(0xB0B);
 
@@ -75,15 +75,15 @@ contract F09_09_MorphoLiquidationFlashHarvestTest is StrategyBase, IMorphoFlashL
         // the feed reverts as stale, blocking the liquidate() call.
         //
         // Instead the PoC:
-        //   (a) sets up a *seated* borrower position at LTV ≈ 92% (well under
-        //       LLTV = 94.5%) — this exercises the supplyCollateral + borrow
+        //   (a) sets up a *seated* borrower position at LTV ~= 92% (well under
+        //       LLTV = 94.5%) - this exercises the supplyCollateral + borrow
         //       machinery against the live oracle, proving the market is open
         //       and pricing as expected.
         //   (b) calls the liquidate() entrypoint with seized=0, which is the
         //       canonical no-op-but-permitted form; Morpho's liquidate-revert
         //       path on a healthy position is what we *expect* and captures
         //       the structural mechanic.
-        //   (c) demonstrates the Curve exit (wstETH → stETH → ETH → WETH)
+        //   (c) demonstrates the Curve exit (wstETH -> stETH -> ETH -> WETH)
         //       independently to prove the unwind venue is wired.
 
         _setupSeatedBorrower();
@@ -106,13 +106,13 @@ contract F09_09_MorphoLiquidationFlashHarvestTest is StrategyBase, IMorphoFlashL
             // If this somehow *succeeds*, the position was already underwater
             // at fork (rare but possible during a Chainlink stETH/ETH dip
             // exactly at this block); capture the surplus.
-            console2.log("liquidate succeeded — position was UNDERWATER at fork");
+            console2.log("liquidate succeeded - position was UNDERWATER at fork");
         } catch {
-            console2.log("liquidate reverted — position is HEALTHY (expected)");
+            console2.log("liquidate reverted - position is HEALTHY (expected)");
         }
 
         // Now demonstrate the Curve exit path with a small wstETH amount we
-        // hold ourselves — this is the *unwind* primitive that converts seized
+        // hold ourselves - this is the *unwind* primitive that converts seized
         // collateral back to WETH to repay the flashloan.
         deal(Mainnet.WSTETH, address(this), 1 ether);
         _swapWstethToWeth(0.5 ether); // sells ~ 0.43 wstETH for ~ 0.5 WETH
@@ -129,7 +129,7 @@ contract F09_09_MorphoLiquidationFlashHarvestTest is StrategyBase, IMorphoFlashL
 
     function _setupSeatedBorrower() internal {
         // Give BORROWER 10 wstETH; post 10 as collateral and borrow at a safe
-        // LTV (≈ 92%, well under LLTV = 94.5%). This seats a real Morpho
+        // LTV (~= 92%, well under LLTV = 94.5%). This seats a real Morpho
         // position so the liquidate() call has something to point at.
         deal(Mainnet.WSTETH, BORROWER, 10 ether);
 
@@ -137,7 +137,7 @@ contract F09_09_MorphoLiquidationFlashHarvestTest is StrategyBase, IMorphoFlashL
         IERC20(Mainnet.WSTETH).approve(Mainnet.MORPHO, type(uint256).max);
         IMorpho(Mainnet.MORPHO).supplyCollateral(_market, 10 ether, BORROWER, "");
 
-        // wstETH-in-ETH at fork ≈ 1.18; 10 wstETH ≈ 11.8 ETH of collateral
+        // wstETH-in-ETH at fork ~= 1.18; 10 wstETH ~= 11.8 ETH of collateral
         // value. Borrow 10.9 ETH for an LTV of ~92.4% (well safe under 94.5%
         // LLTV). The structural demonstration does not require under-water.
         uint256 safeBorrow = 10.9 ether;

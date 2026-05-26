@@ -32,15 +32,15 @@ interface ICurveMeta {
     function balanceOf(address) external view returns (uint256);
 }
 
-/// @title F06-06 — LUSD trove → split deposit (SP + Convex LUSD/3pool) — 3-mech
+/// @title F06-06 - LUSD trove -> split deposit (SP + Convex LUSD/3pool) - 3-mech
 /// @notice 3-mechanism strategy:
-///         1. Liquity v1 — open trove (ETH coll, mint LUSD).
-///         2. Curve — provide LP to LUSD/3pool meta-pool (LUSD3CRV-f).
-///         3. Convex — stake LUSD3CRV-f in Convex Booster pid for boosted CRV+CVX yield.
+///         1. Liquity v1 - open trove (ETH coll, mint LUSD).
+///         2. Curve - provide LP to LUSD/3pool meta-pool (LUSD3CRV-f).
+///         3. Convex - stake LUSD3CRV-f in Convex Booster pid for boosted CRV+CVX yield.
 ///
 ///         Half of the freshly minted LUSD is parked in the Liquity Stability
 ///         Pool to earn the on-chain liquidation premium (ETH gain), the
-///         other half goes to Curve LP → Convex stake to harvest CRV+CVX.
+///         other half goes to Curve LP -> Convex stake to harvest CRV+CVX.
 ///         At full unwind, the resulting yield is denominated in (LUSD, ETH,
 ///         CRV, CVX). All four legs use only canonical, address-stable
 ///         contracts.
@@ -70,7 +70,7 @@ contract F06_06_LusdTroveSpConvexBoostTest is StrategyBase {
     uint256 constant FORK_BLOCK = 17_900_000;
 
     uint256 constant TROVE_COLLATERAL_ETH = 100 ether;
-    uint256 constant TROVE_LUSD_BORROW = 100_000e18;  // ICR ~ 100×3000/100k = 300%
+    uint256 constant TROVE_LUSD_BORROW = 100_000e18;  // ICR ~ 100*3000/100k = 300%
     uint256 constant MAX_FEE_PCT = 0.05e18;
     uint256 constant HORIZON_DAYS = 30;
 
@@ -153,7 +153,7 @@ contract F06_06_LusdTroveSpConvexBoostTest is StrategyBase {
             emit log_named_uint("curve_lp_back_to_lusd", lusdBack);
         }
 
-        // Final telemetry — at this point we still owe Liquity TROVE_LUSD_BORROW
+        // Final telemetry - at this point we still owe Liquity TROVE_LUSD_BORROW
         // plus accrued (negligible in v1). PnL leg captures LUSD/ETH/CRV/CVX
         // balances; the trove debt itself is unwound by repayLUSD in production.
         emit log_named_uint("final_lusd_balance", IERC20(Mainnet.LUSD).balanceOf(address(this)));

@@ -9,11 +9,11 @@ import {IWeETH} from "src/interfaces/lrt/IWeETH.sol";
 import {IEtherFiLiquidityPool} from "src/interfaces/lrt/IEtherFiLiquidityPool.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 
-/// @notice F02-04 — weETH leveraged via Aave V3 eMode (no flashloan, iterative loop).
+/// @notice F02-04 - weETH leveraged via Aave V3 eMode (no flashloan, iterative loop).
 contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
     // ---- Pinned constants ----
 
-    /// @dev Block 19,500,000 — mid-March 2024. weETH listed on Aave V3 with eMode.
+    /// @dev Block 19,500,000 - mid-March 2024. weETH listed on Aave V3 with eMode.
     uint256 constant FORK_BLOCK = 19_500_000;
 
     /// @dev Aave V3 mainnet eMode category id 1 = "ETH correlated" (set by Aave
@@ -27,7 +27,7 @@ contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
     uint256 constant EQUITY = 100 ether;
 
     /// @dev Number of loop iterations. At 80% effective per-iteration borrow ratio,
-    /// 5 iterations gives ~3.4× leverage; 10 gives ~5×. Capped by gas.
+    /// 5 iterations gives ~3.4* leverage; 10 gives ~5*. Capped by gas.
     uint8 constant LOOPS = 5;
     /// @dev Borrow 80% of available each loop (safety vs 93% eMode LTV ceiling).
     uint256 constant BORROW_RATIO_BPS = 8000;
@@ -43,7 +43,7 @@ contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
         _fund(Mainnet.WETH, address(this), EQUITY);
         _startPnL();
 
-        // First conversion: equity WETH → weETH.
+        // First conversion: equity WETH -> weETH.
         _convertWethToWeeth(EQUITY);
 
         // Set eMode (must be done before/while no incompatible position exists; safe with empty position).
@@ -69,7 +69,7 @@ contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
 
             // availableBase is in "base currency" of Aave's price oracle (USD 8-dec on mainnet).
             // Convert to WETH amount: weth_price_base = oracle.getAssetPrice(WETH).
-            // For PoC, approximate: assume base unit is USD and ETH ≈ $3000.
+            // For PoC, approximate: assume base unit is USD and ETH ~= $3000.
             // To avoid an external oracle call we instead borrow a small fixed fraction
             // of the previous step's supplied weETH balance.
             uint256 wethBalBefore = IERC20(Mainnet.WETH).balanceOf(address(this));
@@ -96,7 +96,7 @@ contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
         _endPnL("F02-04: weETH-aave-emode-loop");
     }
 
-    /// @dev Convert WETH → ETH → eETH → weETH.
+    /// @dev Convert WETH -> ETH -> eETH -> weETH.
     function _convertWethToWeeth(uint256 wethAmt) internal {
         IWETH(Mainnet.WETH).withdraw(wethAmt);
         IEtherFiLiquidityPool(Mainnet.ETHERFI_LIQUIDITY_POOL).deposit{value: wethAmt}();

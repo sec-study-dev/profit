@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice Curve GaugeController — manages veCRV vote weights per gauge.
+/// @notice Curve GaugeController - manages veCRV vote weights per gauge.
 interface ICurveGaugeController {
     function vote_for_gauge_weights(address gauge_addr, uint256 user_weight) external;
     function gauge_relative_weight(address gauge_addr) external view returns (uint256);

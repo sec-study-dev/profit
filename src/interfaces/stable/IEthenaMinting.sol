@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 /// @notice Ethena mint/redeem contract (signed-order based). Order struct shape
-///         and exact selector may evolve — verify against the deployed ABI before use.
+///         and exact selector may evolve - verify against the deployed ABI before use.
 /// @dev    Most-used functions: mint(Order, Signature), redeem(Order, Signature).
 interface IEthenaMinting {
     enum OrderType { MINT, REDEEM }

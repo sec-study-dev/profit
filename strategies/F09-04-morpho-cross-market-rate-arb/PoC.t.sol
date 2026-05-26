@@ -7,7 +7,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F09-04 — Morpho cross-market rate arb (structural demonstration).
+/// @notice F09-04 - Morpho cross-market rate arb (structural demonstration).
 ///
 /// Reads two Morpho USDC-loan markets at the fork block, computes utilisation
 /// for each, asserts the utilisation differential, then opens the supply leg
@@ -23,8 +23,8 @@ contract F09_04_MorphoCrossMarketRateArbTest is StrategyBase {
     // own `idToMarketParams(bytes32)` view (avoids hard-coding fragile oracle
     // addresses that might shift across redeployments).
     //
-    // Market A: sUSDe / USDC 91.5% LLTV — Morpho's flagship stable carry market.
-    // Market B: wstETH / USDC 86% LLTV — Morpho's flagship LST-collateral market.
+    // Market A: sUSDe / USDC 91.5% LLTV - Morpho's flagship stable carry market.
+    // Market B: wstETH / USDC 86% LLTV - Morpho's flagship LST-collateral market.
     bytes32 constant SUSDE_USDC_MARKET_ID =
         0x39d11026eae1c6ec02aa4c0910778664089cdd97c3fd23f68f7cd05e2e95af48;
     bytes32 constant WSTETH_USDC_MARKET_ID =
@@ -79,7 +79,7 @@ contract F09_04_MorphoCrossMarketRateArbTest is StrategyBase {
         console2.log("utilisation delta (e18) =", utilDelta);
 
         // Necessary condition for a meaningful rate spread under AdaptiveCurveIRM:
-        // utilisation differential ≥ 5% (5e16 in 1e18 fixed-point).
+        // utilisation differential >= 5% (5e16 in 1e18 fixed-point).
         require(utilDelta >= 0.05e18, "F09-04: insufficient util spread at fork block");
 
         // ---- Execute the supply leg of the arb (supply to higher-util market A) ----

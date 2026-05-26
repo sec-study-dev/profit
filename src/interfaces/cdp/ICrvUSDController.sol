@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice Curve crvUSD Controller — per-market controller managing user loans.
+/// @notice Curve crvUSD Controller - per-market controller managing user loans.
 interface ICrvUSDController {
     function create_loan(uint256 collateral, uint256 debt, uint256 N) external;
     function add_collateral(uint256 collateral, address _for) external;

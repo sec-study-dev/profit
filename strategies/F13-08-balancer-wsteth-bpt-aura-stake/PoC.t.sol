@@ -28,7 +28,7 @@ interface IAuraRewards {
     function withdrawAndUnwrap(uint256 amount, bool claim) external returns (bool);
 }
 
-/// @title F13-08: Balancer wstETH/WETH BPT → Aura stake → reward accrual
+/// @title F13-08: Balancer wstETH/WETH BPT -> Aura stake -> reward accrual
 /// @notice Two-mechanism composition built on top of F13-03's BPT
 ///         position: deposit the wstETH/WETH ComposableStable BPT into
 ///         the Aura Finance Booster (PID for this pool), which:
@@ -96,9 +96,9 @@ contract F13_08_BalancerBPTAuraStakeTest is StrategyBase {
             emit log_string("F13-08: skipped (Aura pool shutdown at this block)");
             return;
         }
-        require(lptoken == BAL_WSTETH_WETH_POOL, "Aura: PID lptoken mismatch — re-verify PID");
+        require(lptoken == BAL_WSTETH_WETH_POOL, "Aura: PID lptoken mismatch - re-verify PID");
 
-        // Resolve pool token order (BPT slot + WETH slot) — same approach
+        // Resolve pool token order (BPT slot + WETH slot) - same approach
         // as F13-03 for CSP v3+.
         (address[] memory tokens, , ) = IBalancerVault(Mainnet.BAL_VAULT)
             .getPoolTokens(BAL_WSTETH_WETH_POOL_ID);

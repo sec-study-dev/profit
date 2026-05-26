@@ -9,7 +9,7 @@ import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {IMorphoFlashLoanCallback} from "src/interfaces/common/IFlashLoanReceiver.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F09-02 — sUSDe/DAI 91.5% LLTV loop bootstrapped by Morpho's zero-fee flashLoan.
+/// @notice F09-02 - sUSDe/DAI 91.5% LLTV loop bootstrapped by Morpho's zero-fee flashLoan.
 ///
 /// Single-tx mechanism:
 ///   1. flashLoan DAI from Morpho (0% fee)
@@ -72,7 +72,7 @@ contract F09_02_SusdeDaiMorphoFlashloopTest is StrategyBase, IMorphoFlashLoanCal
         // that swap by (a) zeroing the DAI balance and (b) dealing the equivalent
         // sUSDe quantity. We read the **live** sUSDe share price via the ERC-4626
         // `convertToShares` view rather than hard-coding a ratio so the test stays
-        // correct across fork blocks. Assumes USDe/DAI ≈ 1.00 (sub-bps drift at
+        // correct across fork blocks. Assumes USDe/DAI ~= 1.00 (sub-bps drift at
         // block 21.4M); production code would price-check the Curve USDe/DAI plain
         // pool first.
         uint256 daiBalIn = IERC20(Mainnet.DAI).balanceOf(address(this));

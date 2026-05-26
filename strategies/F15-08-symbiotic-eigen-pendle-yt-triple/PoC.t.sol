@@ -16,15 +16,15 @@ interface ISymbioticCollateral {
     function limit() external view returns (uint256);
 }
 
-/// @notice F15-08 — Three-stack: Symbiotic + EigenLayer + Pendle YT-LRT.
+/// @notice F15-08 - Three-stack: Symbiotic + EigenLayer + Pendle YT-LRT.
 ///
 /// Splits 90 wstETH equity three ways:
-///   Leg A: 30 wstETH → Symbiotic wstETH DefaultCollateral vault (SYMB points).
-///   Leg B: 30 wstETH → unwrap → 30+ stETH → EigenLayer stETH strategy
+///   Leg A: 30 wstETH -> Symbiotic wstETH DefaultCollateral vault (SYMB points).
+///   Leg B: 30 wstETH -> unwrap -> 30+ stETH -> EigenLayer stETH strategy
 ///          (EIGEN points + EL-routed AVS rewards).
-///   Leg C: 30 wstETH → unwrap → swap to YT-rsETH (or YT-weETH) on Pendle —
+///   Leg C: 30 wstETH -> unwrap -> swap to YT-rsETH (or YT-weETH) on Pendle -
 ///          the YT carries the full LRT point stream of its underlying for
-///          ~3-5% of the underlying notional (a ~20-30× point-density uplift).
+///          ~3-5% of the underlying notional (a ~20-30* point-density uplift).
 ///
 /// 3-mechanism compose:
 ///   1. **Symbiotic restaking** (Leg A).
@@ -50,7 +50,7 @@ contract F15_08_SymbioticEigenPendleYtTripleTest is StrategyBase {
     ///      two-legs.
     address constant PENDLE_RSETH_MARKET = 0x4f43c77872Db6BA177c270986CD30c3381AF37Ee;
 
-    /// @dev Aug 2024 — Symbiotic live, EL caps periodically open, Pendle
+    /// @dev Aug 2024 - Symbiotic live, EL caps periodically open, Pendle
     ///      rsETH market has post-Jun24 successor maturities trading.
     uint256 constant FORK_BLOCK = 20_400_000;
 

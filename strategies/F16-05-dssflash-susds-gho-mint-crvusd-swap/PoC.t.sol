@@ -19,15 +19,15 @@ interface IDaiUsdsConverter {
     function usdsToDai(address usr, uint256 wad) external;
 }
 
-/// @title F16-05 — DssFlash DAI → sUSDS yield-bearing collateral → mint GHO on Aave V3 → swap to crvUSD
+/// @title F16-05 - DssFlash DAI -> sUSDS yield-bearing collateral -> mint GHO on Aave V3 -> swap to crvUSD
 /// @notice 4-mechanism cross-CDP composition:
 ///         (1) Maker DssFlash zero-fee DAI flashmint funds the entry tranche.
 ///         (2) Sky DaiUsds wrapper + sUSDS ERC-4626 turns DAI into yield-bearing USDS shares.
 ///             (Strategy needs sUSDS to be an Aave V3 supplyable asset at the
 ///              pinned block; if it is not, the PoC falls back to using USDC
-///              from a sale of the sUSDS shares — but the structural composition
+///              from a sale of the sUSDS shares - but the structural composition
 ///              is the same.)
-///         (3) Aave V3 supply (sUSDS or USDC) → borrow GHO against it. GHO is
+///         (3) Aave V3 supply (sUSDS or USDC) -> borrow GHO against it. GHO is
 ///             minted into existence here, with the Aave facilitator's per-second
 ///             variable rate as the cost of capital.
 ///         (4) Curve GHO/crvUSD StableNG pool swaps GHO into crvUSD, completing
@@ -44,7 +44,7 @@ interface IDaiUsdsConverter {
 /// At the pinned block the realised "edge" is the post-flash-repay residual
 /// (sUSDS in hand + crvUSD obtained, minus DAI repayment + Aave GHO debt
 /// service for the duration). The strategy is loop-style positional, not
-/// atomic-arb — so we exit the flashloan with crvUSD on book and an active
+/// atomic-arb - so we exit the flashloan with crvUSD on book and an active
 /// Aave GHO position, then report the snapshot.
 contract F16_05_DssFlashSusdsGhoMintCrvUsdSwap is StrategyBase, IERC3156FlashBorrower {
     bytes32 internal constant CALLBACK_SUCCESS = keccak256("ERC3156FlashBorrower.onFlashLoan");
@@ -53,7 +53,7 @@ contract F16_05_DssFlashSusdsGhoMintCrvUsdSwap is StrategyBase, IERC3156FlashBor
     ///      and F10-04 strategies in this repo.
     address constant SKY_DAI_USDS = 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A;
 
-    /// @dev Curve GHO/crvUSD StableNG 2-coin pool — verified via Curve gov
+    /// @dev Curve GHO/crvUSD StableNG 2-coin pool - verified via Curve gov
     ///      forum `[crvUSD]: GHO Pegkeeper Review` (Feb 2026). Indices:
     ///      0 = GHO, 1 = crvUSD.
     address constant CURVE_GHO_CRVUSD = 0x635EF0056A597D13863B73825CcA297236578595;
@@ -95,7 +95,7 @@ contract F16_05_DssFlashSusdsGhoMintCrvUsdSwap is StrategyBase, IERC3156FlashBor
 
     function testStrategy_F16_05() public {
         IDssFlash flash = IDssFlash(Mainnet.DSS_FLASH);
-        require(flash.toll() == 0, "DSS toll non-zero — economics break");
+        require(flash.toll() == 0, "DSS toll non-zero - economics break");
         require(flash.maxFlashLoan(Mainnet.DAI) >= FLASH_DAI, "flash cap too low");
 
         _startPnL();
@@ -117,7 +117,7 @@ contract F16_05_DssFlashSusdsGhoMintCrvUsdSwap is StrategyBase, IERC3156FlashBor
         // sUSDS drip surfaces SSR accrual into the share-to-asset NAV.
         ISUSDS(Mainnet.SUSDS).drip();
 
-        // Aave reserve data — read GHO debt after 30d of accrual.
+        // Aave reserve data - read GHO debt after 30d of accrual.
         IAavePool.ReserveDataLegacy memory ghoRes =
             IAavePool(Mainnet.AAVE_V3_POOL).getReserveData(Mainnet.GHO);
         emit log_named_uint("aave_gho_variable_borrow_rate_ray", ghoRes.currentVariableBorrowRate);

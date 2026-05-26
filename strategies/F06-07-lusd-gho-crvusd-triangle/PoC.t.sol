@@ -33,20 +33,20 @@ interface ICurveGenericExchange {
     function get_dy(int128 i, int128 j, uint256 dx) external view returns (uint256);
 }
 
-/// @title F06-07 — LUSD/GHO/crvUSD triangular stablecoin arb funded by DssFlash
+/// @title F06-07 - LUSD/GHO/crvUSD triangular stablecoin arb funded by DssFlash
 /// @notice 3-mechanism strategy:
-///         1. Liquity v1 — LUSD redemption hard floor at $1 (ETH out).
-///         2. Maker DssFlash — zero-fee DAI flashmint funds the buy leg.
-///         3. Curve — triangular routing across LUSD/3pool +
+///         1. Liquity v1 - LUSD redemption hard floor at $1 (ETH out).
+///         2. Maker DssFlash - zero-fee DAI flashmint funds the buy leg.
+///         3. Curve - triangular routing across LUSD/3pool +
 ///            GHO/USDC/USDT (3-coin stableswap-NG) + crvUSD/USDC.
 ///
 ///         When LUSD and one of {GHO, crvUSD} are simultaneously off-peg,
 ///         a multi-hop loop captures both the LUSD redemption floor AND
 ///         the inter-stable basis. Path:
 ///
-///         DAI → LUSD (Curve meta) → ETH (Liquity redeem, takes the 1$ floor)
-///           → USDC (tricrypto2+3pool) → GHO (GHO pool) → crvUSD (crvUSD/USDC)
-///           → USDC (crvUSD/USDC) → DAI (3pool) → repay flash
+///         DAI -> LUSD (Curve meta) -> ETH (Liquity redeem, takes the 1$ floor)
+///           -> USDC (tricrypto2+3pool) -> GHO (GHO pool) -> crvUSD (crvUSD/USDC)
+///           -> USDC (crvUSD/USDC) -> DAI (3pool) -> repay flash
 ///
 ///         Most of the time the GHO and crvUSD legs net to ~0 (no basis);
 ///         when one leg has a 20+ bps premium relative to USDC, the
@@ -56,7 +56,7 @@ contract F06_07_LusdGhoCrvusdTriangleTest is StrategyBase, IERC3156FlashBorrower
     address constant LOCAL_TROVE_MANAGER = 0xA39739EF8b0231DbFA0DcdA07d7e29faAbCf4bb2;
     address constant LOCAL_CURVE_LUSD_META = 0xEd279fDD11ca84bEef15AF5D39BB4d4bEE23F0cA;
 
-    // ---- Curve GHO/USDC/USDT — Curve Stableswap-NG.
+    // ---- Curve GHO/USDC/USDT - Curve Stableswap-NG.
     //
     // SOURCE: Curve GHO/USDC/USDT Stableswap-NG. The 3-coin GHO pool exists at
     //         0x635EF0056A597D13863B73825CcA297236578595 per Curve.

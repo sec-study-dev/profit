@@ -105,7 +105,7 @@ contract F14_05_AtomicSbtcWbtc is StrategyBase, IFlashLoanRecipientBalancer {
         _trackToken(Mainnet.USDC);
         // WBTC and sBTC are not priced by PriceOracle on this branch and we
         // end the trade with zero balances of them, so they contribute 0 to
-        // PnL — honest accounting.
+        // PnL - honest accounting.
     }
 
     function test_atomicSbtcWbtc() public {

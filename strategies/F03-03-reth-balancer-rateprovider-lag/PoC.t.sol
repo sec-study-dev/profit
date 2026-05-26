@@ -10,7 +10,7 @@ import {ICurveCryptoSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
 /// @dev Local Balancer MetaStable / ComposableStable rate-provider getters.
-///      These are *not* on every Balancer pool — only on rate-providered ones.
+///      These are *not* on every Balancer pool - only on rate-providered ones.
 interface IBalancerRatedPool {
     function getTokenRate(address token) external view returns (uint256);
     function getTokenRateCache(address token)
@@ -22,7 +22,7 @@ interface IBalancerRatedPool {
 
 /// @title F03-03 rETH Balancer rate-provider lag vs Curve
 contract F03_03_RETHRateLagTest is StrategyBase, IFlashLoanRecipientBalancer {
-    /// @dev Aug 2024 reference block — to be tightened against an actual
+    /// @dev Aug 2024 reference block - to be tightened against an actual
     ///      Rocket Pool oracle update block when archive access is available.
     uint256 constant FORK_BLOCK = 20_400_500;
 
@@ -54,7 +54,7 @@ contract F03_03_RETHRateLagTest is StrategyBase, IFlashLoanRecipientBalancer {
         try IBalancerRatedPool(BAL_RETH_POOL).getTokenRate(Mainnet.RETH) returns (uint256 r) {
             rStale = r;
         } catch {
-            rStale = rFresh; // Pool may not expose getTokenRate — treat as no lag.
+            rStale = rFresh; // Pool may not expose getTokenRate - treat as no lag.
         }
 
         // Compute spread in bps. If insufficient, skip with explicit log so

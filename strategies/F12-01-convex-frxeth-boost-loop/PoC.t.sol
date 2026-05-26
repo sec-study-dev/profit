@@ -28,13 +28,13 @@ contract F12_01_PoC is StrategyBase {
 
     uint256 constant PID_FRXETH = 128;
 
-    // Apr 13 2024 — pool live, gauge weight ~0.4%, CVX cliff ~0.4x.
+    // Apr 13 2024 - pool live, gauge weight ~0.4%, CVX cliff ~0.4x.
     uint256 constant FORK_BLOCK = 19_643_500;
 
-    // Notional LP to stake. 100 LP ≈ $340k at vp~1.005.
+    // Notional LP to stake. 100 LP ~= $340k at vp~1.005.
     uint256 constant LP_NOTIONAL = 100 ether;
 
-    // Warp duration — two Convex epochs.
+    // Warp duration - two Convex epochs.
     uint256 constant WARP_DAYS = 14 days;
 
     function setUp() public {
@@ -43,7 +43,7 @@ contract F12_01_PoC is StrategyBase {
         _setEthUsdFallback(3_300e8);
 
         // Track LP + all reward tokens. The PriceOracle returns 0 for these
-        // (and emits a console warning) — that's fine: the PnL block will
+        // (and emits a console warning) - that's fine: the PnL block will
         // simply show only the ETH leg, but we manually `console2.log` the
         // raw balances and the test asserts they are non-zero.
         _trackToken(FRXETH_ETH_POOL);
@@ -90,7 +90,7 @@ contract F12_01_PoC is StrategyBase {
         // Bump block.number too so any 1-block re-entrancy locks unstick.
         vm.roll(block.number + WARP_DAYS / 12);
 
-        // 7) Peek earned() before claim — base-token (CRV) only.
+        // 7) Peek earned() before claim - base-token (CRV) only.
         uint256 earnedCrv = IConvexBaseRewardPool(CVX_FRXETH_REWARDS).earned(address(this));
         console2.log("CRV earned (raw):", earnedCrv);
 
@@ -106,7 +106,7 @@ contract F12_01_PoC is StrategyBase {
         console2.log("balance CVX (raw):", bCvx);
         console2.log("balance FXS (raw):", bFxs);
 
-        // 10) Sanity asserts — gauge should have streamed something.
+        // 10) Sanity asserts - gauge should have streamed something.
         require(bCrv > 0, "no CRV streamed");
         // CVX may be 0 only if the cliff multiplier is exactly 0 at this
         // block; on Apr 2024 it is ~0.4x and emits.

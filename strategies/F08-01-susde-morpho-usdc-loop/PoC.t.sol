@@ -8,7 +8,7 @@ import {ISUSDe} from "src/interfaces/stable/ISUSDe.sol";
 import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
-/// @title F08-01 — sUSDe leveraged supply on Morpho with USDC debt (loop)
+/// @title F08-01 - sUSDe leveraged supply on Morpho with USDC debt (loop)
 /// @notice Recursive loop that supplies sUSDe to a Morpho Blue sUSDe/USDC market,
 ///         borrows USDC at the per-loop LTV, swaps USDC->USDe on Curve, deposits to
 ///         the sUSDe ERC-4626 to restake, and redeposits. Yield = leverage * (sUSDe
@@ -16,7 +16,7 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 ///
 ///         The canonical Ethena minting contract address is
 ///         `0xE3490297a08d6fC8Da46Edb7B6142E4F461b62D3` (EthenaMinting v2; see
-///         Mainnet.ETHENA_MINTING_V2 below — verified via Etherscan tags and the
+///         Mainnet.ETHENA_MINTING_V2 below - verified via Etherscan tags and the
 ///         Ethena docs). The contract gates mint/redeem on EIP-712 RFQ signatures
 ///         from Ethena's market-makers which cannot be reproduced inside a forge
 ///         fork; therefore the strategy acquires USDe via the on-chain Curve
@@ -31,7 +31,7 @@ contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
     /// @dev Curve USDe/USDC stableswap (USDe is coin index 0, USDC is index 1).
     ///      Verified: Curve factory crvUSD/USDe-style 2-coin plain pool deployed
     ///      Feb 2024; coins[0]=USDe, coins[1]=USDC. Confirmed by reading
-    ///      pool.coins(0)/coins(1) at the fork block — the setUp asserts this.
+    ///      pool.coins(0)/coins(1) at the fork block - the setUp asserts this.
     address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
     /// @dev Ethena canonical minting contract (EthenaMinting v2). Inlined here
@@ -44,7 +44,7 @@ contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
     /// @dev Morpho Blue marketId for the sUSDe / USDC 91.5% LLTV market (the
     ///      flagship Gauntlet-curated leverage market). Verified by F09-04 /
     ///      F09-02 (same id). At setUp we recover MarketParams via
-    ///      IMorpho.idToMarketParams(id) — this is more robust than hardcoding
+    ///      IMorpho.idToMarketParams(id) - this is more robust than hardcoding
     ///      oracle/IRM addresses which may shift across redeployments.
     bytes32 constant LOCAL_MORPHO_SUSDE_USDC_915_ID =
         0x39d11026eae1c6ec02aa4c0910778664089cdd97c3fd23f68f7cd05e2e95af48;
@@ -53,7 +53,7 @@ contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
     uint256 constant EQUITY_USDE = 1_000_000e18; // 1M USDe equity start
     /// @dev Number of leverage loops. Each loop borrows LTV * collateral and re-stakes.
     uint256 constant LOOPS = 4;
-    /// @dev Per-loop LTV target (well below 91.5% LLTV — keeps a buffer for accrual).
+    /// @dev Per-loop LTV target (well below 91.5% LLTV - keeps a buffer for accrual).
     uint256 constant LOOP_LTV_BPS = 8800; // 88%
 
     IMorpho.MarketParams internal _market;
@@ -65,7 +65,7 @@ contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
         _trackToken(Mainnet.USDC);
 
         // Recover Morpho MarketParams (oracle, IRM, LLTV) directly from on-chain
-        // registry — robust against oracle/IRM address drift across redeployments.
+        // registry - robust against oracle/IRM address drift across redeployments.
         _market = IMorpho(Mainnet.MORPHO).idToMarketParams(LOCAL_MORPHO_SUSDE_USDC_915_ID);
 
         require(_market.loanToken == Mainnet.USDC, "F08-01: market loanToken != USDC");
@@ -93,7 +93,7 @@ contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
         IERC20(Mainnet.USDC).approve(LOCAL_CURVE_USDE_USDC, type(uint256).max);
         IERC20(Mainnet.USDE).approve(LOCAL_CURVE_USDE_USDC, type(uint256).max);
 
-        // 1. Stake initial USDe equity → sUSDe (1:1 at deposit, growing via funding accrual).
+        // 1. Stake initial USDe equity -> sUSDe (1:1 at deposit, growing via funding accrual).
         uint256 initialShares = ISUSDe(Mainnet.SUSDE).deposit(EQUITY_USDE, address(this));
         require(initialShares > 0, "deposit: zero shares");
 
@@ -116,7 +116,7 @@ contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
                 int128(1), int128(0), borrowAmt, minOut
             );
 
-            // Stake USDe → sUSDe (4626 deposit). Returns share amount we now own.
+            // Stake USDe -> sUSDe (4626 deposit). Returns share amount we now own.
             uint256 newShares = ISUSDe(Mainnet.SUSDE).deposit(usdeOut, address(this));
             IMorpho(Mainnet.MORPHO).supplyCollateral(_market, newShares, address(this), "");
         }

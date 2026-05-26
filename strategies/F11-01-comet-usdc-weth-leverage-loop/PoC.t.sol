@@ -8,7 +8,7 @@ import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {IComet} from "src/interfaces/mm/IComet.sol";
 import {IUniswapV3Router} from "src/interfaces/amm/IUniswapV3Router.sol";
 
-/// @title F11-01 Compound v3 USDC Comet — leveraged WETH loop
+/// @title F11-01 Compound v3 USDC Comet - leveraged WETH loop
 /// @notice Supply WETH to Comet USDC, borrow USDC, swap to WETH on Uni v3, redeposit.
 contract F11_01_CometUsdcWethLeverageLoopTest is StrategyBase {
     // Block where Comet USDC market is mature and WETH listed as collateral.

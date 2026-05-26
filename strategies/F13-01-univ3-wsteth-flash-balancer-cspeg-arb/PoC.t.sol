@@ -33,7 +33,7 @@ contract F13_01_UniV3FlashBalancerCSPArbTest is StrategyBase, IUniswapV3FlashCal
     uint256 constant FLASH_NOTIONAL = 1_000 ether;
 
     /// @dev Minimum stale spread (in bps of R_stale) required to fire the trade.
-    ///      Below this, after-fees PnL is expected to be ≤ 0. We log + return
+    ///      Below this, after-fees PnL is expected to be <= 0. We log + return
     ///      instead of reverting so Wave 3 can grep the gating reason.
     uint256 constant MIN_SPREAD_BPS = 1;
 

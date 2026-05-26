@@ -24,21 +24,21 @@ interface IKarakVault {
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
 }
 
-/// @notice F02-03 — pufETH stacked re-hypothecation.
+/// @notice F02-03 - pufETH stacked re-hypothecation.
 ///
 /// Loop pufETH against WETH via Morpho flashloan; reserve a 20% pufETH slice
 /// un-supplied and deposit it into Karak's pufETH vault for an additional point stream.
 contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCallback {
     // ---- Pinned constants ----
 
-    /// @dev Block 19,800,000 — mid Apr 2024. Karak live, pufETH/Morpho live.
+    /// @dev Block 19,800,000 - mid Apr 2024. Karak live, pufETH/Morpho live.
     uint256 constant FORK_BLOCK = 19_800_000;
 
     /// @dev wstETH wraps stETH 1:1 (rate-based).
     /// @dev Lido stETH submit selector through stETH address itself.
     address constant LIDO = Mainnet.STETH; // stETH IS the Lido staking pool proxy.
 
-    /// @dev Morpho pufETH/WETH market id — recomputed at runtime from MarketParams
+    /// @dev Morpho pufETH/WETH market id - recomputed at runtime from MarketParams
     /// and logged for cross-check. Constructed from MarketParams(WETH, pufETH,
     /// oracle, AdaptiveCurve IRM, 86% LLTV). At FORK_BLOCK 19,800,000 the canonical
     /// Gauntlet-curated 86% market is live; if the recomputed id mismatches the
@@ -46,7 +46,7 @@ contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCall
     bytes32 constant PUFETH_WETH_MARKET_ID =
         0xe37784e57da16b3c5e75677b95a0a73d50b56a062b9e0a3fcefdb56a5af2bba9;
 
-    /// @dev MorphoChainlinkOracleV2 for pufETH/WETH — wraps Puffer's pricePerShare.
+    /// @dev MorphoChainlinkOracleV2 for pufETH/WETH - wraps Puffer's pricePerShare.
     /// Verified by searching morpho-blue-api-metadata at the Apr-2024 listing of
     /// the pufETH/WETH market. (If the recomputed marketId in setUp does not
     /// match the constant above, this oracle address is the most likely off-by-one.)
@@ -145,7 +145,7 @@ contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCall
         try IKarakVault(KARAK_PUFETH_VAULT).deposit(karakSlice, address(this)) {
             // ok
         } catch {
-            // Karak vault not live at this block — slice stays as pufETH on the contract
+            // Karak vault not live at this block - slice stays as pufETH on the contract
             // (still earns Puffer + Lido + EL pts; only Karak XP missed).
         }
     }
