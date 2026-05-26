@@ -16,23 +16,23 @@ interface IBalancerRatedPool {
 
 /// @title F13-06: Balancer weETH/wETH rate-provider lag + UniV3 1bp WETH flash + Curve unwind
 /// @notice Three-protocol composition:
-///   1. **UniV3** wstETH/WETH 1bp pool — used as the flashloan source for
+///   1. **UniV3** wstETH/WETH 1bp pool - used as the flashloan source for
 ///      WETH (no premium beyond the pool's swap fee, which we sidestep by
 ///      borrowing only token1=WETH and repaying same).
 ///      In practice the cheapest WETH flash on mainnet.
 ///   2. **Balancer** weETH/wETH ComposableStable pool exposes a rate cache
 ///      for weETH (read via `getTokenRate`). EtherFi's `weETH.getRate()`
 ///      drifts upward continuously; the cache lags up to 60 minutes.
-///   3. **Curve** weETH/WETH ng pool acts as the *third* unwind venue —
+///   3. **Curve** weETH/WETH ng pool acts as the *third* unwind venue -
 ///      a different fresh-price quote source than UniV3 (UniV3 has a
 ///      smaller / shallower weETH pool, Curve ng has deep weETH-ETH
 ///      liquidity).
 ///
 /// Atomic flow:
 ///   - Flash N WETH from UniV3 1bp pool.
-///   - Swap WETH → weETH on Balancer (favourable because weETH rate is
-///     stale → Balancer prices weETH cheap).
-///   - Swap weETH → WETH on Curve ng pool (fresh price, weETH worth more).
+///   - Swap WETH -> weETH on Balancer (favourable because weETH rate is
+///     stale -> Balancer prices weETH cheap).
+///   - Swap weETH -> WETH on Curve ng pool (fresh price, weETH worth more).
 ///   - Repay UniV3 flash (N + fee).
 ///   - Keep the spread.
 ///
@@ -75,7 +75,7 @@ contract F13_06_BalancerWeETHRateLagUniV3FlashCurveTest is StrategyBase, IUniswa
         // Sanity: confirm flash-pool ordering.
         require(IUniswapV3Pool(UNIV3_FLASH_POOL).token1() == Mainnet.WETH, "univ3: t1 must be WETH");
 
-        // Resolve Curve coin order at runtime — ng pool token order
+        // Resolve Curve coin order at runtime - ng pool token order
         // (weETH=0 / WETH=1) is the published canonical layout but we
         // verify defensively so any redeployment can't silently mis-route.
         address c0 = ICurveCryptoSwap(CURVE_WEETH_WETH_POOL).coins(0);

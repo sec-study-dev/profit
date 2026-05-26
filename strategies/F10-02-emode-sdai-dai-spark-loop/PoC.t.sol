@@ -22,7 +22,7 @@ contract F10_02_EmodeSdaiDaiSparkLoop is StrategyBase {
 
     uint256 constant RATE_MODE_VARIABLE = 2;
 
-    // Per-loop target LTV — well under the 91% ceiling for buffer.
+    // Per-loop target LTV - well under the 91% ceiling for buffer.
     uint256 constant LOOP_LTV_BPS = 8800;
 
     // Number of recursive loops. After ~5 the residual headroom is < 5%.
@@ -88,7 +88,7 @@ contract F10_02_EmodeSdaiDaiSparkLoop is StrategyBase {
         // ---- 5. Simulate 30 days of carry ----
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
-        // Touch supply to crystallise indices. Need ≥1 wei sDAI on hand.
+        // Touch supply to crystallise indices. Need >=1 wei sDAI on hand.
         uint256 sdaiResidual = IERC20(Mainnet.SDAI).balanceOf(address(this));
         if (sdaiResidual > 0) {
             pool.supply(Mainnet.SDAI, 1, address(this), 0);

@@ -5,7 +5,7 @@ import {StrategyBase} from "test/utils/StrategyBase.t.sol";
 import {Mainnet} from "src/constants/Mainnet.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice Minimal EigenPodManager interface (mainnet) — pod creation + view.
+/// @notice Minimal EigenPodManager interface (mainnet) - pod creation + view.
 interface IEigenPodManager {
     function createPod() external returns (address);
     function hasPod(address podOwner) external view returns (bool);
@@ -13,7 +13,7 @@ interface IEigenPodManager {
     function numPods() external view returns (uint256);
 }
 
-/// @notice Minimal EigenPod interface — beacon-chain proof entry points.
+/// @notice Minimal EigenPod interface - beacon-chain proof entry points.
 ///         (Signatures vary across EL upgrades; PoC uses the views.)
 interface IEigenPod {
     function podOwner() external view returns (address);
@@ -21,7 +21,7 @@ interface IEigenPod {
     function mostRecentWithdrawalTimestamp() external view returns (uint64);
 }
 
-/// @notice F15-06 — EigenPod direct native restake (validator-level PoC).
+/// @notice F15-06 - EigenPod direct native restake (validator-level PoC).
 ///
 /// EigenLayer's "native restake" path bypasses LSTs entirely. The user runs
 /// (or contracts) an Ethereum validator whose withdrawal credential points
@@ -49,11 +49,11 @@ contract F15_06_EigenpodNativeValidatorRestakeTest is StrategyBase {
     ///      (June 2023).
     address constant EIGEN_POD_MANAGER = 0x91E677b07F7AF907ec9a428aafA9fc14a0d3A338;
 
-    /// @dev Aug 2024 — post-Pectra-prep, native-restake well-established and
+    /// @dev Aug 2024 - post-Pectra-prep, native-restake well-established and
     ///      pod creation gas-tractable.
     uint256 constant FORK_BLOCK = 20_500_000;
 
-    /// @dev The "validator equity" — informational only; the PoC does not
+    /// @dev The "validator equity" - informational only; the PoC does not
     ///      actually stake 32 ETH on the beacon chain (impossible on fork).
     uint256 constant VALIDATOR_NOTIONAL_ETH = 32 ether;
 

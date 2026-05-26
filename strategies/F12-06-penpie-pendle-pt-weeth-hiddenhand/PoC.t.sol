@@ -9,7 +9,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IHiddenHand} from "src/interfaces/bribe/IHiddenHand.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 
-/// @notice Penpie MasterPenpie — analogue of vlCVX for Pendle. Inlined per
+/// @notice Penpie MasterPenpie - analogue of vlCVX for Pendle. Inlined per
 ///         family rule (no shared-interface edits).
 interface IMasterPenpie {
     function deposit(address market, uint256 amount) external;
@@ -21,7 +21,7 @@ interface IMasterPenpie {
         external view returns (uint256 stakedAmount, uint256 availableAmount);
 }
 
-/// @notice Pendle Market Deposit Helper — turns Pendle LP -> Penpie position.
+/// @notice Pendle Market Deposit Helper - turns Pendle LP -> Penpie position.
 interface IPendleMarketDepositHelper {
     function depositMarket(address market, uint256 amount) external;
     function withdrawMarket(address market, uint256 amount) external;
@@ -48,36 +48,36 @@ contract F12_06_PoC is StrategyBase {
     // MasterPenpie (yield director). Verified on Etherscan as Penpie's primary
     // staking router. Inlined per family rule.
     address constant MASTER_PENPIE = 0x16296859C15289731521F199F0a5f762dF6347d0;
-    // PendleMarketDepositHelper — turns Pendle LP into a Penpie deposit.
+    // PendleMarketDepositHelper - turns Pendle LP into a Penpie deposit.
     address constant PENDLE_MARKET_DEPOSIT_HELPER = 0x1C1Fb35334290b5ff1bF7B4c09130885b10Fc0f4;
     // mPENDLE (Penpie's liquid wrapper of vePENDLE). Address has drifted
     // across Penpie redeploys; we do not _trackToken it (would revert
-    // PnL snapshot if absent at the fork block) — instead query via
+    // PnL snapshot if absent at the fork block) - instead query via
     // try/balanceOf and console-log inline.
     address constant MPENDLE = 0xfDf3A4F0BC2a8b7b9c9eAa5b04eF6e10F6A6A0FA;
     // PENDLE token (canonical).
     address constant PENDLE = 0x808507121B80c02388fAd14726482e061B8da827;
-    // PNP token (Penpie governance). Same caveat as MPENDLE — see above.
+    // PNP token (Penpie governance). Same caveat as MPENDLE - see above.
     address constant PNP = 0x7DEdBce5a2E31E4c75f87FeA60bF796C17718715;
 
     // ---- Hidden Hand (vePENDLE bribe arm) ----
     address constant HIDDEN_HAND_REWARDS = 0xa9b08B4CeEC1EF29EdEC7F9C94583270337D6416;
 
     // ---- Block ----
-    // Aug 16 2024 — PT-weETH-26DEC2024 market liquid (~$60M TVL), Penpie has
+    // Aug 16 2024 - PT-weETH-26DEC2024 market liquid (~$60M TVL), Penpie has
     // ~9.5M PENDLE locked (active boost), Hidden Hand round 9 for Pendle
     // closed early-Aug so the stash slot is populated.
     uint256 constant FORK_BLOCK = 20_650_000;
 
-    // 100 LP ≈ ~50 SY ≈ ~$160k notional (LP/SY ratio ~0.5 on weETH market).
+    // 100 LP ~= ~50 SY ~= ~$160k notional (LP/SY ratio ~0.5 on weETH market).
     uint256 constant LP_NOTIONAL = 100 ether;
 
-    // Bribe sizes — Pendle bribe rounds typically pay $0.04-$0.08 per vePENDLE
+    // Bribe sizes - Pendle bribe rounds typically pay $0.04-$0.08 per vePENDLE
     // per round. For a ~250k vePENDLE-equivalent holder via Penpie-boosted LP,
     // a representative round yields ~$10-25k. We use a $400 USDC + $200 ARB
     // proxy here for the single-LP slice.
     uint256 constant BRIBE_USDC = 400 * 1e6;
-    uint256 constant BRIBE_PENDLE = 80 ether;  // 80 PENDLE ≈ $240 at $3.0/PENDLE
+    uint256 constant BRIBE_PENDLE = 80 ether;  // 80 PENDLE ~= $240 at $3.0/PENDLE
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -86,7 +86,7 @@ contract F12_06_PoC is StrategyBase {
         _trackToken(PENDLE_MARKET_PT_WEETH);  // Pendle LP
         _trackToken(PENDLE);
         _trackToken(Mainnet.USDC);
-        // mPENDLE / PNP intentionally not tracked — addresses can drift
+        // mPENDLE / PNP intentionally not tracked - addresses can drift
         // across Penpie redeploys and a missing contract would revert the
         // PnL snapshot's balanceOf() call. Logged via try/catch below.
     }
@@ -118,7 +118,7 @@ contract F12_06_PoC is StrategyBase {
             require(balPen == LP_NOTIONAL, "penpie stake mismatch");
         } catch {
             console2.log("Penpie helper revert; market may not be registered on this fork.");
-            // The strategy still proceeds — the LP can be claimed directly on
+            // The strategy still proceeds - the LP can be claimed directly on
             // the Pendle market via redeemRewards (Pendle-native path) so we
             // can still demonstrate the income stream.
             IERC20(PENDLE_MARKET_PT_WEETH).approve(PENDLE_MARKET_DEPOSIT_HELPER, 0);
@@ -145,7 +145,7 @@ contract F12_06_PoC is StrategyBase {
                 console2.log("Penpie multiclaim revert (likely epoch boundary).");
             }
         } else {
-            // Fall-back path: claim directly on the Pendle market — proves the
+            // Fall-back path: claim directly on the Pendle market - proves the
             // composition still works, just without Penpie boost.
             address[] memory rewards = IPendleMarket(PENDLE_MARKET_PT_WEETH).getRewardTokens();
             console2.log("Pendle native reward tokens count:", rewards.length);

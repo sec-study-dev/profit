@@ -22,7 +22,7 @@ interface ILiquityV1TroveManager {
     function getBorrowingRateWithDecay() external view returns (uint256);
 }
 
-/// @title F16-07 — five-stable cross-CDP basis surface scan
+/// @title F16-07 - five-stable cross-CDP basis surface scan
 /// @notice Builds a 5x5 surface that pairs every CDP-issued stable with every
 ///         other and reports both (a) the live borrow / mint cost of each
 ///         issuer's debt stable and (b) the Curve mid-quote spread between
@@ -30,11 +30,11 @@ interface ILiquityV1TroveManager {
 ///         pick the cheapest issuer pair at any block.
 ///
 ///         The five stables surveyed:
-///           1. **DAI / USDS** (Maker / Sky — DSR + SSR + DSS Flash @ 0 toll)
-///           2. **GHO** (Aave V3 — governance-set variable rate)
-///           3. **crvUSD** (Curve — algorithmic LLAMMA wstETH rate)
-///           4. **LUSD** (Liquity v1 — one-time borrow fee, 0% running rate)
-///           5. **BOLD** (Liquity v2 — user-chosen annual interest rate)
+///           1. **DAI / USDS** (Maker / Sky - DSR + SSR + DSS Flash @ 0 toll)
+///           2. **GHO** (Aave V3 - governance-set variable rate)
+///           3. **crvUSD** (Curve - algorithmic LLAMMA wstETH rate)
+///           4. **LUSD** (Liquity v1 - one-time borrow fee, 0% running rate)
+///           5. **BOLD** (Liquity v2 - user-chosen annual interest rate)
 ///
 ///         3-mechanism stack within the scan body:
 ///           (1) Aave V3 IRM reads (GHO, USDC, DAI variable borrow rates).

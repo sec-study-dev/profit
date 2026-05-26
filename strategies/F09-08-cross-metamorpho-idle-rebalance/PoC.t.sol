@@ -16,7 +16,7 @@ interface IMetaMorpho is IERC4626 {
     function supplyQueueLength() external view returns (uint256);
 }
 
-/// @notice F09-08 — Cross-MetaMorpho idle-rebalance: detect dispersion in idle
+/// @notice F09-08 - Cross-MetaMorpho idle-rebalance: detect dispersion in idle
 ///         ratios between two large USDC-share MetaMorpho vaults and *atomically*
 ///         redeposit equity into the vault with the higher post-allocation APY
 ///         expectation.
@@ -26,11 +26,11 @@ interface IMetaMorpho is IERC4626 {
 ///             and computes their idle-ratio differential.
 ///           - uses Morpho's free flashLoan to **atomically rebalance** an
 ///             existing position from the low-quality vault to the high-quality
-///             one if dispersion exceeds threshold — without ever holding
+///             one if dispersion exceeds threshold - without ever holding
 ///             unproductive USDC.
 ///
-///         Two-mechanism (MetaMorpho × Morpho free flash). The PoC reads both
-///         vaults' state, asserts idle dispersion ≥ 3%, and then exercises the
+///         Two-mechanism (MetaMorpho * Morpho free flash). The PoC reads both
+///         vaults' state, asserts idle dispersion >= 3%, and then exercises the
 ///         high-side deposit (the low-side redemption is documented).
 contract F09_08_CrossMetaMorphoIdleRebalanceTest is StrategyBase, IMorphoFlashLoanCallback {
     uint256 constant FORK_BLOCK = 21_400_000;
@@ -41,7 +41,7 @@ contract F09_08_CrossMetaMorphoIdleRebalanceTest is StrategyBase, IMorphoFlashLo
     /// @dev Gauntlet USDC Prime MetaMorpho vault (Gauntlet curator).
     address constant GAUNTLET_USDC_PRIME_VAULT = 0xdd0f28e19C1780eb6396170735D985153D32D11C;
 
-    /// @dev Re7 USDC vault — third MetaMorpho USDC vault for triangular check.
+    /// @dev Re7 USDC vault - third MetaMorpho USDC vault for triangular check.
     address constant RE7_USDC_VAULT = 0x95EeF579155cd2C5510F312c8fA39208c3Be01a8;
 
     uint256 constant EQUITY_USDC = 2_000_000e6; // 2M USDC
@@ -104,7 +104,7 @@ contract F09_08_CrossMetaMorphoIdleRebalanceTest is StrategyBase, IMorphoFlashLo
         console2.log("deposited into bestVault, shares =", shares);
         console2.log("previewRedeem =", redeemable);
 
-        // Sanity: instant redemption preview must be ≥ 99.99% of equity.
+        // Sanity: instant redemption preview must be >= 99.99% of equity.
         require(redeemable >= (EQUITY_USDC * 9999) / 10_000, "F09-08: instant haircut");
 
         // ---- Atomic rebalance pattern (documented; rebalance leg requires an
@@ -128,7 +128,7 @@ contract F09_08_CrossMetaMorphoIdleRebalanceTest is StrategyBase, IMorphoFlashLo
         // No-op: the flash mechanic is exercised to prove the atomic-rebalance
         // pattern. Production would deposit into bestVault and redeem from
         // worstVault inside this callback. Morpho's safeTransferFrom pulls the
-        // flash amount back via the outer approval — leaving the round-trip
+        // flash amount back via the outer approval - leaving the round-trip
         // gas-only.
     }
 

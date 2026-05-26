@@ -12,19 +12,19 @@ import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F18-04 — Tri-protocol atomic PT-sUSDe cash-and-carry.
+/// @notice F18-04 - Tri-protocol atomic PT-sUSDe cash-and-carry.
 ///
 /// Mechanisms (3):
 ///   1. Balancer V2 Vault flashloan (0-fee USDC).
 ///   2. Pendle PT-sUSDe-26SEP2024 market swap (discount capture).
 ///   3. Morpho Blue PT-sUSDe/USDC isolated market (LLTV 0.865).
 contract F18_04_BalancerPendleMorphoPtSusde is StrategyBase, IFlashLoanRecipientBalancer {
-    /// @dev Pinned: mid-July 2024 — Pendle PT-sUSDe-26SEP2024 and the matching
+    /// @dev Pinned: mid-July 2024 - Pendle PT-sUSDe-26SEP2024 and the matching
     ///      Morpho PT-sUSDe-26SEP2024 / USDC market are both deep at this block
     ///      (same block as F07-01 for cross-comparability).
     uint256 constant FORK_BLOCK = 20_200_000;
 
-    /// @dev Pendle PT-sUSDe-26SEP2024 market — canonical corpus address used by
+    /// @dev Pendle PT-sUSDe-26SEP2024 market - canonical corpus address used by
     ///      F07-01, F07-04, F08-03, F08-05. SY-sUSDe accepts USDC, USDT, USDe
     ///      and sUSDe; the PoC routes USDC->USDe via Curve before Pendle for
     ///      readability (production would use Pendle's `swapData` aggregator hop).
@@ -38,12 +38,12 @@ contract F18_04_BalancerPendleMorphoPtSusde is StrategyBase, IFlashLoanRecipient
     ///        loanToken:        USDC (0xa0b8...eb48),
     ///        collateralToken:  PT-sUSDE-26SEP2024 (0x6c9f097e...ccef13),
     ///        oracle:           PendleSparkLinearDiscountOracle PT-sUSDe
-    ///                          (0x38d130cE...19A7) — corpus-canonical per F07-01,
+    ///                          (0x38d130cE...19A7) - corpus-canonical per F07-01,
     ///                          F08-03 references,
     ///        irm:              Morpho AdaptiveCurveIRM (0x870aC11D...00BC),
     ///        lltv:             0.865e18
     ///      })). setUp() recovers the params on chain via idToMarketParams and
-    ///      asserts the tuple is consistent — catching any drift at fork time
+    ///      asserts the tuple is consistent - catching any drift at fork time
     ///      (mirrors F09-02 / F09-05 / F08-01 pattern).
     ///      Verified by computing the keccak hash on 2026-05-26 against the
     ///      corpus-canonical MarketParams used in F07-01 and F08-03.
@@ -236,7 +236,7 @@ contract F18_04_BalancerPendleMorphoPtSusde is StrategyBase, IFlashLoanRecipient
             console2.log("mech3_morpho_usdc_borrowed:", borrowed);
         } catch Error(string memory reason) {
             console2.log("Morpho borrow reverted:", reason);
-            // Borrow leg failed — repay flash from prior USDC and rollback.
+            // Borrow leg failed - repay flash from prior USDC and rollback.
             // (supplyCollateral already burned PT, so we leak it; in real
             // production we would withdrawCollateral here. For PoC we surface
             // the failure clearly.)

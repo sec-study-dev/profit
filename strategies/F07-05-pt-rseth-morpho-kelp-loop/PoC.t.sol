@@ -8,7 +8,7 @@ import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 
-/// @title F07-05 — PT-rsETH leveraged buy on Morpho (Kelp + Pendle + Morpho, 3-mech)
+/// @title F07-05 - PT-rsETH leveraged buy on Morpho (Kelp + Pendle + Morpho, 3-mech)
 ///
 /// @notice 3-mechanism stack:
 ///         1. Kelp DAO rsETH = ETH-denominated LRT receipt; rsETH/ETH appreciates
@@ -20,7 +20,7 @@ import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 ///            without being mark-to-market liquidated by AMM spot wobble.
 ///
 ///         Strategy: buy PT-rsETH with WETH, post as Morpho collateral, borrow
-///         WETH, buy more PT, loop. Captures rsETH implied fixed APY × leverage
+///         WETH, buy more PT, loop. Captures rsETH implied fixed APY * leverage
 ///         minus WETH borrow cost.
 contract F07_05_PtRsethMorphoKelpLoopTest is StrategyBase {
     // ---- Block ----
@@ -83,7 +83,7 @@ contract F07_05_PtRsethMorphoKelpLoopTest is StrategyBase {
         // ---- 1. Initial PT-rsETH buy via Pendle V4 ----
         _swapWethForPt(EQUITY_WETH, 0);
 
-        // ---- 2. Loop: supply PT → borrow WETH → buy more PT ----
+        // ---- 2. Loop: supply PT -> borrow WETH -> buy more PT ----
         for (uint256 i = 0; i < LOOPS; i++) {
             IMorpho(Mainnet.MORPHO).supplyCollateral(
                 _market, IERC20(_pt).balanceOf(address(this)), address(this), ""

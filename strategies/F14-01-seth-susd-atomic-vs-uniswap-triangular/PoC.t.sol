@@ -63,7 +63,7 @@ interface IUniV3RouterMinimal {
 
 /// @title F14-01 sETH/sUSD atomic exchange vs ETH/USDC Uniswap triangular arb
 /// @notice Captures Chainlink-vs-Uniswap drift through Synthetix's V2x atomic
-///         exchanger. Status: theoretical-historical-replay — pinned to a 2023
+///         exchanger. Status: theoretical-historical-replay - pinned to a 2023
 ///         block where the atomic mechanism was operational on mainnet.
 contract F14_01_AtomicTriangular is StrategyBase, IFlashLoanRecipientBalancer {
     // ---- Synthetix V2x ----
@@ -90,11 +90,11 @@ contract F14_01_AtomicTriangular is StrategyBase, IFlashLoanRecipientBalancer {
     uint24  constant UNIV3_USDC_WETH_FEE = 500; // 0.05% deepest pool
 
     // ---- Block pin ----
-    // Early June 2023 — atomic exchange was operational and sETH/ETH Curve
+    // Early June 2023 - atomic exchange was operational and sETH/ETH Curve
     // pool retained meaningful liquidity. ETH ~$1,900 here.
     uint256 constant FORK_BLOCK = 17_500_000;
 
-    // 50 WETH probe (~$95k) — comfortably under historical atomic vol caps.
+    // 50 WETH probe (~$95k) - comfortably under historical atomic vol caps.
     uint256 constant FLASH_WETH = 50 ether;
 
     function setUp() public {

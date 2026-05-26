@@ -7,7 +7,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IEVC} from "src/interfaces/mm/IEVC.sol";
 import {IEVault} from "src/interfaces/mm/IEVault.sol";
 
-/// @title F11-03 Euler v2 EVC batch — same-asset cross-vault rate arb
+/// @title F11-03 Euler v2 EVC batch - same-asset cross-vault rate arb
 /// @notice Atomic batch: borrow USDC from vault B, supply to vault A. Free
 ///         flashloan via EVC deferred health checks.
 contract F11_03_EulerEvcBatchRateArbTest is StrategyBase {

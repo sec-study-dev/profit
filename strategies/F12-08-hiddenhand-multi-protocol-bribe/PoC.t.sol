@@ -9,7 +9,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IVlCVX} from "src/interfaces/bribe/IVlCVX.sol";
 import {IHiddenHand} from "src/interfaces/bribe/IHiddenHand.sol";
 
-/// @notice vlAURA — Aura's CVX-style 16-week lock. Inlined per family rule.
+/// @notice vlAURA - Aura's CVX-style 16-week lock. Inlined per family rule.
 interface IVlAura {
     function lock(address _account, uint256 _amount) external;
     function balanceOf(address _user) external view returns (uint256);
@@ -17,7 +17,7 @@ interface IVlAura {
     function delegate(address newDelegatee) external;
 }
 
-/// @notice vePENDLE — Pendle's vote-escrowed PENDLE (Curve-style 2yr lock).
+/// @notice vePENDLE - Pendle's vote-escrowed PENDLE (Curve-style 2yr lock).
 interface IVePendle {
     function increaseLockPosition(uint128 additionalAmountToLock, uint128 newExpiry)
         external returns (uint128);
@@ -33,7 +33,7 @@ interface IVePendle {
 ///           - vlAURA (Aura side; bribes for Balancer gauge votes)
 ///           - vePENDLE (Pendle side; bribes for Pendle market votes)
 ///         All three settle through the same `RewardDistributor`
-///         (`0xa9b08B4C…6416`) so a single `claim(Claim[])` call carries
+///         (`0xa9b08B4C...6416`) so a single `claim(Claim[])` call carries
 ///         all three identifiers.
 contract F12_08_PoC is StrategyBase {
     // ---- Vote-locked positions ----
@@ -58,7 +58,7 @@ contract F12_08_PoC is StrategyBase {
     uint256 constant BRIBE_USDC_VLAURA = 300 * 1e6;    // $300 USDC
     uint256 constant BRIBE_USDC_VEPENDLE = 500 * 1e6;  // $500 USDC
 
-    // Apr 13 2024 — block where vlCVX & vlAURA & vePENDLE all have rounds
+    // Apr 13 2024 - block where vlCVX & vlAURA & vePENDLE all have rounds
     // freshly published. (Hidden Hand publishes Aura+Pendle on Thu, Votium
     // publishes Convex separately, but HH multi-claim covers Aura+Pendle.)
     uint256 constant FORK_BLOCK = 19_643_500;
@@ -97,7 +97,7 @@ contract F12_08_PoC is StrategyBase {
             require(auraLocked == AURA_LOCK, "vlAURA lock mismatch");
         } catch {
             // Some vlAURA deployments expose a `lock(uint256, uint256)`
-            // signature variant. Tolerate and emit a hint — the bribe-claim
+            // signature variant. Tolerate and emit a hint - the bribe-claim
             // path below is independent of the lock state for *simulation*
             // (we control the merkle leaf), but real-world delegation does
             // require the lock to be on-chain.

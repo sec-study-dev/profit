@@ -89,7 +89,7 @@ contract F03_04_TriangularLSTTest is StrategyBase, IFlashLoanRecipientBalancer {
             recipient: payable(address(this)),
             toInternalBalance: false
         });
-        // No minOut — the triangle's edge is fundamental; if the trade is
+        // No minOut - the triangle's edge is fundamental; if the trade is
         // unprofitable at this block, the test will simply show a small loss
         // in `_endPnL`. Set a generous lower bound to catch *catastrophic*
         // slippage (e.g. pool drained) but allow normal under-water outcomes.

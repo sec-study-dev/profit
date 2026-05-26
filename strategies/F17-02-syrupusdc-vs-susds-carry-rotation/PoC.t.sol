@@ -15,7 +15,7 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 ///         sUSDS.redeem -> USDS -> Curve swap to USDC -> syrupUSDC.deposit.
 contract F17_02_SyrupVsSUSDSRotation is StrategyBase {
     // ---- Pinned block ----
-    /// @dev Aug 16 2024. SSR=6%, Maple syrupUSDC quoted ≈ 11.5%.
+    /// @dev Aug 16 2024. SSR=6%, Maple syrupUSDC quoted ~= 11.5%.
     uint256 internal constant FORK_BLOCK = 20_600_000;
     /// @dev 7-day earlier block for syrupUSDC APY proxy.
     uint256 internal constant PRIOR_BLOCK = 20_550_000;
@@ -34,7 +34,7 @@ contract F17_02_SyrupVsSUSDSRotation is StrategyBase {
 
     // ---- Sizing ----
     uint256 internal constant SEED_USDS_TO_SUSDS = 200_000e18; // $200k USDS to stake first
-    uint256 internal constant ROTATION_THRESHOLD_BPS = 100; // require ≥1% spread
+    uint256 internal constant ROTATION_THRESHOLD_BPS = 100; // require >=1% spread
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -74,7 +74,7 @@ contract F17_02_SyrupVsSUSDSRotation is StrategyBase {
         uint256 ssr = susds.ssr();
         emit log_named_uint("ssr_ray", ssr);
         // ssr is per-second RAY (1e27). Approximate APY (in bps) via linear
-        // expansion: APY_bps ≈ (ssr - 1e27) * 31_536_000 * 10_000 / 1e27.
+        // expansion: APY_bps ~= (ssr - 1e27) * 31_536_000 * 10_000 / 1e27.
         // For ssr near 1e27, the linear approx is accurate to <1 bps.
         uint256 susdsApyBps;
         if (ssr > 1e27) {
@@ -168,7 +168,7 @@ contract F17_02_SyrupVsSUSDSRotation is StrategyBase {
         // ---- 9. Post-condition: rotated position holds at least 99% of seed ----
         // Convert seed USDS (1e18) to USDC-equivalent (1e6): SEED/1e12.
         uint256 seedInUsdc = SEED_USDS_TO_SUSDS / 1e12;
-        assertGt(immediateValue, seedInUsdc * 98 / 100, "rotation friction > 2% — too costly");
+        assertGt(immediateValue, seedInUsdc * 98 / 100, "rotation friction > 2% - too costly");
     }
 
     /// @dev Try Curve USDS/USDC pool first; fall back to USDS -> DAI (1:1 via

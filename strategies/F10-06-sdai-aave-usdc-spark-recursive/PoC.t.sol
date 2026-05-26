@@ -8,8 +8,8 @@ import {ISDAI} from "src/interfaces/stable/ISDAI.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 
 /// @notice Maker PSM (USDC) interface. Conventional ABI:
-///         `sellGem(usr, gemAmt)` — gives USDC, receives DAI (gem -> DAI).
-///         `buyGem(usr, gemAmt)`  — gives DAI, receives USDC (DAI -> gem).
+///         `sellGem(usr, gemAmt)` - gives USDC, receives DAI (gem -> DAI).
+///         `buyGem(usr, gemAmt)`  - gives DAI, receives USDC (DAI -> gem).
 ///         Fees `tin`/`tout` are in WAD (1e18); normally 0 for GUSDC-A.
 interface IMakerPSM {
     function sellGem(address usr, uint256 gemAmt) external;
@@ -19,7 +19,7 @@ interface IMakerPSM {
     function gemJoin() external view returns (address);
 }
 
-/// @notice Maker PSM `AuthGemJoin5` adapter — required as the approval
+/// @notice Maker PSM `AuthGemJoin5` adapter - required as the approval
 ///         spender for `sellGem` (USDC must be approved to the gem-join, not
 ///         the PSM itself).
 interface IMakerGemJoin {
@@ -28,9 +28,9 @@ interface IMakerGemJoin {
 
 /// @title F10-06 sDAI on Aave + USDC borrow + PSM-to-sDAI redeposit (3-mechanism)
 /// @notice Three-mechanism composition:
-///         1) Maker sDAI (leg 1) — DSR-bearing collateral.
-///         2) Aave V3 USDC borrow — secondary leverage layer.
-///         3) Maker PSM + sDAI (leg 2) — borrowed USDC -> DAI -> sDAI sleeve.
+///         1) Maker sDAI (leg 1) - DSR-bearing collateral.
+///         2) Aave V3 USDC borrow - secondary leverage layer.
+///         3) Maker PSM + sDAI (leg 2) - borrowed USDC -> DAI -> sDAI sleeve.
 ///
 ///         The PSM leg is wrapped in try/catch because the PSM ABI varies
 ///         between facility versions (GUSDC-A vs LITE-PSM-USDC-A introduced
@@ -45,7 +45,7 @@ contract F10_06_SdaiAaveUsdcSparkRecursive is StrategyBase {
     ///      at ~67% LTV for a 3% buffer.
     uint256 constant LOOP_LTV_BPS = 6700;
 
-    /// @notice Maker GUSDC-A PSM (legacy) — verified mainnet.
+    /// @notice Maker GUSDC-A PSM (legacy) - verified mainnet.
     address constant MAKER_PSM_USDC = 0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A;
 
     /// @notice The gem-join address for the GUSDC-A PSM (where USDC approval lands).

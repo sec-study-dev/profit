@@ -8,7 +8,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IEigenStrategyManager, IEigenStrategy} from "src/interfaces/restake/IEigenStrategyManager.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F15-02 — EigenLayer cap-race "first into the window" PoC.
+/// @notice F15-02 - EigenLayer cap-race "first into the window" PoC.
 ///
 /// At a block where a cap window is freshly open, deposit the full equity
 /// before crowd-fill. Measure (a) the share of `totalShares()` we capture and

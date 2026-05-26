@@ -13,7 +13,7 @@ import {IFluidVault} from "src/interfaces/mm/IFluidVault.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F02-08 — weETH leveraged loop on Fluid weETH-ETH<>wstETH smart-collateral.
+/// @notice F02-08 - weETH leveraged loop on Fluid weETH-ETH<>wstETH smart-collateral.
 ///
 /// THREE distinct mechanisms compose: EtherFi LRT, Fluid Smart-Collateral
 /// (LP-as-collateral), Curve stETH/ETH swap (for the same-tx unwind path).
@@ -22,7 +22,7 @@ import {console2} from "forge-std/console2.sol";
 contract F02_08_WeethFluidSmartCollateralLoopTest is StrategyBase {
     // ---- Pinned constants ----
 
-    /// @dev Block 21,200,000 — Nov 2024. Fluid weETH-ETH<>wstETH vault live.
+    /// @dev Block 21,200,000 - Nov 2024. Fluid weETH-ETH<>wstETH vault live.
     uint256 constant FORK_BLOCK = 21_200_000;
 
     /// @dev Fluid VaultT2 weETH-ETH<>wstETH smart-collateral vault.
@@ -33,7 +33,7 @@ contract F02_08_WeethFluidSmartCollateralLoopTest is StrategyBase {
     address constant LOCAL_ETH_SENTINEL = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     uint256 constant EQUITY = 100 ether;
-    /// @dev Iterations of the leverage loop. 3 → ~3x leverage at 60% borrow ratio.
+    /// @dev Iterations of the leverage loop. 3 -> ~3x leverage at 60% borrow ratio.
     uint8 constant LOOPS = 3;
     /// @dev Per-iteration borrow as fraction of collateral wstETH leg (basis pts).
     uint256 constant BORROW_RATIO_BPS = 6000;
@@ -58,18 +58,18 @@ contract F02_08_WeethFluidSmartCollateralLoopTest is StrategyBase {
         // ---- 1. Convert equity into the two LP legs ----
         // Vault expects: wstETH leg supplied via ERC20 transfer + ETH leg via msg.value.
         // Note: this vault's "weETH-ETH" collateral leg uses ETH + (internally weETH
-        // minted via the Fluid DEX pool) — the user's ETH leg is wrapped into
+        // minted via the Fluid DEX pool) - the user's ETH leg is wrapped into
         // weETH inside the DEX. The wstETH side is straight ERC20.
         IWETH(Mainnet.WETH).withdraw(EQUITY);
 
         uint256 half = EQUITY / 2;
-        // Half → stETH → wstETH (the debt-side asset, but also part of the smart-collateral pool)
+        // Half -> stETH -> wstETH (the debt-side asset, but also part of the smart-collateral pool)
         IStETH(Mainnet.STETH).submit{value: half}(address(0));
         uint256 stBal = IERC20(Mainnet.STETH).balanceOf(address(this));
         IERC20(Mainnet.STETH).approve(Mainnet.WSTETH, stBal);
         uint256 wstOut = IWstETH(Mainnet.WSTETH).wrap(stBal);
 
-        // The other half stays as ETH — to fund the ETH leg of the smart-collateral.
+        // The other half stays as ETH - to fund the ETH leg of the smart-collateral.
         // Additionally, we mint weETH from a small slice so the LP has both LRT legs
         // available; in practice Fluid's internal DEX routes any ETH input to weETH.
         // For PoC we send raw ETH via msg.value and let Fluid handle the mint.
@@ -77,7 +77,7 @@ contract F02_08_WeethFluidSmartCollateralLoopTest is StrategyBase {
         // ---- 2. Open vault NFT with smart-collateral ----
         IERC20(Mainnet.WSTETH).approve(address(vault), type(uint256).max);
 
-        // operate(nftId=0, +wstETH, 0, this) — open with wstETH leg; ETH leg via msg.value.
+        // operate(nftId=0, +wstETH, 0, this) - open with wstETH leg; ETH leg via msg.value.
         try vault.operate{value: half}(0, int256(wstOut), 0, address(this)) returns (uint256 nftId, int256, int256) {
             _nftId = nftId;
             console2.log("Fluid NFT minted:", _nftId);
@@ -106,7 +106,7 @@ contract F02_08_WeethFluidSmartCollateralLoopTest is StrategyBase {
             uint256 wstBal = IERC20(Mainnet.WSTETH).balanceOf(address(this));
             if (wstBal == 0) break;
 
-            // Unwrap half of the borrowed wstETH → stETH → swap on Curve to ETH.
+            // Unwrap half of the borrowed wstETH -> stETH -> swap on Curve to ETH.
             uint256 halfBorrow = wstBal / 2;
             IERC20(Mainnet.WSTETH).approve(Mainnet.WSTETH, halfBorrow);
             uint256 stOut = IWstETH(Mainnet.WSTETH).unwrap(halfBorrow);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice Convex Booster — registers Curve LPs into Convex's gauge proxy.
+/// @notice Convex Booster - registers Curve LPs into Convex's gauge proxy.
 interface IConvexBooster {
     struct PoolInfo {
         address lptoken;

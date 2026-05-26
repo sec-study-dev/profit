@@ -7,7 +7,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IBalancerVault} from "src/interfaces/amm/IBalancerVault.sol";
 import {IBalancerPool} from "src/interfaces/amm/IBalancerPool.sol";
 
-/// @title F13-03: Balancer wstETH/WETH ComposableStable LP — boosted-style double yield
+/// @title F13-03: Balancer wstETH/WETH ComposableStable LP - boosted-style double yield
 /// @notice Demonstrates joinPool / exitPool mechanics for a CSP v3+ "phantom BPT" pool.
 ///         PoC scope: round-trip a 100-WETH position over 1 block (advance via vm.roll).
 ///         Realised carry on 1 block is sub-dollar; the value of the PoC is showing the

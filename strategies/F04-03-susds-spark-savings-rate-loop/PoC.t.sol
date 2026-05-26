@@ -48,7 +48,7 @@ contract F04_03_SUsdsSparkLoop is StrategyBase {
         //     Sep-2024 with LTV ~75% and a stablecoin-emode rating that lets
         //     sUSDS borrow DAI/USDC at high efficiency.
         //   * A Spark Prime delist proposal (LTV -> 0, supplyCap -> 1) was first
-        //     surfaced in late 2025 — far past this FORK_BLOCK (~Dec 22 2024).
+        //     surfaced in late 2025 - far past this FORK_BLOCK (~Dec 22 2024).
         // So at block 21_500_000 sUSDS is a live, non-frozen collateral asset.
         // We still verify on-chain rather than trust the historical claim:
         //   1. aTokenAddress != 0  -> reserve is initialised
@@ -173,6 +173,6 @@ contract F04_03_SUsdsSparkLoop is StrategyBase {
         emit log_named_uint("end_DAI_total", endDai);
         // On a positive-spread block we expect strict growth; bound generously to
         // tolerate Spark IRM jitter and rounding loss on the unwind path.
-        assertGt(endDai, SEED_DAI * 99 / 100, "loop lost > 1% — spread likely inverted or stuck collateral");
+        assertGt(endDai, SEED_DAI * 99 / 100, "loop lost > 1% - spread likely inverted or stuck collateral");
     }
 }

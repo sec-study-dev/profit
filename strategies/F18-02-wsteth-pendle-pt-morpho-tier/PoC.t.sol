@@ -11,31 +11,31 @@ import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F18-02 — wstETH (Lido) -> Pendle PT-weETH -> Morpho PT-weETH/WETH.
+/// @notice F18-02 - wstETH (Lido) -> Pendle PT-weETH -> Morpho PT-weETH/WETH.
 ///
 /// Three mechanisms in one multi-step position (Lido + Pendle + Morpho):
 ///
-///   1. Lido wstETH       (LST primitive — non-rebasing wrapped stETH).
-///   2. Pendle PT-weETH   (yield tokenisation — fixed-rate claim on weETH at
+///   1. Lido wstETH       (LST primitive - non-rebasing wrapped stETH).
+///   2. Pendle PT-weETH   (yield tokenisation - fixed-rate claim on weETH at
 ///                         expiry; Pendle's PT-weETH market wraps the EtherFi
 ///                         LRT but accepts ETH/WETH as a mint input).
-///   3. Morpho Blue       (isolated PT-collateral / WETH-loan market — the
+///   3. Morpho Blue       (isolated PT-collateral / WETH-loan market - the
 ///                         only on-chain PT-LST money market verified at
 ///                         this block; see Wave-5 audit notes below).
 ///
 /// ---- Wave-5 design note ----
 /// The original design targeted a "Morpho PT-wstETH/USDC" market. That market
 /// does NOT exist on Ethereum mainnet at the pinned block (Morpho's PT-collateral
-/// markets list only PT-sUSDe, PT-weETH, PT-USDe, PT-USR, PT-USDS, PT-iUSD —
+/// markets list only PT-sUSDe, PT-weETH, PT-USDe, PT-USR, PT-USDS, PT-iUSD -
 /// no PT-wstETH variant). The strategy is therefore retargeted to the verified
 /// PT-weETH/WETH Morpho market (canonical id used by F09-05 and F07-02), with
 /// the Lido leg preserved at entry: wstETH is unwrapped to stETH/ETH and routed
 /// through Pendle's SY-weETH (which accepts ETH/WETH directly via the router's
-/// auto-wrap path). The 3-mechanism thesis is intact — Lido at the LST root,
+/// auto-wrap path). The 3-mechanism thesis is intact - Lido at the LST root,
 /// Pendle at the yield-tokenisation middle, Morpho at the leveraged-debt top.
 contract F18_02_WstethPendlePtMorphoTier is StrategyBase {
     /// @dev Pinned: mid-August 2024. PT-weETH-26DEC2024 active on Pendle and
-    ///      Morpho PT-weETH/WETH 86% LLTV market deep — same block as F09-05
+    ///      Morpho PT-weETH/WETH 86% LLTV market deep - same block as F09-05
     ///      for cross-comparability.
     uint256 constant FORK_BLOCK = 20_650_000;
 
@@ -92,7 +92,7 @@ contract F18_02_WstethPendlePtMorphoTier is StrategyBase {
         _startPnL();
         vm.txGasPrice(20 gwei);
 
-        // ---- Tier 1: Lido — unwrap wstETH -> stETH -> withdraw ETH equivalent ----
+        // ---- Tier 1: Lido - unwrap wstETH -> stETH -> withdraw ETH equivalent ----
         // Lido is the rate-bearing LST primitive at the base. We unwrap to stETH
         // then use the wstETH->ETH balance via Lido's mechanism to produce ETH
         // routable into Pendle's SY-weETH (which accepts ETH/WETH directly).
@@ -115,7 +115,7 @@ contract F18_02_WstethPendlePtMorphoTier is StrategyBase {
         uint256 wethBal = IERC20(Mainnet.WETH).balanceOf(address(this));
         console2.log("tier1_weth_for_pendle:", wethBal);
 
-        // ---- Tier 2: Pendle — WETH -> PT-weETH via market swap ----
+        // ---- Tier 2: Pendle - WETH -> PT-weETH via market swap ----
         IERC20(Mainnet.WETH).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
 
         IPendleRouter.TokenInput memory tin = IPendleRouter.TokenInput({
@@ -138,7 +138,7 @@ contract F18_02_WstethPendlePtMorphoTier is StrategyBase {
         try IPendleRouter(Mainnet.PENDLE_ROUTER_V4).swapExactTokenForPt(
             address(this),
             LOCAL_PENDLE_MARKET_PT_WEETH_26DEC24,
-            0, // minPtOut — PoC; production should set slippage
+            0, // minPtOut - PoC; production should set slippage
             approx,
             tin,
             limit
@@ -156,7 +156,7 @@ contract F18_02_WstethPendlePtMorphoTier is StrategyBase {
         uint256 ptAcquired = IERC20(_pt).balanceOf(address(this)) - ptBefore;
         require(ptAcquired > 0, "no PT acquired");
 
-        // ---- Tier 3: Morpho — supply PT-weETH, borrow WETH ----
+        // ---- Tier 3: Morpho - supply PT-weETH, borrow WETH ----
         IERC20(_pt).approve(Mainnet.MORPHO, type(uint256).max);
         try IMorpho(Mainnet.MORPHO).supplyCollateral(_market, ptAcquired, address(this), "") {
             console2.log("tier3_morpho_collateral_supplied:", ptAcquired);

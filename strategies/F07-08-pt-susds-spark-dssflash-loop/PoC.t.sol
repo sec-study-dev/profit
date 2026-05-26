@@ -18,22 +18,22 @@ interface IUSDSDaiConverter {
     function usdsToDai(address usr, uint256 wad) external;
 }
 
-/// @title F07-08 — PT-sUSDS + Spark + DssFlash bootstrap (3-mech)
+/// @title F07-08 - PT-sUSDS + Spark + DssFlash bootstrap (3-mech)
 ///
 /// @notice 3-mechanism stack:
-///         1. Pendle PT-sUSDS — fixed-discount claim on 1 sUSDS at maturity.
+///         1. Pendle PT-sUSDS - fixed-discount claim on 1 sUSDS at maturity.
 ///            sUSDS accretes the Sky Savings Rate (~6.5% APY).
 ///         2. Morpho Blue PT-sUSDS/USDS isolated market (PendleSparkLinearDiscount
-///            oracle) — Spark-affiliated curator markets PT-sUSDS at 91.5% LLTV.
-///         3. MakerDAO DSS Flash mint — flash-mint DAI free of premium (toll=0),
-///            convert DAI → USDS 1:1 via the Sky DAI/USDS converter, swap
-///            USDS → USDC via PSM, buy PT in one atomic transaction. Reverse on
+///            oracle) - Spark-affiliated curator markets PT-sUSDS at 91.5% LLTV.
+///         3. MakerDAO DSS Flash mint - flash-mint DAI free of premium (toll=0),
+///            convert DAI -> USDS 1:1 via the Sky DAI/USDS converter, swap
+///            USDS -> USDC via PSM, buy PT in one atomic transaction. Reverse on
 ///            unwind. The flash leg eliminates the "initial PT buy" capital
 ///            requirement and lets the strategy bootstrap to the full target
 ///            leverage in a single tx (no rate ramp-up between loops).
 ///
-///         Strategy: flash-mint DAI → DAI→USDS→USDC → buy PT-sUSDS via Pendle →
-///         supply PT to Morpho → borrow USDS → USDS→DAI → repay flash. Net
+///         Strategy: flash-mint DAI -> DAI->USDS->USDC -> buy PT-sUSDS via Pendle ->
+///         supply PT to Morpho -> borrow USDS -> USDS->DAI -> repay flash. Net
 ///         position: PT-sUSDS collateral + USDS debt on Morpho.
 contract F07_08_PtSusdsSparkDssflashLoopTest is StrategyBase, IERC3156FlashBorrower {
     // ---- Block ----
@@ -41,7 +41,7 @@ contract F07_08_PtSusdsSparkDssflashLoopTest is StrategyBase, IERC3156FlashBorro
     uint256 constant FORK_BLOCK = 21_050_000;
 
     // ---- Pendle market (PT/YT/SY-sUSDS-25SEP2025) ----
-    /// @dev Pendle Market for PT/YT/SY-sUSDS — maturity 25-SEP-2025.
+    /// @dev Pendle Market for PT/YT/SY-sUSDS - maturity 25-SEP-2025.
     address constant LOCAL_MARKET = 0xcAE62858DB831272A03768f5844cbe1B40bB381f;
 
     // ---- Morpho market: PT-sUSDS / USDS ----
@@ -56,7 +56,7 @@ contract F07_08_PtSusdsSparkDssflashLoopTest is StrategyBase, IERC3156FlashBorro
 
     // ---- Equity / sizing ----
     uint256 constant EQUITY_USDS = 1_000_000e18;
-    /// @dev Flash-mint multiplier: target K = 4 ⇒ flash 3× equity in DAI.
+    /// @dev Flash-mint multiplier: target K = 4 => flash 3* equity in DAI.
     uint256 constant FLASH_DAI = 3_000_000e18;
 
     // ---- State ----
@@ -95,7 +95,7 @@ contract F07_08_PtSusdsSparkDssflashLoopTest is StrategyBase, IERC3156FlashBorro
         IERC20(Mainnet.USDS).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
         IERC20(_pt).approve(Mainnet.MORPHO, type(uint256).max);
 
-        // Convert equity USDS → DAI to bridge into the flash-mint settlement layer.
+        // Convert equity USDS -> DAI to bridge into the flash-mint settlement layer.
         IUSDSDaiConverter(DAI_USDS_CONVERTER).usdsToDai(address(this), EQUITY_USDS);
 
         // Trigger flash mint. DssFlash.toll = 0 (free flash mint).
@@ -122,7 +122,7 @@ contract F07_08_PtSusdsSparkDssflashLoopTest is StrategyBase, IERC3156FlashBorro
     /// @notice ERC-3156 flash callback. DssFlash gives us `FLASH_DAI` DAI; we
     ///         use the equity USDS already converted to DAI plus the flashed
     ///         amount to buy PT-sUSDS in one shot, supply to Morpho, borrow back
-    ///         enough USDS to repay the flash, then bridge USDS→DAI.
+    ///         enough USDS to repay the flash, then bridge USDS->DAI.
     function onFlashLoan(
         address /* initiator */,
         address token,
@@ -137,7 +137,7 @@ contract F07_08_PtSusdsSparkDssflashLoopTest is StrategyBase, IERC3156FlashBorro
         // Total DAI on hand = equity-converted + flashed.
         uint256 totalDai = IERC20(Mainnet.DAI).balanceOf(address(this));
 
-        // DAI → USDS 1:1 via converter.
+        // DAI -> USDS 1:1 via converter.
         IUSDSDaiConverter(DAI_USDS_CONVERTER).daiToUsds(address(this), totalDai);
         uint256 usdsTotal = IERC20(Mainnet.USDS).balanceOf(address(this));
 
@@ -150,10 +150,10 @@ contract F07_08_PtSusdsSparkDssflashLoopTest is StrategyBase, IERC3156FlashBorro
         );
 
         // Borrow enough USDS to repay the flash. We borrow exactly `amount`
-        // (the flashed DAI) — bridging USDS → DAI 1:1 to repay.
+        // (the flashed DAI) - bridging USDS -> DAI 1:1 to repay.
         IMorpho(Mainnet.MORPHO).borrow(_market, amount, 0, address(this), address(this));
 
-        // Convert USDS → DAI 1:1 to repay DssFlash.
+        // Convert USDS -> DAI 1:1 to repay DssFlash.
         IUSDSDaiConverter(DAI_USDS_CONVERTER).usdsToDai(address(this), amount);
 
         // ERC-3156: approve repayment.

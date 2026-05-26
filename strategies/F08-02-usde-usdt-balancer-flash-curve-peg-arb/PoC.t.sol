@@ -8,7 +8,7 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IBalancerVault} from "src/interfaces/amm/IBalancerVault.sol";
 import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
-/// @title F08-02 — USDe peg arbitrage via Balancer flash + dual Curve pools
+/// @title F08-02 - USDe peg arbitrage via Balancer flash + dual Curve pools
 /// @notice Atomic single-tx PoC.
 ///         1. Balancer V2 flash USDT (0 fee) for size N.
 ///         2. Swap USDT -> USDe on Curve USDe/USDT pool (the depegged side,
@@ -20,7 +20,7 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 ///
 ///         The arb is purely atomic; no inventory carried across blocks.
 ///         Triggers only when the two Curve USDe pools quote different
-///         marginal prices for USDe in size — a routinely observable
+///         marginal prices for USDe in size - a routinely observable
 ///         condition during ETH liquidation cascades and Ethena yield-event
 ///         deposit surges.
 contract F08_02_UsdePegArbTest is StrategyBase, IFlashLoanRecipientBalancer {
@@ -55,7 +55,7 @@ contract F08_02_UsdePegArbTest is StrategyBase, IFlashLoanRecipientBalancer {
         _trackToken(Mainnet.USDT);
         _trackToken(Mainnet.USDE);
 
-        // Verify the Curve pool coin orderings — coins[0]=USDe, coins[1]=stable.
+        // Verify the Curve pool coin orderings - coins[0]=USDe, coins[1]=stable.
         // Reverting here gives a clear signal if a factory pool was redeployed
         // and the address constant drifted (rather than failing inside exchange).
         require(

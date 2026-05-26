@@ -17,7 +17,7 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 ///         sell frxETH back to ETH on Curve frxETH/ETH for the AMM premium.
 contract F03_08_FrxETHSfrxETHRateMismatchTest is StrategyBase, IFlashLoanRecipientBalancer {
     /// @dev Nov 2024 reference block. Curve frxETH/ETH typically drifts
-    ///      ±10-30 bps around rewards-cycle boundaries.
+    ///      +/-10-30 bps around rewards-cycle boundaries.
     uint256 constant FORK_BLOCK = 21_300_000;
 
     /// @dev Curve frxETH/ETH plain pool. coins[0] = ETH (native), coins[1] = frxETH.
@@ -91,7 +91,7 @@ contract F03_08_FrxETHSfrxETHRateMismatchTest is StrategyBase, IFlashLoanRecipie
 
         // ---- 3. (Optional) sfrxETH deposit/redeem snapshot ----
         //     Asserts that sfrxETH PPS is not regressing. Round-tripping returns
-        //     the same frxETH amount (minus ERC-4626 rounding of ≤1 wei).
+        //     the same frxETH amount (minus ERC-4626 rounding of <=1 wei).
         if (USE_SFRXETH_LEG) {
             IERC20(Mainnet.FRXETH).approve(Mainnet.SFRXETH, type(uint256).max);
             uint256 shares = IsfrxETH(Mainnet.SFRXETH).deposit(frxBal, address(this));

@@ -10,10 +10,10 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
 // ---- Local interfaces (do NOT modify shared) ----
-//   (No metapool-specific calls — every leg uses ICurveStableSwap from shared.)
+//   (No metapool-specific calls - every leg uses ICurveStableSwap from shared.)
 
-/// @title F16-03 — DAI flashmint triangular: DAI -> USDC -> crvUSD -> GHO -> crvUSD -> USDC -> DAI
-/// @notice All-Curve route — no Balancer dependency. The triangle "closes" by
+/// @title F16-03 - DAI flashmint triangular: DAI -> USDC -> crvUSD -> GHO -> crvUSD -> USDC -> DAI
+/// @notice All-Curve route - no Balancer dependency. The triangle "closes" by
 ///         round-tripping crvUSD <-> GHO on the Curve GHO/crvUSD StableNG pool;
 ///         residual DAI after the PSM sell-back is the measured edge.
 contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBorrower {
@@ -24,7 +24,7 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
 
     /// @dev Curve GHO/crvUSD StableNG 2-coin pool. Verified via Curve gov
     ///      `[crvUSD]: GHO Pegkeeper Review` (gov.curve.finance/t/.../11003,
-    ///      Feb 2026) — pool was added to the crvUSD PegKeeper set with a
+    ///      Feb 2026) - pool was added to the crvUSD PegKeeper set with a
     ///      3M crvUSD debt ceiling. Pool index ordering: 0=GHO, 1=crvUSD.
     ///      Note: this is the *only* deep on-chain GHO/crvUSD venue; the
     ///      original "GHO/3CRV metapool" referenced in the README does not
@@ -35,7 +35,7 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
     /// @dev Curve crvUSD/USDC stableswap-NG (index 0=crvUSD, 1=USDC).
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
 
-    /// @dev Mid-Sep 2024 — GHO sub-peg, crvUSD slight over-peg.
+    /// @dev Mid-Sep 2024 - GHO sub-peg, crvUSD slight over-peg.
     uint256 constant FORK_BLOCK = 20_500_000;
 
     /// @dev Probe notional.
@@ -64,7 +64,7 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
         try ICurveStableSwap(CURVE_3POOL).get_dy(int128(0), int128(1), FLASH_DAI) returns (uint256 q1) {
             usdcOut1 = q1;
         } catch {
-            emit log("Curve 3pool quote failed — skipping triangle");
+            emit log("Curve 3pool quote failed - skipping triangle");
             return;
         }
         emit log_named_uint("quote_usdc_out_from_dai_3pool", usdcOut1);
@@ -80,7 +80,7 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
         try ICurveStableSwap(CURVE_GHO_CRVUSD).get_dy(int128(1), int128(0), crvUsdOut1) returns (uint256 q3) {
             ghoOut = q3;
         } catch {
-            emit log("GHO/crvUSD pool quote failed — skipping triangle");
+            emit log("GHO/crvUSD pool quote failed - skipping triangle");
             return;
         }
         emit log_named_uint("quote_gho_out_from_crvusd", ghoOut);

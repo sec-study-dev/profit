@@ -24,12 +24,12 @@ interface ITroveManagerV2Branch {
     function getTroveStatus(uint256 _troveId) external view returns (uint256);
 }
 
-/// @title F06-08 — BOLD SP-mint recycle on the wstETH branch
+/// @title F06-08 - BOLD SP-mint recycle on the wstETH branch
 /// @notice 2-mechanism strategy:
-///         1. Liquity v2 — open a trove on the wstETH branch (low rate),
+///         1. Liquity v2 - open a trove on the wstETH branch (low rate),
 ///            mint BOLD, immediately deposit BOLD into the same branch's
 ///            Stability Pool.
-///         2. Curve — when liquidations award wstETH at a discount, swap
+///         2. Curve - when liquidations award wstETH at a discount, swap
 ///            any excess wstETH back to BOLD (via BOLD/USDC + Curve
 ///            wstETH/ETH) and redeposit, compounding the position.
 ///
@@ -38,7 +38,7 @@ interface ITroveManagerV2Branch {
 ///         protocol routes 75% of borrower interest to the SP) plus
 ///         wstETH-gain from liquidations. If the user's own borrow rate
 ///         is below the average SP yield rate, the net is positive
-///         carry — *self-funding leverage*.
+///         carry - *self-funding leverage*.
 contract F06_08_BoldSpMintRecycleTest is StrategyBase {
     // ---- Liquity v2 mainnet (verified Wave-5) ----
     //
@@ -77,7 +77,7 @@ contract F06_08_BoldSpMintRecycleTest is StrategyBase {
     uint256 constant EQUITY_WSTETH = 50 ether;
 
     /// @dev Borrower-chosen annual interest rate (1e18 = 100%).
-    ///      3.0%/yr — designed to sit at-or-below the running median (so
+    ///      3.0%/yr - designed to sit at-or-below the running median (so
     ///      we're a redemption target on adverse moves) BUT we accept
     ///      that because the SP yield from the same branch averages above
     ///      the user-set rate when liquidations happen.
@@ -87,7 +87,7 @@ contract F06_08_BoldSpMintRecycleTest is StrategyBase {
     uint256 constant OWNER_INDEX = 0;
 
     /// @dev BOLD to mint per wstETH of collateral. Conservative: ~30%
-    ///      LTV → ICR ≈ 333% at wstETH=$4000 → trove very safe from
+    ///      LTV -> ICR ~= 333% at wstETH=$4000 -> trove very safe from
     ///      liquidation, but more redeemable.
     uint256 constant BOLD_PER_WSTETH = 1200e18;
 
@@ -101,7 +101,7 @@ contract F06_08_BoldSpMintRecycleTest is StrategyBase {
         _trackToken(LOCAL_BOLD);
 
         // Wave-5: all wstETH-branch addresses inlined and verified.
-        // Gate is defense-in-depth — confirms bytecode is live at fork block.
+        // Gate is defense-in-depth - confirms bytecode is live at fork block.
         _v2Available = _hasCode(LOCAL_BOLD)
             && _hasCode(LOCAL_BORROWER_OPS_WSTETH)
             && _hasCode(LOCAL_TROVE_MANAGER_WSTETH)

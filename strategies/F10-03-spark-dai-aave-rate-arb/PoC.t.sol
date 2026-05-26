@@ -11,7 +11,7 @@ import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 /// @notice Reads on-chain DAI rates from Spark borrow, Aave V3 supply and
 ///         sDAI (via `convertToAssets` drift), then opens a small 50% LTV
 ///         position to capture whichever leg is profitable. Designed as an
-///         observational PoC — emits rate snapshots even when the carry is
+///         observational PoC - emits rate snapshots even when the carry is
 ///         negative.
 contract F10_03_SparkDaiAaveRateArb is StrategyBase {
     uint256 constant FORK_BLOCK = 19_500_000;
@@ -37,7 +37,7 @@ contract F10_03_SparkDaiAaveRateArb is StrategyBase {
 
         // ---- 1. Read rates ----
         // Aave/Spark stores rates in RAY (1e27) per second-equivalent (actually
-        // per-year RAY). Log raw — interpretation is annual APR scaled by 1e27.
+        // per-year RAY). Log raw - interpretation is annual APR scaled by 1e27.
         IAavePool.ReserveDataLegacy memory sparkDai = spark.getReserveData(Mainnet.DAI);
         IAavePool.ReserveDataLegacy memory aaveDai = aave.getReserveData(Mainnet.DAI);
         IAavePool.ReserveDataLegacy memory sparkUsdc = spark.getReserveData(Mainnet.USDC);
@@ -109,7 +109,7 @@ contract F10_03_SparkDaiAaveRateArb is StrategyBase {
         );
         emit log_named_uint("spark_hf_e18", hf);
 
-        // Aave aDAI balance — read the aTokenAddress from reserve data and
+        // Aave aDAI balance - read the aTokenAddress from reserve data and
         // call balanceOf on it.
         address aDaiToken = aaveDai.aTokenAddress;
         uint256 aDaiBal = IERC20(aDaiToken).balanceOf(address(this));

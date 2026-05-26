@@ -11,7 +11,7 @@ import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 import {IMorphoFlashLoanCallback} from "src/interfaces/common/IFlashLoanReceiver.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F09-01 — wstETH/WETH 94.5% LLTV Morpho loop using free flashloan + Curve stETH pool.
+/// @notice F09-01 - wstETH/WETH 94.5% LLTV Morpho loop using free flashloan + Curve stETH pool.
 ///
 /// Single-tx mechanism:
 ///   1. flashLoan WETH from Morpho (0% fee)
@@ -25,7 +25,7 @@ contract F09_01_WstethMorphoFlashloopCurveTest is StrategyBase, IMorphoFlashLoan
     /// @dev Pinned block: ample WETH liquidity in the 94.5% market in late Dec 2024.
     uint256 constant FORK_BLOCK = 21_400_000;
 
-    /// @dev wstETH/WETH 94.5% LLTV — the flagship Morpho ETH-collateral market.
+    /// @dev wstETH/WETH 94.5% LLTV - the flagship Morpho ETH-collateral market.
     /// keccak256(abi.encode(MarketParams{WETH, wstETH, 0x2a01EB94..., 0x870aC11D..., 0.945e18}))
     bytes32 constant WSTETH_WETH_MARKET_ID =
         0xd0e50cdac92fe2172043f5e0c36532c6369d24947e40968f34a5e8819ca9ec5d;
@@ -35,7 +35,7 @@ contract F09_01_WstethMorphoFlashloopCurveTest is StrategyBase, IMorphoFlashLoan
     int128 constant CRV_IDX_STETH = 1;
 
     uint256 constant EQUITY = 50 ether;
-    /// @dev 12x notional on equity (550 WETH borrow against ~521 wstETH coll at L ≈ 0.917).
+    /// @dev 12x notional on equity (550 WETH borrow against ~521 wstETH coll at L ~= 0.917).
     uint256 constant FLASH_AMOUNT = 550 ether;
 
     IMorpho.MarketParams internal _market;
@@ -86,7 +86,7 @@ contract F09_01_WstethMorphoFlashloopCurveTest is StrategyBase, IMorphoFlashLoan
         IWETH(Mainnet.WETH).withdraw(totalWeth);
 
         // Curve stETH/ETH pool: native ETH input -> stETH output.
-        // min_dy = 99.5% of dx — leaves ample slippage room; real pool is tighter.
+        // min_dy = 99.5% of dx - leaves ample slippage room; real pool is tighter.
         uint256 minStEthOut = (totalWeth * 995) / 1000;
         ICurveStableSwap(Mainnet.CURVE_STETH_POOL).exchange{value: totalWeth}(
             CRV_IDX_ETH,

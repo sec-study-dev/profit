@@ -28,17 +28,17 @@ interface ITroveManagerV2Branch {
     function getTroveStatus(uint256 _troveId) external view returns (uint256);
 }
 
-/// @notice Liquity v2 SP (per-branch — wstETH branch pays out wstETH on liq).
+/// @notice Liquity v2 SP (per-branch - wstETH branch pays out wstETH on liq).
 interface IStabilityPoolV2 {
     function provideToSP(uint256 _amount, bool _doClaim) external;
     function withdrawFromSP(uint256 _amount, bool _doClaim) external;
     function getDepositorCollGain(address _depositor) external view returns (uint256);
 }
 
-/// @title F06-04 — Leveraged BOLD borrow loop against wstETH on Liquity v2
+/// @title F06-04 - Leveraged BOLD borrow loop against wstETH on Liquity v2
 /// @notice Open a trove on the wstETH branch with chosen interest rate, mint
-///         BOLD, swap BOLD→wstETH, top up the trove (or close-and-reopen
-///         larger), achieving N× wstETH exposure on the initial equity.
+///         BOLD, swap BOLD->wstETH, top up the trove (or close-and-reopen
+///         larger), achieving N* wstETH exposure on the initial equity.
 ///         Theoretical until v2 mainnet addresses are wired.
 contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipientBalancer {
     // ---- Liquity v2 mainnet addresses (verified Wave-5) ----
@@ -80,13 +80,13 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
     // ---- Tunables ----
 
     /// @dev Post-redeployment block (Liquity v2 re-live on 2025-05-19).
-    ///      ~22,500,000 ≈ mid-June 2025; first month with v2 trove activity.
+    ///      ~22,500,000 ~= mid-June 2025; first month with v2 trove activity.
     uint256 constant FORK_BLOCK = 22_500_000;
 
     /// @dev wstETH equity tranche.
     uint256 constant EQUITY_WSTETH = 10 ether;
 
-    /// @dev Notional leverage. flash = (LEVERAGE - 1) × EQUITY.
+    /// @dev Notional leverage. flash = (LEVERAGE - 1) * EQUITY.
     uint256 constant LEVERAGE = 5;
 
     /// @dev Borrower-chosen annual interest rate (1e18 = 100%).
@@ -95,7 +95,7 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
     uint256 constant ANNUAL_RATE = 25e15;
 
     /// @dev Borrow target as fraction of collateral value (1e18 = 100%).
-    ///      ICR ≈ 1 / TARGET_LTV ≈ 143% when TARGET_LTV = 0.7.
+    ///      ICR ~= 1 / TARGET_LTV ~= 143% when TARGET_LTV = 0.7.
     uint256 constant TARGET_LTV = 0.7e18;
 
     /// @dev Owner index for the v2 openTrove deterministic trove id.
@@ -112,7 +112,7 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
         _trackToken(LOCAL_BOLD);
 
         // Wave-5: all per-branch addresses are now inlined and verified.
-        // Gate is defense-in-depth — confirms bytecode is live at the
+        // Gate is defense-in-depth - confirms bytecode is live at the
         // chosen fork block (post 2025-05-19 redeployment).
         _v2Available = _hasCode(LOCAL_BOLD)
             && _hasCode(LOCAL_BORROWER_OPS_WSTETH)
@@ -147,7 +147,7 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
 
         require(_v2Available, "F06-04: v2 bytecode missing at FORK_BLOCK");
 
-        // ---- 1) Borrow (LEVERAGE-1) × EQUITY wstETH from Balancer flashloan ----
+        // ---- 1) Borrow (LEVERAGE-1) * EQUITY wstETH from Balancer flashloan ----
         address[] memory tokens = new address[](1);
         tokens[0] = Mainnet.WSTETH;
         uint256[] memory amounts = new uint256[](1);
@@ -189,7 +189,7 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
         // ---- A) openTrove on v2 wstETH branch ----
         //
         // BOLD to mint = totalColl * wstETH_price_USD * TARGET_LTV / 1e18.
-        // For a PoC we'll approximate wstETH/USD with `Mainnet.WSTETH ≈ ETH price`
+        // For a PoC we'll approximate wstETH/USD with `Mainnet.WSTETH ~= ETH price`
         // (off by stEthPerToken which is ~1.18; correct in production).
         uint256 ethPriceE8 = _ethUsd();
         require(ethPriceE8 > 0, "no eth price");
@@ -238,7 +238,7 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
         // WETH -> stETH -> wstETH (or via Curve stETH pool). For PoC compactness
         // use Curve stETH/ETH pool then wrap via wstETH.wrap (stETH-side helper).
         // To stay protocol-agnostic and keep file size manageable, route via
-        // Lido submit pathway is preferred — but to avoid pulling another
+        // Lido submit pathway is preferred - but to avoid pulling another
         // interface, we do a Curve swap WETH -> stETH then wrap.
         IWETH(Mainnet.WETH).withdraw(wethOut);
         uint256 stEthOut = ICurveStableSwap(Mainnet.CURVE_STETH_POOL).exchange{value: wethOut}(

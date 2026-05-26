@@ -26,17 +26,17 @@ interface ICometExt {
     function getPrice(address priceFeed) external view returns (uint256);
 }
 
-/// @title F01-06 wstETH on Compound v3 WETH Comet — iterative leveraged loop
+/// @title F01-06 wstETH on Compound v3 WETH Comet - iterative leveraged loop
 /// @notice Two-mechanism composition: (1) Lido wstETH LST + (2) Compound v3
 ///         WETH Comet with its distinct 3-segment kinked IRM (vs Aave/Morpho).
 contract F01_06_WstethCompoundV3CometTest is StrategyBase {
     uint256 constant FORK_BLOCK = 20_800_000;
 
-    // Compound v3 WETH Comet — verified via compound.finance/markets and
+    // Compound v3 WETH Comet - verified via compound.finance/markets and
     // Compound v3 deployment json (cWETHv3): the WETH base market.
     address constant LOCAL_COMET_WETH = 0xA17581A9E3356d9A858b789D68B4d866e593aE94;
 
-    // Per-loop LTV — borrow-collateral-factor for wstETH on this Comet is
+    // Per-loop LTV - borrow-collateral-factor for wstETH on this Comet is
     // 0.90 at fork; we target 0.85 for a buffer.
     uint256 constant LOOP_LTV_BPS = 8500;
     uint256 constant LOOPS = 5;

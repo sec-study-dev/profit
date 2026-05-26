@@ -8,7 +8,7 @@ import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 
-/// @notice Origin OETH vault — same interface as F17-03; restated to keep this
+/// @notice Origin OETH vault - same interface as F17-03; restated to keep this
 ///         contract self-contained per the family's inline-address policy.
 interface IOETHVault {
     function redeem(uint256 amount, uint256 minimumUnitAmount) external;
@@ -16,7 +16,7 @@ interface IOETHVault {
     function redeemFeeBps() external view returns (uint256);
 }
 
-/// @notice Origin wOETH — ERC4626 non-rebasing wrapper around OETH.
+/// @notice Origin wOETH - ERC4626 non-rebasing wrapper around OETH.
 interface IWOETH {
     function asset() external view returns (address);
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
@@ -25,16 +25,16 @@ interface IWOETH {
     function convertToShares(uint256 assets) external view returns (uint256);
 }
 
-/// @title F17-06 OETH depeg → redeem → wOETH-as-collateral on Aave (3-mech)
+/// @title F17-06 OETH depeg -> redeem -> wOETH-as-collateral on Aave (3-mech)
 /// @notice Three-mechanism strategy that converts a one-shot OETH-discount arb
 ///         (F17-03) into a *persistent* leveraged carry position by feeding the
 ///         vault-redeemed ETH back into an Aave V3 eMode loop using **wOETH**
 ///         (non-rebasing wrapper, Aave-friendly accounting).
 ///
 ///         The composition:
-///           1. ORIGIN — OETH vault redemption at 1:1 (minus 50 bps fee).
-///           2. CURVE — OETH/ETH stableswap-NG entry leg at a discount.
-///           3. AAVE — wOETH-or-WETH as collateral in the ETH-correlated eMode
+///           1. ORIGIN - OETH vault redemption at 1:1 (minus 50 bps fee).
+///           2. CURVE - OETH/ETH stableswap-NG entry leg at a discount.
+///           3. AAVE - wOETH-or-WETH as collateral in the ETH-correlated eMode
 ///              (CategoryId = 1), borrow WETH at the eMode rate, recycle into
 ///              more OETH via Curve, repeat.
 ///
@@ -143,9 +143,9 @@ contract F17_06_OETHRedeemAaveEmodeLoop is StrategyBase {
         }
 
         if (oethAcquired == 0) {
-            // No discount or swap failure — fall through to on-peg path. Mint
+            // No discount or swap failure - fall through to on-peg path. Mint
             // OETH 1:1 via the vault (`mint` is permissioned on Origin's
-            // OETHVault on mainnet — only registered dapps), so the test
+            // OETHVault on mainnet - only registered dapps), so the test
             // contract must source OETH via deal-equivalent.
             // OETH is rebasing; deal corrupts the rebase accounting. The
             // honest path is to log the limitation and exit with a graceful
@@ -170,7 +170,7 @@ contract F17_06_OETHRedeemAaveEmodeLoop is StrategyBase {
             IERC20(OETH).approve(OETH_VAULT, type(uint256).max);
             uint256 ethBefore = address(this).balance;
             try IOETHVault(OETH_VAULT).redeem(oethBack, 0) {} catch {
-                // Vault redeem fails — recover via Curve sell.
+                // Vault redeem fails - recover via Curve sell.
                 IERC20(OETH).approve(CURVE_OETH_ETH, type(uint256).max);
                 ICurveStableSwap(CURVE_OETH_ETH).exchange(int128(1), int128(0), oethBack, 0);
             }

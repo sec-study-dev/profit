@@ -9,11 +9,11 @@ import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 
-/// @title F07-02 — PT-weETH leveraged buy on Morpho (ETH-side carry)
+/// @title F07-02 - PT-weETH leveraged buy on Morpho (ETH-side carry)
 ///
 /// @notice ETH-side analogue of F07-01: discounted PT-weETH posted to Morpho
 ///         PT-weETH/WETH market, lever up with WETH borrows, capture implied
-///         ETH-staking APY × leverage minus WETH borrow rate.
+///         ETH-staking APY * leverage minus WETH borrow rate.
 contract F07_02_PtWeethMorphoLoopTest is StrategyBase {
     // ---- Block ----
     /// @dev Mid-August 2024. PT-weETH-26DEC2024 has ~4.5 months to maturity;

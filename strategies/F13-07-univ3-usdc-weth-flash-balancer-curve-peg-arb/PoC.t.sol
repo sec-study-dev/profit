@@ -11,24 +11,24 @@ import {IUniswapV3FlashCallback} from "src/interfaces/common/IFlashLoanReceiver.
 
 /// @title F13-07: UniV3 USDC/WETH 0.05% flash + Balancer DAI/USDC/USDT stable peg arb + Curve 3pool unwind
 /// @notice Three-protocol composition:
-///   1. **UniV3 USDC/WETH 0.05%** pool (`0x88e6...`) — the most-traded
-///      USDC/WETH pool on mainnet — provides a USDC flashloan source.
+///   1. **UniV3 USDC/WETH 0.05%** pool (`0x88e6...`) - the most-traded
+///      USDC/WETH pool on mainnet - provides a USDC flashloan source.
 ///      Borrow USDC (token0), repay with the 0.05% pool fee.
 ///   2. **Balancer DAI/USDC/USDT ComposableStable** (Balancer's main
-///      stable pool, "bb-a-USD"-successor). Swap USDC → DAI on the
+///      stable pool, "bb-a-USD"-successor). Swap USDC -> DAI on the
 ///      Balancer side. When the Balancer pool's stable invariant is
 ///      slightly off-balance (e.g. recently absorbed a one-sided
-///      liquidity addition), the USDC→DAI rate ≠ 1.0000.
+///      liquidity addition), the USDC->DAI rate != 1.0000.
 ///   3. **Curve 3pool** (DAI/USDC/USDT) as the unwind venue. The
 ///      Curve 3pool stable invariant uses a different A coefficient and
-///      different balances, so a triangular `USDC → DAI (Bal) →
+///      different balances, so a triangular `USDC -> DAI (Bal) ->
 ///      USDC (Curve)` round trip leaves a positive residual whenever
 ///      the two pools' instantaneous quotes diverge by >~1 bp.
 ///
 /// Flow:
 ///   - Flash N USDC from UniV3 USDC/WETH 0.05%.
-///   - Swap USDC → DAI on Balancer stable.
-///   - Swap DAI → USDC on Curve 3pool.
+///   - Swap USDC -> DAI on Balancer stable.
+///   - Swap DAI -> USDC on Curve 3pool.
 ///   - Repay UniV3 flash (N USDC + 5 bp fee).
 ///
 /// Mechanism count: **3** (UniV3 + Balancer + Curve).
@@ -51,12 +51,12 @@ contract F13_07_UniV3FlashBalancerCurveStablePegArbTest is StrategyBase, IUniswa
 
     uint256 constant FLASH_NOTIONAL_USDC = 500_000e6; // 500k USDC (6 dec)
 
-    /// @dev Pre-flight gating: estimate Curve `DAI→USDC` rate using
+    /// @dev Pre-flight gating: estimate Curve `DAI->USDC` rate using
     ///      `get_dy(0, 1, dx)`. If Curve will return materially less
     ///      USDC per DAI than we deposit on Balancer (worst case), we
     ///      log + return instead of firing the flash (which would
     ///      otherwise revert in the callback and consume the test).
-    ///      Threshold: Curve must return ≥ 99.85% of the notional (15 bps
+    ///      Threshold: Curve must return >= 99.85% of the notional (15 bps
     ///      headroom for Balancer + UniV3 fee).
     uint256 constant CURVE_MIN_RECOVER_BPS = 9985; // bps of notional (* 100/1)
 
@@ -87,7 +87,7 @@ contract F13_07_UniV3FlashBalancerCurveStablePegArbTest is StrategyBase, IUniswa
         // notional, we'd be deeply in the red after Balancer fee. Bail.
         uint256 minRecover = (FLASH_NOTIONAL_USDC * CURVE_MIN_RECOVER_BPS) / 10_000;
         if (curveQuoteUsdc < minRecover) {
-            emit log_string("F13-07: skipped (Curve unwind below 99.85% — peg too tight at this block)");
+            emit log_string("F13-07: skipped (Curve unwind below 99.85% - peg too tight at this block)");
             return;
         }
 
@@ -96,7 +96,7 @@ contract F13_07_UniV3FlashBalancerCurveStablePegArbTest is StrategyBase, IUniswa
         _flashActive = true;
         // Borrow token0 (USDC). amount0=N, amount1=0. Wrap in a low-level
         // call so we can detect an unprofitable revert without aborting
-        // the whole test — real bots would simply not submit the bundle.
+        // the whole test - real bots would simply not submit the bundle.
         (bool ok, bytes memory ret) = UNIV3_USDC_WETH_500.call(
             abi.encodeWithSelector(
                 IUniswapV3Pool.flash.selector,
@@ -154,7 +154,7 @@ contract F13_07_UniV3FlashBalancerCurveStablePegArbTest is StrategyBase, IUniswa
         // ---- 3. Repay UniV3 flash ----
         // Pre-flight gating ensured Curve quote >= 99.85% of notional.
         // If on-chain slippage / Balancer fee exceeded the headroom we
-        // revert the callback (and the outer flash) — bot operators should
+        // revert the callback (and the outer flash) - bot operators should
         // treat this as a "skipped" event, not a failure. The outer test
         // function is wrapped to surface this gracefully.
         uint256 owed = FLASH_NOTIONAL_USDC + fee0;

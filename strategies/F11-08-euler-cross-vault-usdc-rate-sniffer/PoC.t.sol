@@ -132,7 +132,7 @@ contract F11_08_EulerCrossVaultUsdcRateSnifferTest is StrategyBase {
 
     function _trySupplyRate(address vault) internal view returns (uint256) {
         // EVault exposes `interestRate()` (borrow side, per-sec * 1e27). Supply
-        // rate ≈ interestRate * utilization * (1 - reserveFee). For PoC we use
+        // rate ~= interestRate * utilization * (1 - reserveFee). For PoC we use
         // borrow rate as a proxy for ranking; the *direction* is preserved
         // because all three vaults share the EVault IRM family.
         (bool ok, bytes memory data) =

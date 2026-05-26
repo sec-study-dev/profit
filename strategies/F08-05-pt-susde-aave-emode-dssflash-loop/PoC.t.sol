@@ -12,7 +12,7 @@ import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
-/// @title F08-05 — DssFlash-bootstrapped Aave sUSDe e-mode loop with PT-sUSDe carry sleeve
+/// @title F08-05 - DssFlash-bootstrapped Aave sUSDe e-mode loop with PT-sUSDe carry sleeve
 /// @notice Three-mechanism composition:
 ///         1. Maker **DssFlash** mints DAI for free (ERC-3156 flashmint), no
 ///            collateral needed; used to bootstrap leverage in a single tx.
@@ -23,7 +23,7 @@ import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.so
 ///            DAI/USDC/USDT as a 90% LTV correlated class, so the loop closes
 ///            without resorting to a separate AMM-funded leverage venue.
 ///
-///         Net result on entry: 1 USD equity → ~6-9x notional sUSDe stack on
+///         Net result on entry: 1 USD equity -> ~6-9x notional sUSDe stack on
 ///         Aave + ~equity-sized PT-sUSDe sleeve, all atomic, with the entire
 ///         DAI flashmint repaid from a single Aave borrow.
 contract F08_05_PtSusdeAaveEmodeDssFlashLoopTest is StrategyBase, IERC3156FlashBorrower {
@@ -54,7 +54,7 @@ contract F08_05_PtSusdeAaveEmodeDssFlashLoopTest is StrategyBase, IERC3156FlashB
     ///      LTV with sUSDe NAV ~$1.10 leaves a comfortable buffer (>5%).
     uint256 constant FLASH_DAI = 4_000_000e18; // 4M DAI
 
-    /// @dev User equity (in DAI). Total notional ≈ EQUITY + FLASH_DAI.
+    /// @dev User equity (in DAI). Total notional ~= EQUITY + FLASH_DAI.
     uint256 constant EQUITY_DAI = 1_000_000e18; // 1M DAI
 
     /// @dev Sleeve allocation: % of total notional spent on PT-sUSDe vs looped sUSDe.
@@ -138,7 +138,7 @@ contract F08_05_PtSusdeAaveEmodeDssFlashLoopTest is StrategyBase, IERC3156FlashB
         require(msg.sender == Mainnet.DSS_FLASH, "F08-05: callback not from DssFlash");
         require(token == Mainnet.DAI, "F08-05: callback token != DAI");
         // DssFlash toll has been 0 since the Vow zero-fee resolution, but we do
-        // not assume it — repay amount+fee unconditionally.
+        // not assume it - repay amount+fee unconditionally.
 
         // Total DAI in hand = EQUITY_DAI + FLASH_DAI. Split into two sleeves.
         uint256 totalDai = IERC20(Mainnet.DAI).balanceOf(address(this));

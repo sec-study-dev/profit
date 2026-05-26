@@ -46,13 +46,13 @@ contract F13_04_UniV3WstETHWETHNarrowLPTest is StrategyBase, IUniswapV3MintCallb
     address constant UNIV3_WSTETH_WETH_100 = 0x109830a3b59ddabe21EE0B1c34Dd4A59E3F2aC81;
 
     /// @dev Roughly equal-value funding amounts. 10 ETH-equiv each side.
-    ///      wstETH/WETH ≈ 1.18 so 10 ETH ≈ 8.47 wstETH.
+    ///      wstETH/WETH ~= 1.18 so 10 ETH ~= 8.47 wstETH.
     uint256 constant FUND_WETH = 10 ether;
     uint256 constant FUND_WSTETH = 10 ether; // we over-fund; the mint pulls only what's needed
 
-    /// @dev liquidity amount target. UniV3 liquidity ≈ sqrt(x * y); for ~10 ETH each
-    ///      with a 1-tick band around tick T, liquidity ≈ x / (sqrt(1.0001^(T+1)) - sqrt(1.0001^T))
-    ///      ≈ x * 2 / 0.0001 ≈ x * 20000. For 10 ETH (= 1e19 wei) that's ~2e23.
+    /// @dev liquidity amount target. UniV3 liquidity ~= sqrt(x * y); for ~10 ETH each
+    ///      with a 1-tick band around tick T, liquidity ~= x / (sqrt(1.0001^(T+1)) - sqrt(1.0001^T))
+    ///      ~= x * 2 / 0.0001 ~= x * 20000. For 10 ETH (= 1e19 wei) that's ~2e23.
     ///      We use a conservative 1e22 and let the pool pull the smaller of the two
     ///      side amounts. PoC bots should size precisely against slot0/tick.
     uint128 constant LIQUIDITY = 1e22;

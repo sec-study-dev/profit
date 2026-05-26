@@ -9,17 +9,17 @@ import {IPot} from "src/interfaces/cdp/IPot.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
-/// @title F04-08 — sDAI Spark loop borrowing USDC + Curve 3pool recycle
+/// @title F04-08 - sDAI Spark loop borrowing USDC + Curve 3pool recycle
 /// @notice Three-mechanism Maker-anchored carry stack:
-///         1. sDAI — DSR-bearing collateral.
-///         2. Spark Pool — variable USDC borrow against sDAI.
-///         3. Curve 3pool — recycles USDC -> DAI inside the loop.
+///         1. sDAI - DSR-bearing collateral.
+///         2. Spark Pool - variable USDC borrow against sDAI.
+///         3. Curve 3pool - recycles USDC -> DAI inside the loop.
 ///
 /// Difference vs F04-02 (which borrows DAI directly): borrowing **USDC**
 /// from Spark instead of DAI exposes the loop to a *different* IRM. The
 /// Spark USDC rate is set by the Spark USDC IRM (not the DAI-IRM that
 /// targets DSR+spread), so when USDC borrow utilisation on Spark is low the
-/// USDC borrow APY can drop materially below the DAI borrow APY — turning
+/// USDC borrow APY can drop materially below the DAI borrow APY - turning
 /// the loop into a higher-yield variant of F04-02.
 ///
 /// The Curve recycle is the only cost: USDC -> DAI on 3pool costs ~1-3 bps
@@ -166,6 +166,6 @@ contract F04_08_SDaiSparkUsdcBorrowCurveRecycle is StrategyBase {
         // but we only swap a fraction of seed per turn so the realised slip
         // total caps around 1-2% on round-trip. Combined with possibly
         // inverted USDC vs DAI rate, allow up to 2% drawdown.
-        assertGt(endDai, SEED_DAI * 98 / 100, "loss > 2% — Curve slip + rate inversion");
+        assertGt(endDai, SEED_DAI * 98 / 100, "loss > 2% - Curve slip + rate inversion");
     }
 }

@@ -9,7 +9,7 @@ import {ICurveStableSwap, ICurveCryptoSwap} from "src/interfaces/amm/ICurvePool.
 import {IDssFlash} from "src/interfaces/cdp/IDssFlash.sol";
 import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
-// Local Liquity v1 interfaces — kept local because the family rule blocks edits
+// Local Liquity v1 interfaces - kept local because the family rule blocks edits
 // to src/interfaces and the cross-CDP redemption is a F04-specific use case.
 
 interface ITroveManagerV1 {
@@ -34,7 +34,7 @@ interface ICurveMeta {
     function get_dy_underlying(int128 i, int128 j, uint256 dx) external view returns (uint256);
 }
 
-/// @title F04-07 — DssFlash + LUSD-Curve buy + Liquity redemption (cross-CDP)
+/// @title F04-07 - DssFlash + LUSD-Curve buy + Liquity redemption (cross-CDP)
 /// @notice Three-mechanism atomic arb that lives in F04 because the *entry leg*
 ///         is a Maker DAI flashmint. It pairs Maker's free flashmint with
 ///         Liquity v1's 1:1 LUSD->ETH redemption right and Curve's LUSD/3pool
@@ -49,8 +49,8 @@ interface ICurveMeta {
 ///         5. Repay flashmint, keep residual DAI as profit.
 ///
 ///         Profit math: `(par_in_eth_value / curve_lusd_price - 1) - r - swap_fees`.
-///         At LUSD = $0.985 and r = 0.5%: edge ~= 0.0152 - 0.005 - 0.0006 ≈ 1%
-///         of notional — pure cross-CDP atomic.
+///         At LUSD = $0.985 and r = 0.5%: edge ~= 0.0152 - 0.005 - 0.0006 ~= 1%
+///         of notional - pure cross-CDP atomic.
 contract F04_07_DssFlashLusdLiquityRedemption is StrategyBase, IERC3156FlashBorrower {
     bytes32 internal constant CALLBACK_SUCCESS = keccak256("ERC3156FlashBorrower.onFlashLoan");
 
@@ -66,7 +66,7 @@ contract F04_07_DssFlashLusdLiquityRedemption is StrategyBase, IERC3156FlashBorr
     // SVB anchor used by F04-01 so the cross-mechanism PoCs share liquidity.
     uint256 internal constant FORK_BLOCK = 16_818_900;
 
-    // Flashmint size — conservative so a single Curve buy doesn't move LUSD
+    // Flashmint size - conservative so a single Curve buy doesn't move LUSD
     // back to par before the redemption settles.
     uint256 internal constant FLASH_DAI = 2_000_000e18;
 
@@ -111,7 +111,7 @@ contract F04_07_DssFlashLusdLiquityRedemption is StrategyBase, IERC3156FlashBorr
 
         // Required: lusdPerDai * (1 - r) > 1e18 + MIN_PROBE_EDGE.
         // We *assume* ETH/USD swap-out fees are bounded by 0.2% in aggregate.
-        // edge_e18 ≈ lusdPerDai * (1e18 - redemptionRate) / 1e18 - 1e18 - 2e15.
+        // edge_e18 ~= lusdPerDai * (1e18 - redemptionRate) / 1e18 - 1e18 - 2e15.
         uint256 grossE18 = (lusdPerDai * (1e18 - redemptionRate)) / 1e18;
         if (grossE18 <= 1e18 + MIN_PROBE_EDGE + 2e15) {
             emit log("no_edge at FORK_BLOCK");
@@ -132,7 +132,7 @@ contract F04_07_DssFlashLusdLiquityRedemption is StrategyBase, IERC3156FlashBorr
         uint256 endDai = IERC20(Mainnet.DAI).balanceOf(address(this));
         emit log_named_uint("end_DAI", endDai);
         emit log_named_uint("eth_redeemed_wei", _ethRedeemed);
-        // Strictly positive — but allow zero if Liquity reverted (recovery
+        // Strictly positive - but allow zero if Liquity reverted (recovery
         // mode, baseRate spike). The catch-block sets _ethRedeemed = 0; in
         // that case we should be flat (no residual loss because no buy
         // happened either if we early-return; but we don't early-return inside
@@ -168,7 +168,7 @@ contract F04_07_DssFlashLusdLiquityRedemption is StrategyBase, IERC3156FlashBorr
         uint256 ethBefore = address(this).balance;
         // Zero-hint redemption. Bounded by MAX_LIQUITY_FEE; if Liquity is
         // in recovery mode or fee spiked we catch and continue (will land
-        // short on the repay and revert at the bottom — acceptable for a PoC
+        // short on the repay and revert at the bottom - acceptable for a PoC
         // since the discovery branch already gated on the rate).
         try ITroveManagerV1(LOCAL_LIQUITY_TROVE_MANAGER).redeemCollateral(
             lusdOut,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice Balancer V2 Vault — singleton hosting all pool liquidity.
+/// @notice Balancer V2 Vault - singleton hosting all pool liquidity.
 interface IBalancerVault {
     enum SwapKind { GIVEN_IN, GIVEN_OUT }
 

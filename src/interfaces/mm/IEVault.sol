@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {IERC4626} from "src/interfaces/common/IERC4626.sol";
 
-/// @notice Euler V2 EVault — ERC-4626 vault with borrow side.
+/// @notice Euler V2 EVault - ERC-4626 vault with borrow side.
 interface IEVault is IERC4626 {
     function borrow(uint256 amount, address receiver) external returns (uint256);
     function repay(uint256 amount, address receiver) external returns (uint256);

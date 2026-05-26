@@ -10,7 +10,7 @@ import {IStETH} from "src/interfaces/lst/IStETH.sol";
 import {IRenzoRestakeManager} from "src/interfaces/lrt/IRenzoRestakeManager.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F15-01 — stETH direct EigenLayer deposit vs Renzo ezETH wrapper.
+/// @notice F15-01 - stETH direct EigenLayer deposit vs Renzo ezETH wrapper.
 ///
 /// Half of the test wallet's stETH goes into EigenLayer's per-asset stETH
 /// strategy proxy `0x93c4b944D05dfe6df7645A86cd2206016c51564D`. The other half
@@ -24,7 +24,7 @@ contract F15_01_StETHDirectEigenVsEzETHTest is StrategyBase {
     ///      EL docs + Etherscan label "Strategy: stETH".
     address constant STETH_STRATEGY = 0x93c4b944D05dfe6df7645A86cd2206016c51564D;
 
-    /// @dev Apr 2024 — wstETH/stETH cap-open window. EL's stETH-strategy cap
+    /// @dev Apr 2024 - wstETH/stETH cap-open window. EL's stETH-strategy cap
     ///      was raised on 2024-04-09 and remained open through mid-Apr; this
     ///      block (~2024-04-15) sits comfortably inside that window. The PoC
     ///      asserts the open state at runtime via

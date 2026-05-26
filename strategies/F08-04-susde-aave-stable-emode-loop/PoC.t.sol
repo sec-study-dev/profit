@@ -8,7 +8,7 @@ import {ISUSDe} from "src/interfaces/stable/ISUSDe.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
-/// @title F08-04 — sUSDe stablecoin e-mode loop on Aave v3
+/// @title F08-04 - sUSDe stablecoin e-mode loop on Aave v3
 /// @notice Supply sUSDe to Aave v3, enter the stablecoin-correlated e-mode
 ///         category (where sUSDe + USDT/USDC/DAI share a high LTV), borrow
 ///         USDT, swap USDT->USDe on Curve, restake into sUSDe, redeposit.

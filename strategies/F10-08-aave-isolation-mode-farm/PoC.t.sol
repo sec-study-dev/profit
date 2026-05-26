@@ -32,7 +32,7 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
     // ---- Aave V3 ReserveConfiguration bitmap bit positions ----
 
     /// @dev Bit 64 of the reserve configuration encodes the `borrowable in
-    ///      isolation` flag — set on reserves that are borrowable while the
+    ///      isolation` flag - set on reserves that are borrowable while the
     ///      account holds an isolated-mode collateral.
     uint256 constant BORROWABLE_IN_ISOLATION_MASK = 1 << 64;
 
@@ -135,13 +135,13 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
         if (bestDecimals >= 18) {
             depositTokens = 50_000 * (10 ** bestDecimals);
         } else if (bestDecimals == 8) {
-            // BTC-class scale; 1 BTC ≈ $60k at FORK_BLOCK, so deposit ~0.8 BTC.
+            // BTC-class scale; 1 BTC ~= $60k at FORK_BLOCK, so deposit ~0.8 BTC.
             depositTokens = 8 * (10 ** (bestDecimals - 1));
         } else {
             depositTokens = 50_000 * (10 ** bestDecimals);
         }
 
-        // Limit deposit to a fraction of headroom — convert headroom (1e2 USD) to
+        // Limit deposit to a fraction of headroom - convert headroom (1e2 USD) to
         // approximate asset units assuming $1 (only correct for stables; tail
         // assets accept the conservative cap and re-cap on revert below).
         uint256 conservativeUsdCap = bestHeadroom / 4; // 25% of remaining ceiling
@@ -153,7 +153,7 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
             if (depositTokens > capInTokens && capInTokens > 0) depositTokens = capInTokens;
         }
 
-        // Fund via deal — may fail for assets with allow-list transfer gating.
+        // Fund via deal - may fail for assets with allow-list transfer gating.
         try this._fundCandidate(bestCandidate, depositTokens) {
             // ok
         } catch {
@@ -172,7 +172,7 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
         }
 
         // Snapshot AFTER candidate funding so the funded notional is the
-        // PnL baseline — yield/incentive accrual is then the only delta.
+        // PnL baseline - yield/incentive accrual is then the only delta.
         _startPnL();
 
         // ---- 3. Supply the candidate into Aave. ----

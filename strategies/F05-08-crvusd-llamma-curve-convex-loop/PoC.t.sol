@@ -11,12 +11,12 @@ import {ILLAMMA} from "src/interfaces/cdp/ILLAMMA.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IConvexBooster, IConvexBaseRewardPool} from "src/interfaces/bribe/IConvexBooster.sol";
 
-/// @title F05-08 WETH/crvUSD LLAMMA borrow → Curve crvUSD/USDC LP → Convex booster
+/// @title F05-08 WETH/crvUSD LLAMMA borrow -> Curve crvUSD/USDC LP -> Convex booster
 /// @notice 3-mechanism composition (true triple):
 ///         (1) Curve crvUSD WETH-market LLAMMA borrow (WETH collateral).
-///         (2) Curve crvUSD/USDC stableswap-NG LP minting — adds the borrowed
+///         (2) Curve crvUSD/USDC stableswap-NG LP minting - adds the borrowed
 ///             crvUSD on a single side, captures swap fee + virtual_price drift.
-///         (3) Convex Booster stake of the LP token → BaseRewardPool streams
+///         (3) Convex Booster stake of the LP token -> BaseRewardPool streams
 ///             CRV + CVX emissions on top of the gauge.
 ///
 /// PnL one-liner:
@@ -25,12 +25,12 @@ import {IConvexBooster, IConvexBaseRewardPool} from "src/interfaces/bribe/IConve
 ///         - crvUSD borrow rate * LLAMMA debt
 ///         - LLAMMA fee drag
 ///
-/// Why it composes: the LP token mints by adding crvUSD only — i.e. the
+/// Why it composes: the LP token mints by adding crvUSD only - i.e. the
 /// strategy effectively *sells* crvUSD into the pool on the same block it
 /// borrows it. That makes the position long-USDC inside the pool's invariant,
 /// hedging part of any future crvUSD peg drift while harvesting Convex
 /// emissions. At block 20_650_000 the crvUSD/USDC gauge had a CRV+CVX boost
-/// of ~5% APR and the pool's swap fee was ~3% APR — both positive against the
+/// of ~5% APR and the pool's swap fee was ~3% APR - both positive against the
 /// ~6% LLAMMA borrow rate, leaving a slim positive carry that flips deep
 /// positive when CRV emissions spike.
 contract F05_08_PoC is StrategyBase {
@@ -121,7 +121,7 @@ contract F05_08_PoC is StrategyBase {
         vm.warp(block.timestamp + WARP_DURATION);
         vm.roll(block.number + (WARP_DURATION / 12));
 
-        // Peek earned() pre-claim — base reward is CRV.
+        // Peek earned() pre-claim - base reward is CRV.
         uint256 earnedCrv = IConvexBaseRewardPool(CVX_CRVUSD_USDC_REWARDS).earned(address(this));
         console2.log("CRV earned (raw):", earnedCrv);
 

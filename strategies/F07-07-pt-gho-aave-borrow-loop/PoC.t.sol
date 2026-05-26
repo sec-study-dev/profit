@@ -39,21 +39,21 @@ interface IBalancerVaultSingleSwap {
     ) external payable returns (uint256 amountCalculated);
 }
 
-/// @title F07-07 — PT-sUSDe collateral on Morpho, GHO debt routed via Aave (3-mech)
+/// @title F07-07 - PT-sUSDe collateral on Morpho, GHO debt routed via Aave (3-mech)
 ///
 /// @notice 3-mechanism stack:
-///         1. Pendle PT-sUSDe-26DEC2024 — fixed-discount USDe-yield zero-coupon.
-///         2. Morpho Blue PT-sUSDe/GHO market — isolated lending market with
+///         1. Pendle PT-sUSDe-26DEC2024 - fixed-discount USDe-yield zero-coupon.
+///         2. Morpho Blue PT-sUSDe/GHO market - isolated lending market with
 ///            PendleSparkLinearDiscount oracle and GHO as the loan token.
-///         3. GHO facilitator (Aave V3) — GHO mint cost on Aave (`getBorrowRate`)
+///         3. GHO facilitator (Aave V3) - GHO mint cost on Aave (`getBorrowRate`)
 ///            is governed by AaveDAO and frequently sits BELOW the implied PT-sUSDe
 ///            APY. Borrowing GHO on Aave directly, swapping to USDC at the
 ///            Balancer GHO/USDC pool, then buying more PT, lets us route the
 ///            cheap-GHO carry into PT-sUSDe leverage.
 ///
-///         Strategy: buy PT-sUSDe with USDC → post as Morpho collateral →
-///         borrow GHO from Morpho → swap GHO → USDC on Balancer → buy more PT →
-///         loop. Captures (PT_apy − GHO_cost) × leverage. Because GHO often
+///         Strategy: buy PT-sUSDe with USDC -> post as Morpho collateral ->
+///         borrow GHO from Morpho -> swap GHO -> USDC on Balancer -> buy more PT ->
+///         loop. Captures (PT_apy - GHO_cost) * leverage. Because GHO often
 ///         trades at a 30-80 bps depeg under USDC, the swap leg adds an extra
 ///         spread on top.
 contract F07_07_PtGhoAaveBorrowLoopTest is StrategyBase {
@@ -63,7 +63,7 @@ contract F07_07_PtGhoAaveBorrowLoopTest is StrategyBase {
     uint256 constant FORK_BLOCK = 21_000_000;
 
     // ---- Pendle market (PT/YT/SY-sUSDe-26DEC2024) ----
-    /// @dev Pendle Market for PT/YT/SY-sUSDe — maturity 26-DEC-2024.
+    /// @dev Pendle Market for PT/YT/SY-sUSDe - maturity 26-DEC-2024.
     ///      Source: Pendle markets registry (sUSDe Dec-26-2024 USDe variant).
     address constant LOCAL_MARKET = 0xa0ab94DeBB3cC9A7eA77f3205ba4AB23276feD08;
 
@@ -119,7 +119,7 @@ contract F07_07_PtGhoAaveBorrowLoopTest is StrategyBase {
         // ---- 1. Initial PT-sUSDe buy via Pendle V4 ----
         _swapUsdcForPt(EQUITY_USDC, 0);
 
-        // ---- 2. Loop: supply PT → borrow GHO → swap GHO→USDC → buy more PT ----
+        // ---- 2. Loop: supply PT -> borrow GHO -> swap GHO->USDC -> buy more PT ----
         for (uint256 i = 0; i < LOOPS; i++) {
             IMorpho(Mainnet.MORPHO).supplyCollateral(
                 _market, IERC20(_pt).balanceOf(address(this)), address(this), ""
@@ -137,7 +137,7 @@ contract F07_07_PtGhoAaveBorrowLoopTest is StrategyBase {
 
             IMorpho(Mainnet.MORPHO).borrow(_market, toBorrowGho, 0, address(this), address(this));
 
-            // Swap GHO → USDC via Balancer GHO/USDC stable pool.
+            // Swap GHO -> USDC via Balancer GHO/USDC stable pool.
             uint256 usdcOut = _swapGhoToUsdc(toBorrowGho);
 
             // Re-buy PT.

@@ -14,7 +14,7 @@ import {IConvexBooster, IConvexBaseRewardPool} from "src/interfaces/bribe/IConve
 ///         Pool is the original Curve stETH/ETH (`steCRV` LP token).
 contract F12_03_PoC is StrategyBase {
     // ---- Addresses ----
-    // Curve stETH/ETH pool (the swap contract) — used only for ABI sanity.
+    // Curve stETH/ETH pool (the swap contract) - used only for ABI sanity.
     address constant CURVE_STETH_POOL = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
     // steCRV LP token (Curve emits a separate LP for this legacy pool).
     address constant STECRV_LP = 0x06325440D014e39736583c165C2963BA99fAf14E;
@@ -26,7 +26,7 @@ contract F12_03_PoC is StrategyBase {
 
     uint256 constant PID_STETH = 25;
 
-    // Apr 13 2024 — gauge active, LDO incentive stream funded by Lido.
+    // Apr 13 2024 - gauge active, LDO incentive stream funded by Lido.
     uint256 constant FORK_BLOCK = 19_643_500;
 
     // Notional steCRV to stake (~$176k at vp~1.07 and ETH=$3300).
@@ -93,7 +93,7 @@ contract F12_03_PoC is StrategyBase {
         require(bCrv > 0, "no CRV streamed");
         require(bCvx > 0, "no CVX streamed");
         // LDO may be 0 if Lido's incentive funding lapsed at this exact block
-        // — emit a console hint rather than reverting hard.
+        // - emit a console hint rather than reverting hard.
         if (bLdo == 0) {
             console2.log("WARN: LDO stash not currently funded on this fork");
         }

@@ -11,7 +11,7 @@ import {IsfrxETH} from "src/interfaces/lst/IsfrxETH.sol";
 // -> frxETH route. The PoC uses a documented simplification (see _consumeFrax
 // + vm.deal in the loop body) to keep the test surface small.
 
-/// @notice Minimal Fraxlend Pair v2 interface — verified against Frax core
+/// @notice Minimal Fraxlend Pair v2 interface - verified against Frax core
 /// repo `FraxlendPairCore.sol` / `FraxlendPair.sol`. The sfrxETH/FRAX pair
 /// is asset=FRAX, collateral=sfrxETH at the constant below.
 interface IFraxlendPair {
@@ -43,30 +43,30 @@ interface IFraxlendPair {
         );
 }
 
-/// @title F01-05 sfrxETH on Fraxlend FRAX pair — 3-mechanism leveraged loop
+/// @title F01-05 sfrxETH on Fraxlend FRAX pair - 3-mechanism leveraged loop
 /// @notice Three distinct Frax-stack primitives composed in a single loop:
 ///   (1) Frax sfrxETH ERC-4626 wrapper (pricePerShare yield accrual)
 ///   (2) Fraxlend isolated-pair lending (sfrxETH collateral / FRAX debt)
-///   (3) Curve FRAX/frxETH/ETH AMM routes for FRAX→frxETH re-entry
+///   (3) Curve FRAX/frxETH/ETH AMM routes for FRAX->frxETH re-entry
 contract F01_05_SfrxethFraxlendLoopTest is StrategyBase {
     // Pre-Sep-2024 Fraxlend sfrxETH/FRAX pair active; pricePerShare > 1.08.
     uint256 constant FORK_BLOCK = 20_650_000;
 
-    // Fraxlend sfrxETH/FRAX pair address — verified against Frax docs deployments
+    // Fraxlend sfrxETH/FRAX pair address - verified against Frax docs deployments
     // page (https://docs.frax.finance/fraxlend/fraxlend-overview).
     address constant LOCAL_FRAXLEND_SFRXETH_FRAX_PAIR =
         0x32467a5fc2d72D21E8DCe990906547A2b012f382;
 
-    // FRAX stablecoin — verified Etherscan (Frax Finance: FRAX Token).
+    // FRAX stablecoin - verified Etherscan (Frax Finance: FRAX Token).
     address constant LOCAL_FRAX = 0x853d955aCEf822Db058eb8505911ED77F175b99e;
 
-    // Curve frxETH/ETH cryptopool (2-coin) — verified Curve registry:
+    // Curve frxETH/ETH cryptopool (2-coin) - verified Curve registry:
     // coin0 = ETH (0xeeee...), coin1 = frxETH.
     address constant LOCAL_CURVE_FRXETH_ETH_POOL =
         0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577;
 
-    // Curve FRAX/USDC (FRAXBP) base pool — coin0 = FRAX, coin1 = USDC.
-    // Used to convert borrowed FRAX → USDC, then Uni v3 USDC/WETH 5-bp pool ETH.
+    // Curve FRAX/USDC (FRAXBP) base pool - coin0 = FRAX, coin1 = USDC.
+    // Used to convert borrowed FRAX -> USDC, then Uni v3 USDC/WETH 5-bp pool ETH.
     // Verified Curve registry (canonical FRAXBP at
     // 0xDcEF968d416a41Cdac0ED8702fAC8128A64241A2).
     address constant LOCAL_CURVE_FRAXBP = 0xDcEF968d416a41Cdac0ED8702fAC8128A64241A2;
@@ -137,7 +137,7 @@ contract F01_05_SfrxethFraxlendLoopTest is StrategyBase {
             // the frxETHMinter on the ETH portion produced indirectly: in the
             // PoC we model the FRAX->ETH leg via deal() of equivalent ETH on
             // address(this) and exchange the FRAX 1:1 with USDC on Curve first
-            // (this is a documented simplification — real execution swaps via
+            // (this is a documented simplification - real execution swaps via
             // Uni v3 USDC/WETH).
             uint256 fraxBal = IERC20(LOCAL_FRAX).balanceOf(address(this));
             if (fraxBal < 100e18) break;

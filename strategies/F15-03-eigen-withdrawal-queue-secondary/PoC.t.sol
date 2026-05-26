@@ -9,7 +9,7 @@ import {IEigenStrategyManager, IEigenStrategy} from "src/interfaces/restake/IEig
 import {IEigenDelegationManager} from "src/interfaces/restake/IEigenDelegationManager.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F15-03 — EigenLayer 7-day withdrawal queue PoC.
+/// @notice F15-03 - EigenLayer 7-day withdrawal queue PoC.
 ///
 /// 1. Deposit 50 stETH into EL strategy.
 /// 2. Queue half the shares for withdrawal.
@@ -17,7 +17,7 @@ import {console2} from "forge-std/console2.sol";
 /// 4. Complete the withdrawal.
 ///
 /// The "secondary-market sale" leg is documented in the README but not
-/// implementable on-chain at this block — EL withdrawals are non-transferable.
+/// implementable on-chain at this block - EL withdrawals are non-transferable.
 contract F15_03_EigenWithdrawalQueueSecondaryTest is StrategyBase {
     address constant STETH_STRATEGY = 0x93c4b944D05dfe6df7645A86cd2206016c51564D;
 
@@ -98,7 +98,7 @@ contract F15_03_EigenWithdrawalQueueSecondaryTest is StrategyBase {
             staker: address(this),
             delegatedTo: delegatedTo,
             withdrawer: address(this),
-            // First-ever withdrawal for this staker on this fork — nonce is 0.
+            // First-ever withdrawal for this staker on this fork - nonce is 0.
             // For repeated runs against a live address, read the
             // DelegationManager's `cumulativeWithdrawalsQueued(staker)` view
             // immediately BEFORE `queueWithdrawals` and use that value as the
@@ -125,7 +125,7 @@ contract F15_03_EigenWithdrawalQueueSecondaryTest is StrategyBase {
         // At this block (and as of late-2024), EigenLayer's DelegationManager
         // tracks queued withdrawals as a hash in `pendingWithdrawals[root]`,
         // keyed by (staker, withdrawer, ...). The claim is bound to the
-        // `withdrawer` address — there is no ERC721/ERC1155 mint at queue
+        // `withdrawer` address - there is no ERC721/ERC1155 mint at queue
         // time and no `transferWithdrawal(...)` selector exposed.
         //
         // Workarounds that DO NOT close the gap (each rejected for a reason):

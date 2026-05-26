@@ -49,7 +49,7 @@ interface ILLAMMARate {
     function rate() external view returns (uint256);
 }
 
-/// @title F16-02 — GHO vs crvUSD cross-CDP borrow-rate basis
+/// @title F16-02 - GHO vs crvUSD cross-CDP borrow-rate basis
 /// @notice Computes the live spread between Aave's governance-set GHO borrow
 ///         rate and the algorithmic crvUSD wstETH-market borrow rate; if the
 ///         spread exceeds a threshold, executes the cheap-side leg (open
@@ -66,7 +66,7 @@ contract F16_02_GhoVsCrvUsdRateArb is StrategyBase {
     // ---- Aave V3 Pool ----
     address constant AAVE_POOL = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2;
 
-    /// @dev Mid-Sep 2024 — GHO ~9%, crvUSD wstETH ~6.5%, ~250 bps basis.
+    /// @dev Mid-Sep 2024 - GHO ~9%, crvUSD wstETH ~6.5%, ~250 bps basis.
     uint256 constant FORK_BLOCK = 20_500_000;
 
     /// @dev Trade-go threshold: 100 bps annualised gap.
@@ -74,7 +74,7 @@ contract F16_02_GhoVsCrvUsdRateArb is StrategyBase {
 
     /// @dev Probe collateral: 50 wstETH.
     uint256 constant WSTETH_COLL = 50 ether;
-    /// @dev crvUSD debt to draw — conservative 70% LTV vs wstETH price.
+    /// @dev crvUSD debt to draw - conservative 70% LTV vs wstETH price.
     uint256 constant CRVUSD_DRAW = 100_000e18;
     /// @dev LLAMMA band count for the loan.
     uint256 constant N_BANDS = 10;
@@ -92,7 +92,7 @@ contract F16_02_GhoVsCrvUsdRateArb is StrategyBase {
     }
 
     function testStrategy_F16_02() public {
-        // ---- 1) Read GHO variable borrow rate (ray = 1e27, per-second × 1e27) ----
+        // ---- 1) Read GHO variable borrow rate (ray = 1e27, per-second * 1e27) ----
         ( , , , , uint128 ghoRateRay, , , , , , , , , , ) =
             IAaveV3Pool(AAVE_POOL).getReserveData(Mainnet.GHO);
         // Aave rates are stored as per-second * SECONDS_PER_YEAR * 1e27 in some

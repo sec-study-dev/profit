@@ -10,7 +10,7 @@ import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @notice F09-07 — PT-USD0++/USDC Morpho leveraged carry via Morpho free flash.
+/// @notice F09-07 - PT-USD0++/USDC Morpho leveraged carry via Morpho free flash.
 ///         Three-mechanism stack:
 ///
 ///         Mechanism 1: Morpho Blue zero-fee flashLoan on USDC
@@ -44,7 +44,7 @@ contract F09_07_PtUsd0ppMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCal
     address constant USD0PP = 0x35D8949372D46B7a3D5A56006AE77B215fc69bC0;
 
     uint256 constant EQUITY_USDC = 200_000e6; // 200k USDC
-    /// @dev 4x flash on equity → 5x total notional. With PT priced ~0.95 USDC
+    /// @dev 4x flash on equity -> 5x total notional. With PT priced ~0.95 USDC
     ///      and 86% LLTV, opens at ~76% LTV (10% buffer).
     uint256 constant FLASH_USDC = 800_000e6;
 

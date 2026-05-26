@@ -16,7 +16,7 @@ interface IMetaMorpho is IERC4626 {
     function supplyQueueLength() external view returns (uint256);
 }
 
-/// @notice F09-03 — MetaMorpho idle-liquidity capture via Steakhouse USDC vault.
+/// @notice F09-03 - MetaMorpho idle-liquidity capture via Steakhouse USDC vault.
 ///
 /// Mechanism: deposit into a MetaMorpho vault while it holds significant idle
 /// (un-allocated) USDC. The idle balance earns 0 internally but the next

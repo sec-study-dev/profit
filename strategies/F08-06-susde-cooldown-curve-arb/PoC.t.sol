@@ -7,15 +7,15 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {ISUSDe} from "src/interfaces/stable/ISUSDe.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
-/// @title F08-06 — sUSDe cooldown vs Curve sUSDe-discount arbitrage
+/// @title F08-06 - sUSDe cooldown vs Curve sUSDe-discount arbitrage
 /// @notice When sUSDe trades at a *discount* on a secondary AMM (e.g. during a
 ///         redemption panic / withdrawal wave), the protocol's 7-day cooldown
 ///         path still redeems at full NAV. The arb is:
 ///
 ///         1. Buy sUSDe on Curve (USDe/sUSDe-style or via USDC->USDe->sUSDe).
-///         2. Call `sUSDe.cooldownShares(allShares)` — locks the shares and
+///         2. Call `sUSDe.cooldownShares(allShares)` - locks the shares and
 ///            schedules the underlying USDe for release after `cooldownDuration`.
-///         3. `vm.warp(cooldownDuration + 1)` — simulate the 7-day wait.
+///         3. `vm.warp(cooldownDuration + 1)` - simulate the 7-day wait.
 ///         4. `sUSDe.unstake(this)` to claim the released USDe at full NAV.
 ///         5. Compare USDe received vs the USDC originally spent.
 ///
@@ -71,13 +71,13 @@ contract F08_06_SusdeCooldownCurveArbTest is StrategyBase {
         IERC20(Mainnet.USDE).approve(Mainnet.SUSDE, type(uint256).max);
 
         // ---- Step 1: USDC -> USDe on Curve ----
-        // This is a proxy for "buying sUSDe at a discount" — if a USDe/sUSDe
+        // This is a proxy for "buying sUSDe at a discount" - if a USDe/sUSDe
         // pool existed at materially different price, we'd use that directly.
         // Here we acquire USDe at peg, deposit to sUSDe, then exit via cooldown.
         // The realised PnL captures the *sUSDe NAV growth over the cooldown
         // period* minus the *Curve fee paid on the entry leg*. In a true
         // discount-arb the entry leg would buy sUSDe directly (Curve sUSDe/USDe
-        // pool, factory 0x...). We use the USDe→sUSDe path to keep the PoC
+        // pool, factory 0x...). We use the USDe->sUSDe path to keep the PoC
         // deterministic and observable.
         uint256 usdeOut = ICurveStableSwap(LOCAL_CURVE_USDE_USDC).exchange(
             int128(1), int128(0), EQUITY_USDC, 0

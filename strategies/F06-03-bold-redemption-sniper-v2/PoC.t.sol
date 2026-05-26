@@ -34,7 +34,7 @@ interface ISortedTrovesV2 {
     function getSize() external view returns (uint256);
 }
 
-/// @title F06-03 — BOLD redemption sniper on Liquity v2 (theoretical)
+/// @title F06-03 - BOLD redemption sniper on Liquity v2 (theoretical)
 /// @notice Targets the lowest-interest-rate trove on a v2 collateral branch
 ///         when BOLD trades below $1 on its AMM. Maker DSS flashmint funds
 ///         the BOLD-buy leg. PoC is structurally complete but gated by the
@@ -47,7 +47,7 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
     //     (CANONICAL deployment manifest, post 2025-05-19 redeployment)
     //   - https://github.com/liquity/bold (Liquity v2 monorepo, main branch)
     //   - https://docs.liquity.org/v2-documentation/technical-resources
-    //     (page is labelled "Legacy V2 and Testnet" — pre-redeployment
+    //     (page is labelled "Legacy V2 and Testnet" - pre-redeployment
     //     addresses; do NOT use those values.)
     //
     // NOTE: Wave-4 cited CollateralRegistry as 0xd99de73b95236f69A559117ECD6F519Af780F3f7,
@@ -61,17 +61,17 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
     address constant LOCAL_BOLD = 0x6440f144b7e50D6a8439336510312d2F54beB01D;
 
-    /// @dev CollateralRegistry — system-wide v2 entrypoint for multi-branch
+    /// @dev CollateralRegistry - system-wide v2 entrypoint for multi-branch
     ///      redemptions. Surfaces redeemCollateral() that fans out into each
     ///      branch's TroveManager based on outstanding debt.
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
     address constant LOCAL_COLLATERAL_REGISTRY = 0xf949982B91C8c61e952B3bA942cBbfaef5386684;
 
-    /// @dev HintHelpers — view-only hints across branches.
+    /// @dev HintHelpers - view-only hints across branches.
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
     address constant LOCAL_HINT_HELPERS_V2 = 0xF0CaE19C96e572234398D6665ccD1147A16CbE657;
 
-    /// @dev MultiTroveGetter — enumerate troves per branch.
+    /// @dev MultiTroveGetter - enumerate troves per branch.
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
     address constant LOCAL_MULTI_TROVE_GETTER = 0xfa61DB085510c64B83056Db3A7AcF3b6f631d235;
 
@@ -92,7 +92,7 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
     // ---- Tunables ----
 
     /// @dev Post-redeployment block (Liquity v2 re-live on 2025-05-19).
-    ///      ~22,500,000 is mid-June 2025 — first month with v2 trove activity.
+    ///      ~22,500,000 is mid-June 2025 - first month with v2 trove activity.
     uint256 constant FORK_BLOCK = 22_500_000;
 
     /// @dev DAI flashmint notional to deploy in the BOLD-buy leg.
@@ -119,7 +119,7 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
         _trackToken(LOCAL_BOLD);
 
         // Wave-5: all per-branch addresses are now inlined and verified.
-        // Gate is defense-in-depth — confirms bytecode is live at the
+        // Gate is defense-in-depth - confirms bytecode is live at the
         // chosen fork block (post 2025-05-19 redeployment).
         _v2Available = _hasCode(LOCAL_BOLD)
             && _hasCode(LOCAL_TROVE_MANAGER_ETH)
@@ -136,7 +136,7 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
     function testStrategy_F06_03() public {
         _startPnL();
 
-        // Telemetry — confirm canonical BOLD live at this fork.
+        // Telemetry - confirm canonical BOLD live at this fork.
         emit log_named_address("canonical_BOLD", LOCAL_BOLD);
         emit log_named_address("CollateralRegistry", LOCAL_COLLATERAL_REGISTRY);
         emit log_named_address("TroveManager_WETH", LOCAL_TROVE_MANAGER_ETH);

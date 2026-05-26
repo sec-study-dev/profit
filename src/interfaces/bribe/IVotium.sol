@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice Votium MultiMerkleStash — biweekly bribe claim contract.
+/// @notice Votium MultiMerkleStash - biweekly bribe claim contract.
 interface IVotium {
     struct ClaimParam {
         address token;

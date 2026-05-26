@@ -14,7 +14,7 @@ interface IRETH is IERC20 {
     function burn(uint256 rethAmount) external;
 }
 
-/// @notice Rocket deposit pool — mints rETH from ETH deposit.
+/// @notice Rocket deposit pool - mints rETH from ETH deposit.
 interface IRocketDepositPool {
     function deposit() external payable;
     function getBalance() external view returns (uint256);

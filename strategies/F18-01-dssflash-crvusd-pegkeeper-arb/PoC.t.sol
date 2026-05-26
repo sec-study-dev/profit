@@ -10,7 +10,7 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @dev Curve crvUSD PegKeeper — `update(caller)` mints/burns crvUSD into the
+/// @dev Curve crvUSD PegKeeper - `update(caller)` mints/burns crvUSD into the
 ///      pool to push it back to peg and pays a fraction of realised profit to
 ///      `caller`. Selector `update(address) returns (uint256)`.
 interface ICrvUsdPegKeeper {
@@ -20,7 +20,7 @@ interface ICrvUsdPegKeeper {
     function pool() external view returns (address);
 }
 
-/// @notice F18-01 — Tri-protocol crvUSD PegKeeper revenue capture.
+/// @notice F18-01 - Tri-protocol crvUSD PegKeeper revenue capture.
 ///
 /// Mechanisms (3):
 ///   1. Maker DssFlash (ERC-3156 free DAI flashmint).
@@ -175,7 +175,7 @@ contract F18_01_DssFlashCrvUsdPegKeeperArb is StrategyBase, IERC3156FlashBorrowe
         uint256 owed = amount + fee;
         uint256 daiHeld = IERC20(Mainnet.DAI).balanceOf(address(this));
         if (daiHeld < owed) {
-            // Top up shortfall from native ETH balance if available — in
+            // Top up shortfall from native ETH balance if available - in
             // forge-test we just revert cleanly so the triangle no-ops at
             // bad blocks instead of leaving Maker in an inconsistent state.
             console2.log("insufficient DAI for repay; held / owed:", daiHeld, owed);

@@ -102,7 +102,7 @@ contract F11_05_FluidSusdeUsdcPendlePtLoopTest is StrategyBase {
         emit log_named_uint("final_susde_1e18", finalSusde);
         emit log_named_uint("final_pt_susde_1e18", finalPt);
         emit log_named_uint("final_usdc_1e6", finalUsdc);
-        // NAV of sUSDe at the snapshot — captures the Ethena yield since deposit.
+        // NAV of sUSDe at the snapshot - captures the Ethena yield since deposit.
         uint256 navUsde = IERC4626(Mainnet.SUSDE).convertToAssets(finalSusde);
         emit log_named_uint("susde_nav_in_usde_1e18", navUsde);
         uint256 vaultStateWord = vault.getVaultVariables();

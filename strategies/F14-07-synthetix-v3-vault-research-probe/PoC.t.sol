@@ -11,7 +11,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 // Local interfaces. Synthetix V3 is a separate codebase from V2x; the V3 Core
 // Proxy on mainnet is the user-facing entrypoint, but on Ethereum L1 it has
 // only seen narrow activation (governance and a few wrapped-collateral
-// markets) — most V3 volume migrated to Optimism. This research-probe pings
+// markets) - most V3 volume migrated to Optimism. This research-probe pings
 // the mainnet V3 Core Proxy and logs whether a market is open at the fork.
 //
 // V2x AddressResolver (kept inline per family policy):
@@ -52,7 +52,7 @@ interface ISynthetixV3CoreProxy {
     }
 }
 
-/// @title F14-07 Synthetix V3 mainnet vault deposit — research probe
+/// @title F14-07 Synthetix V3 mainnet vault deposit - research probe
 /// @notice Two-mechanism PoC. **Status: research-probe**. Pings the V3 Core
 ///         Proxy on mainnet, lists registered markets / collateral, and (if
 ///         a market with deposit enabled exists at this block) demonstrates
@@ -69,7 +69,7 @@ contract F14_07_SynthetixV3VaultProbe is StrategyBase {
     // upgrades route through this proxy.
     address constant SNX_V3_CORE_PROXY = 0xffffffaEff0B96Ea8e4f94b2253f31abdD875847;
 
-    // Late 2024 — V3 on mainnet had at least registered markets (LegacyMarket
+    // Late 2024 - V3 on mainnet had at least registered markets (LegacyMarket
     // for the V2x bridge, plus a handful of perp adapters). Choose a block
     // where V3 has been deployed but pre any major migration event so we
     // surface a snapshot of `theoretical/dormant`.
@@ -78,7 +78,7 @@ contract F14_07_SynthetixV3VaultProbe is StrategyBase {
     function setUp() public {
         _fork(FORK_BLOCK);
         _setEthUsdFallback(2_500e8);
-        _trackToken(Mainnet.SUSD); // V2x sUSD — V3 snxUSD is separate.
+        _trackToken(Mainnet.SUSD); // V2x sUSD - V3 snxUSD is separate.
     }
 
     function test_synthetixV3VaultProbe() public {
@@ -142,7 +142,7 @@ contract F14_07_SynthetixV3VaultProbe is StrategyBase {
 
         // Log each collateral; the V3 wrapped-collateral primitive
         // (depositCollateral on the CoreProxy with a positive `accountId` and
-        // a positive `tokenAmount`) is the basic carry primitive — once any
+        // a positive `tokenAmount`) is the basic carry primitive - once any
         // market here is also paying yield, the loop is the same as F01/F08.
         for (uint256 i = 0; i < collats.length && i < 6; i++) {
             emit log_named_address("v3_collat_token", collats[i].tokenAddress);
@@ -153,7 +153,7 @@ contract F14_07_SynthetixV3VaultProbe is StrategyBase {
         _startPnL();
         vm.txGasPrice(20 gwei);
 
-        // PoC stops at the probe — actually depositing collateral against a
+        // PoC stops at the probe - actually depositing collateral against a
         // non-active V3 market on mainnet would either revert or lock funds
         // with no yield. Wave 4 surfaces this as a "do not deploy on L1; use
         // OP" finding rather than asserting a profit.

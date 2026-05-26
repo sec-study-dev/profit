@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice Curve crvUSD LLAMMA — the soft-liquidation AMM behind a crvUSD market.
+/// @notice Curve crvUSD LLAMMA - the soft-liquidation AMM behind a crvUSD market.
 /// @dev Most-used functions: get_p, p_oracle_up/down, active_band, bands_x/y, exchange.
 interface ILLAMMA {
     function get_p() external view returns (uint256);

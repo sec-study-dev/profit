@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice EigenLayer DelegationManager — delegate restaked shares to operators
+/// @notice EigenLayer DelegationManager - delegate restaked shares to operators
 ///         and queue/complete withdrawals.
 interface IEigenDelegationManager {
     struct SignatureWithExpiry {

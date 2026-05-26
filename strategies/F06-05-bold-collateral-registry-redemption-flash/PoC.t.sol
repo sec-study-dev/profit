@@ -31,7 +31,7 @@ interface ICollateralRegistryV2 {
     function getTroveManager(uint256 index) external view returns (address);
 }
 
-/// @title F06-05 — BOLD system-redemption arb via CollateralRegistry + DssFlash + Curve
+/// @title F06-05 - BOLD system-redemption arb via CollateralRegistry + DssFlash + Curve
 /// @notice 3-mechanism strategy: Liquity v2 (CollateralRegistry redemption) +
 ///         Maker DssFlash (zero-fee DAI flashmint funding the BOLD-buy leg) +
 ///         Curve (BOLD/USDC stableswap-NG + 3pool + tricrypto2 unwinding).
@@ -40,7 +40,7 @@ interface ICollateralRegistryV2 {
 ///         DAI->USDC->BOLD, redeem at the CollateralRegistry to get a basket
 ///         of (WETH, wstETH, rETH), unwind each collateral leg back to DAI,
 ///         repay flashmint, keep the residual as profit. Distinct from F06-03
-///         because the basket exposure is structurally different — we are
+///         because the basket exposure is structurally different - we are
 ///         long a *cross-section* of v2 collateral, not the cheapest branch
 ///         only.
 contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3156FlashBorrower {
@@ -65,7 +65,7 @@ contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
     address constant LOCAL_MULTI_TROVE_GETTER = 0xfa61DB085510c64B83056Db3A7AcF3b6f631d235;
 
-    // ---- Per-branch TroveManagers — used to introspect basket composition ----
+    // ---- Per-branch TroveManagers - used to introspect basket composition ----
     // Verified at https://raw.githubusercontent.com/liquity/bold/main/contracts/addresses/1.json on 2026-05-26
     address constant LOCAL_TROVE_MANAGER_ETH    = 0x7BCB64B2c9206A5b699ed43363f6F98D4776CF5a;
     address constant LOCAL_TROVE_MANAGER_WSTETH = 0xA2895D6a3BF110561DFE4B71CA539d84e1928B22;
@@ -110,7 +110,7 @@ contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3
         _trackToken(LOCAL_BOLD);
 
         // Wave-5: all v2 system + Curve pool addresses inlined.
-        // Gate is defense-in-depth — confirms bytecode is live at fork block.
+        // Gate is defense-in-depth - confirms bytecode is live at fork block.
         _v2Available = _hasCode(LOCAL_BOLD)
             && _hasCode(LOCAL_COLLATERAL_REGISTRY)
             && _hasCode(LOCAL_CURVE_BOLD_USDC);
@@ -125,7 +125,7 @@ contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3
     function testStrategy_F06_05() public {
         _startPnL();
 
-        // Telemetry — what's live at this fork?
+        // Telemetry - what's live at this fork?
         emit log_named_address("BOLD", LOCAL_BOLD);
         emit log_named_address("CollateralRegistry", LOCAL_COLLATERAL_REGISTRY);
         emit log_named_address("CurveBoldUsdc", LOCAL_CURVE_BOLD_USDC);

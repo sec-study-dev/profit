@@ -8,7 +8,7 @@ import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IPYieldToken} from "src/interfaces/pendle/IPYieldToken.sol";
 
-/// @title F07-03 — YT-weETH point speculation
+/// @title F07-03 - YT-weETH point speculation
 ///
 /// @notice Buys YT-weETH-26DEC2024 with WETH equity. YT carries the underlying
 ///         eETH staking yield AND streams EtherFi + EigenLayer points to the

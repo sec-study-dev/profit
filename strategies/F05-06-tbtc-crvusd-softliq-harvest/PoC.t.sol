@@ -15,7 +15,7 @@ import {IFlashLoanSimpleReceiverAave} from "src/interfaces/common/IFlashLoanRece
 /// @title F05-06 tBTC/crvUSD LLAMMA soft-liquidation harvest
 /// @notice 2-mechanism band-arb on the tBTC crvUSD market:
 ///         (1) Aave V3 USDC flashloan (5 bps fee).
-///         (2) Curve crvUSD/USDC stableswap-NG → tBTC LLAMMA exchange().
+///         (2) Curve crvUSD/USDC stableswap-NG -> tBTC LLAMMA exchange().
 ///         The exit leg uses Curve tBTC/WBTC stableswap to convert tBTC
 ///         back to WBTC and then Uni v3 WBTC/USDC.
 ///
@@ -34,7 +34,7 @@ contract F05_06_PoC is StrategyBase, IFlashLoanSimpleReceiverAave {
     address constant CONTROLLER_TBTC = 0x1C91da0223c763d2e0173243eAdaA0A2ea47E704;
     /// @dev tBTC LLAMMA.
     address constant LLAMMA_TBTC = 0xf9bD9da2427a50908C4c6D1599D8e62837C2BCB0;
-    /// @dev tBTC ERC20 (Threshold Network — Bitcoin redemption-bridged).
+    /// @dev tBTC ERC20 (Threshold Network - Bitcoin redemption-bridged).
     address constant TBTC = 0x18084fbA666a33d37592fA2633fD49a74DD93a88;
 
     // WBTC for the exit leg.
@@ -46,7 +46,7 @@ contract F05_06_PoC is StrategyBase, IFlashLoanSimpleReceiverAave {
     address constant CURVE_TBTC_WBTC = 0xB7ECB2AA52AA64a717180E030241bC75Cd946726;
 
     address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    uint24 constant UNIV3_FEE_WBTC_USDC = 3000; // 0.3% — deepest WBTC pool
+    uint24 constant UNIV3_FEE_WBTC_USDC = 3000; // 0.3% - deepest WBTC pool
 
     // Block: Apr 13 2024 BTC sell-off mid-window.
     uint256 constant FORK_BLOCK = 19_643_500;

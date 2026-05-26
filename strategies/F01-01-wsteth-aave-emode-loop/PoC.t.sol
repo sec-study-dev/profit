@@ -107,7 +107,7 @@ contract F01_01_WstethAaveEmodeLoopTest is StrategyBase {
     }
 
     function _ethUsdE8() internal view returns (uint256) {
-        // Reuse the StrategyBase resolution path — but it's internal. Cheap re-impl:
+        // Reuse the StrategyBase resolution path - but it's internal. Cheap re-impl:
         // Chainlink ETH/USD via latestAnswer (8 decimals).
         (bool ok, bytes memory data) = address(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)
             .staticcall(abi.encodeWithSignature("latestAnswer()"));

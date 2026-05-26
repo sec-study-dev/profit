@@ -13,7 +13,7 @@ import {IBalancerVault} from "src/interfaces/amm/IBalancerVault.sol";
 ///         GHO/USDC/USDT composable-stable pool. The PnL window is 30 days
 ///         (warped) to let interest indices crystallise.
 ///
-///         The Balancer joinPool call is wrapped in a try/catch — if the pool
+///         The Balancer joinPool call is wrapped in a try/catch - if the pool
 ///         id selected for the pinned block is unavailable, the PoC logs a
 ///         no-pool note and skips the LP step but still exercises the GHO
 ///         borrow leg. This keeps the test runnable as the family evolves.
@@ -93,7 +93,7 @@ contract F10_01_GhoMintBalancerCarry is StrategyBase {
         IERC20(Mainnet.USDC).approve(address(vault), type(uint256).max);
         IERC20(Mainnet.USDT).approve(address(vault), type(uint256).max);
 
-        // Read pool tokens dynamically — order on-chain is canonical.
+        // Read pool tokens dynamically - order on-chain is canonical.
         bool poolOk = true;
         address[] memory tokens;
         try vault.getPoolTokens(BAL_GHO_USDC_USDT_POOL_ID) returns (
@@ -108,7 +108,7 @@ contract F10_01_GhoMintBalancerCarry is StrategyBase {
             uint256[] memory maxAmountsIn = new uint256[](tokens.length);
             uint256[] memory amountsInUserData = new uint256[](tokens.length - 1); // BPT excluded from userData
 
-            // Populate by token identity rather than by slot — pool ordering
+            // Populate by token identity rather than by slot - pool ordering
             // can rotate when BPT slot is appended.
             uint256 udIdx = 0;
             for (uint256 i = 0; i < tokens.length; i++) {

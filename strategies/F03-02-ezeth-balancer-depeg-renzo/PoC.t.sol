@@ -9,9 +9,9 @@ import {IBalancerVault} from "src/interfaces/amm/IBalancerVault.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
-/// @title F03-02 ezETH/WETH depeg arb — Balancer vs Curve, Renzo April 2024
+/// @title F03-02 ezETH/WETH depeg arb - Balancer vs Curve, Renzo April 2024
 contract F03_02_EzETHDepegTest is StrategyBase, IFlashLoanRecipientBalancer {
-    /// @dev April 24 2024 — ezETH depeg event on Balancer.
+    /// @dev April 24 2024 - ezETH depeg event on Balancer.
     uint256 constant FORK_BLOCK = 19_690_000;
 
     /// @dev Balancer ComposableStable ezETH/wETH/wstETH 80/20-style pool.

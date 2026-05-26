@@ -127,7 +127,7 @@ contract F17_04_OUSDRebaseAaveLoop is StrategyBase {
 
             _endPnL("F17-04-ousd-rebase-aave-loop (no-aave-reserve)");
 
-            // Assertion: round-trip preserves ≥99.5% of seed
+            // Assertion: round-trip preserves >=99.5% of seed
             //   (purely a swap-friction test in absence of rebase capture).
             assertGt(usdcBack, SEED_USDC * 995 / 1000, "round-trip lost > 0.5%");
             return;
