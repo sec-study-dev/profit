@@ -30,11 +30,11 @@ contract F08_03_PtSusdeMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCall
     ///      in setUp() to avoid hardcoding the PT address (which may differ across
     ///      Pendle factory redeploys).
     address constant LOCAL_PENDLE_MARKET_PT_SUSDE_26SEP24 =
-        0x19588F29f9402Bb508007FeADd415c875Ee3f19F;
+        0x19588f29f9402bb508007feadd415c875ee3f19f;
 
     /// @dev Curve USDe/USDC pool (coin 0 = USDe, coin 1 = USDC).
     ///      Same pool used in F08-01 / F08-02. setUp() asserts coin ordering.
-    address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
+    address constant LOCAL_CURVE_USDE_USDC = 0x02950460e2b9529d0e00284a5fa2d7bdf3fa4d72;
 
     /// @dev Morpho PT-sUSDe-26SEP24 / USDC 86.5% LLTV market parameters.
     ///      Oracle is the PendleSparkLinearDiscountOracle (verified address
@@ -43,9 +43,9 @@ contract F08_03_PtSusdeMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCall
     ///      Morpho Blue markets). LLTV is 86.5% for PT collateral with linear
     ///      discount oracle, matching the MEV Capital curated market.
     address constant LOCAL_MORPHO_ORACLE_PT_SUSDE_USDC =
-        0x38d130cEe60CDa080A3b3aC94C79c34B6Fc919A7;
+        0x38d130cee60cda080a3b3ac94c79c34b6fc919a7;
     address constant LOCAL_MORPHO_IRM_ADAPTIVE_CURVE =
-        0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
+        0x870ac11d48b15db9a138cf899d20f13f79ba00bc;
     uint256 constant LLTV_865 = 0.865e18;
 
     uint256 constant EQUITY_USDC = 100_000e6;

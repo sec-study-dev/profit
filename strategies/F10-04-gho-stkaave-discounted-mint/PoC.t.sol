@@ -23,14 +23,14 @@ contract F10_04_GhoStkAaveDiscountedMint is StrategyBase {
     uint256 constant RATE_MODE_VARIABLE = 2;
 
     // stkAAVE Safety Module token - canonical mainnet address.
-    address constant STK_AAVE = 0x4da27a545c0c5B758a6BA100e3a049001de870f5;
+    address constant STK_AAVE = 0x4da27a545c0c5b758a6ba100e3a049001de870f5;
 
     // AAVE token.
-    address constant AAVE_TOKEN = 0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9;
+    address constant AAVE_TOKEN = 0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9;
 
     // Sky DAI <-> USDS converter (verified Q4 2024).
-    // Address known as `DaiUsds` in Sky migration contracts: 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A
-    address constant SKY_DAI_USDS = 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A;
+    // Address known as `DaiUsds` in Sky migration contracts: 0x3225737a9bbb6473cb4a45b7244aca2befdb276a
+    address constant SKY_DAI_USDS = 0x3225737a9bbb6473cb4a45b7244aca2befdb276a;
 
     function setUp() public {
         _fork(FORK_BLOCK);

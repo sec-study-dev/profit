@@ -34,15 +34,15 @@ import {IUniswapV3Router} from "src/interfaces/amm/IUniswapV3Router.sol";
 contract F05_05_PoC is StrategyBase {
     // ---- Per-collateral crvUSD addresses (verified on etherscan) ----
     /// @dev sfrxETH controller (Curve crvUSD per-collateral controller).
-    address constant CONTROLLER_SFRXETH = 0x8472A9A7632b173c8Cf3a86D3afec50c35548e76;
+    address constant CONTROLLER_SFRXETH = 0x8472a9a7632b173c8cf3a86d3afec50c35548e76;
     /// @dev sfrxETH LLAMMA (Curve crvUSD per-collateral LLAMMA AMM).
-    address constant LLAMMA_SFRXETH = 0x136e783846ef68C8Bd00a3369F787dF8d683a696;
+    address constant LLAMMA_SFRXETH = 0x136e783846ef68c8bd00a3369f787df8d683a696;
 
     // Curve crvUSD/USDC stableswap-NG: 0=crvUSD, 1=USDC.
-    address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
+    address constant CURVE_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
 
     // Uni v3 router for USDC <-> WETH.
-    address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    address constant UNIV3_ROUTER = 0xe592427a0aece92de3edee1f18e0157c05861564;
     uint24 constant UNIV3_FEE_USDC_WETH = 500; // 0.05% - deepest pool
 
     // Block where sfrxETH market crvUSD borrow rate was depressed (~3%).

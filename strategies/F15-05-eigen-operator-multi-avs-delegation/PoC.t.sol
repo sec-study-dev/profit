@@ -28,7 +28,7 @@ import {console2} from "forge-std/console2.sol";
 ///               operatorShares(operator, STETH_STRATEGY) / strategy.totalShares()
 contract F15_05_EigenOperatorMultiAvsDelegationTest is StrategyBase {
     /// @dev EigenLayer stETH strategy proxy (same as F15-01..04).
-    address constant STETH_STRATEGY = 0x93c4b944D05dfe6df7645A86cd2206016c51564D;
+    address constant STETH_STRATEGY = 0x93c4b944d05dfe6df7645a86cd2206016c51564d;
 
     /// @dev P2P.org operator address - registered EigenLayer operator since
     ///      EL mainnet launch (April 2023). Runs multiple AVSs (EigenDA +
@@ -41,7 +41,7 @@ contract F15_05_EigenOperatorMultiAvsDelegationTest is StrategyBase {
     ///
     ///      Cross-reference: EigenLayer operator registry
     ///      (https://app.eigenlayer.xyz/operator) at block ~20,200,000.
-    address constant P2P_OPERATOR = 0xDbEd88D83176316fc46797B43aDeE927Dc2ff2F5;
+    address constant P2P_OPERATOR = 0xdbed88d83176316fc46797b43adee927dc2ff2f5;
 
     /// @dev Late-Jul 2024 - multi-AVS rewards live, cap windows open.
     uint256 constant FORK_BLOCK = 20_300_000;

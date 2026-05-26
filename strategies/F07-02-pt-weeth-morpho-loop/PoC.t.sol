@@ -23,13 +23,13 @@ contract F07_02_PtWeethMorphoLoopTest is StrategyBase {
     // ---- Pendle market (maturity-specific) ----
     /// @dev Pendle Market for PT/YT/SY-weETH-26DEC2024.
     ///      Source: Pendle markets registry (weETH 26-Dec-2024).
-    address constant LOCAL_MARKET = 0x7d372819240D14fB477f17b964f95F33BeB4c704;
+    address constant LOCAL_MARKET = 0x7d372819240d14fb477f17b964f95f33beb4c704;
 
     // ---- Morpho market (PT-weETH-26DEC2024 / WETH) ----
     /// @dev Gauntlet-deployed PendleSparkLinearDiscount oracle, PT-weETH-26DEC24 / WETH.
-    address constant MORPHO_ORACLE_PT_WEETH = 0xb4d18ea791F65c0a4Ec06F8aCF8e8e1c2eEca35d;
+    address constant MORPHO_ORACLE_PT_WEETH = 0xb4d18ea791f65c0a4ec06f8acf8e8e1c2eeca35d;
     /// @dev Morpho Blue AdaptiveCurveIRM.
-    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
+    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870ac11d48b15db9a138cf899d20f13f79ba00bc;
     /// @dev 86% LLTV variant for PT-weETH/WETH market.
     uint256 constant LLTV_86 = 0.86e18;
 

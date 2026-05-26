@@ -32,7 +32,7 @@ contract F09_07_PtUsd0ppMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCal
     uint256 constant FORK_BLOCK = 20_950_000;
 
     /// @dev Pendle V4 market for PT/YT/SY-USD0++-26JUN2025.
-    address constant PENDLE_MARKET_USD0PP_26JUN25 = 0xaFDC922d0059147486cC1F0f32e3A2354b0d35CC;
+    address constant PENDLE_MARKET_USD0PP_26JUN25 = 0xafdc922d0059147486cc1f0f32e3a2354b0d35cc;
 
     /// @dev Morpho marketId for PT-USD0++-26JUN2025 / USDC 86% LLTV (Gauntlet
     ///      curated; PendleSparkLinearDiscount oracle). MarketParams recovered
@@ -41,7 +41,7 @@ contract F09_07_PtUsd0ppMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCal
         0xa921ef34e2fc7a27ccc50ae7e4b154e16c9799d3387c0b3b3b3a3d4b3c3a3b3c;
 
     /// @dev Usual USD0++ (the PT redeems into 1 USD0++ at maturity).
-    address constant USD0PP = 0x35D8949372D46B7a3D5A56006AE77B215fc69bC0;
+    address constant USD0PP = 0x35d8949372d46b7a3d5a56006ae77b215fc69bc0;
 
     uint256 constant EQUITY_USDC = 200_000e6; // 200k USDC
     /// @dev 4x flash on equity -> 5x total notional. With PT priced ~0.95 USDC

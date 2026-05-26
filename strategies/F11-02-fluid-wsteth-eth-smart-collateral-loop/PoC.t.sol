@@ -18,14 +18,14 @@ contract F11_02_FluidWstEthEthSmartCollateralLoopTest is StrategyBase {
 
     // Fluid VaultFactoryT1 - verified on-chain (deployed Jan 2024).
     // verified at https://etherscan.io/address/0x324c5dc1fc42c7a4d43d92df1eba58a54d13bf2d
-    address internal constant FLUID_VAULT_FACTORY_T1 = 0x324c5Dc1fC42c7a4D43d92df1eBA58a54d13Bf2d;
+    address internal constant FLUID_VAULT_FACTORY_T1 = 0x324c5dc1fc42c7a4d43d92df1eba58a54d13bf2d;
 
     // Fluid wstETH/ETH smart-collateral vault.
     // verified at https://etherscan.io/address/0x1c2bb46f36561bc4f05a94bd50916496aa501078
-    address internal constant FLUID_WSTETH_ETH_VAULT = 0x1c2bB46f36561bc4F05A94BD50916496aa501078;
+    address internal constant FLUID_WSTETH_ETH_VAULT = 0x1c2bb46f36561bc4f05a94bd50916496aa501078;
 
     // Fluid uses the canonical native-ETH sentinel for the ETH leg.
-    address internal constant ETH_SENTINEL = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address internal constant ETH_SENTINEL = 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee;
 
     uint256 internal constant LOOPS = 3;
     uint256 internal constant LOOP_LTV_BPS = 8500;

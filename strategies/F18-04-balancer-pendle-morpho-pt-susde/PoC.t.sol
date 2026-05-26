@@ -31,7 +31,7 @@ contract F18_04_BalancerPendleMorphoPtSusde is StrategyBase, IFlashLoanRecipient
     ///      Verified at https://etherscan.io/token/0x6c9f097e044506712b58eac670c9a5fd4bccef13
     ///      (PT-sUSDE-26SEP2024 PT token, owned by this market) on 2026-05-26.
     address constant LOCAL_PENDLE_MARKET_PT_SUSDE_26SEP24 =
-        0x19588F29f9402Bb508007FeADd415c875Ee3f19F;
+        0x19588f29f9402bb508007feadd415c875ee3f19f;
 
     /// @dev Morpho Blue marketId for PT-sUSDe-26SEP2024 / USDC, 86.5% LLTV.
     ///      Computed as keccak256(abi.encode(MarketParams{
@@ -53,13 +53,13 @@ contract F18_04_BalancerPendleMorphoPtSusde is StrategyBase, IFlashLoanRecipient
     /// @dev Morpho PendleSparkLinearDiscountOracle for PT-sUSDe markets.
     ///      Cross-referenced with F07-01 and F08-03 (same address).
     address constant LOCAL_MORPHO_ORACLE_PT_SUSDE =
-        0x38d130cEe60CDa080A3b3aC94C79c34B6Fc919A7;
+        0x38d130cee60cda080a3b3ac94c79c34b6fc919a7;
 
     /// @dev Morpho AdaptiveCurveIRM (canonical mainnet IRM).
-    ///      Verified at https://etherscan.io/address/0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC
+    ///      Verified at https://etherscan.io/address/0x870ac11d48b15db9a138cf899d20f13f79ba00bc
     ///      on 2026-05-26.
     address constant LOCAL_MORPHO_IRM_ADAPTIVE_CURVE =
-        0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
+        0x870ac11d48b15db9a138cf899d20f13f79ba00bc;
 
     /// @dev 86.5% LLTV for PT-sUSDe collateral with linear-discount oracle
     ///      (matches the MEV-Capital-curated market used by F07-01 / F08-03).
@@ -69,7 +69,7 @@ contract F18_04_BalancerPendleMorphoPtSusde is StrategyBase, IFlashLoanRecipient
     uint256 constant FLASH_USDC = 10_000_000e6;
 
     /// @dev Curve USDe/USDC pool (used to convert flash USDC -> USDe before Pendle).
-    address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
+    address constant LOCAL_CURVE_USDE_USDC = 0x02950460e2b9529d0e00284a5fa2d7bdf3fa4d72;
     int128 constant IDX_USDE = 0;
     int128 constant IDX_USDC = 1;
 

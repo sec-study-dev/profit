@@ -24,11 +24,11 @@ contract F03_07_CbETHRateUpdateTest is StrategyBase, IFlashLoanRecipientBalancer
 
     /// @dev Curve cbETH/ETH crypto pool (V2 crypto).
     ///      coins[0] = ETH (native sentinel), coins[1] = cbETH.
-    address constant LOCAL_CURVE_CBETH_ETH = 0x5FAE7E604FC3e24fd43A72867ceBaC94c65b404A;
+    address constant LOCAL_CURVE_CBETH_ETH = 0x5fae7e604fc3e24fd43a72867cebac94c65b404a;
 
     /// @dev UniV3 cbETH/WETH 0.05% (fee tier 500) pool.
     ///      token0 = cbETH (0xBe98...), token1 = WETH (0xC02a...). lexicographic.
-    address constant LOCAL_UNIV3_CBETH_WETH_500 = 0x840DEEef2f115Cf50DA625F7368C24af6fE74410;
+    address constant LOCAL_UNIV3_CBETH_WETH_500 = 0x840deeef2f115cf50da625f7368c24af6fe74410;
 
     uint256 constant FLASH_NOTIONAL = 300 ether;
 

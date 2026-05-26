@@ -18,7 +18,7 @@ contract F13_03_BalancerWstETHCSPTest is StrategyBase {
     /// @dev Balancer wstETH/WETH ComposableStable pool (current canonical
     ///      "BAL wstETH-WETH-BPT"). token order = sorted by address:
     ///      [wstETH (0x7f...), BPT (0x93...), WETH (0xC0...)].
-    address constant BAL_WSTETH_WETH_POOL = 0x93d199263632a4EF4Bb438F1feB99e57b4b5f0BD;
+    address constant BAL_WSTETH_WETH_POOL = 0x93d199263632a4ef4bb438f1feb99e57b4b5f0bd;
     bytes32 constant BAL_WSTETH_WETH_POOL_ID =
         0x93d199263632a4ef4bb438f1feb99e57b4b5f0bd0000000000000000000005c2;
 

@@ -46,7 +46,7 @@ contract F10_06_SdaiAaveUsdcSparkRecursive is StrategyBase {
     uint256 constant LOOP_LTV_BPS = 6700;
 
     /// @notice Maker GUSDC-A PSM (legacy) - verified mainnet.
-    address constant MAKER_PSM_USDC = 0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A;
+    address constant MAKER_PSM_USDC = 0x89b78cfa322f6c5de0abceecab66aee45393cc5a;
 
     /// @notice The gem-join address for the GUSDC-A PSM (where USDC approval lands).
     ///         Read dynamically from the PSM's `gemJoin()` getter to remain

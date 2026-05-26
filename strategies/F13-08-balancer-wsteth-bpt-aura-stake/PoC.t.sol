@@ -8,7 +8,7 @@ import {IBalancerVault} from "src/interfaces/amm/IBalancerVault.sol";
 import {IBalancerPool} from "src/interfaces/amm/IBalancerPool.sol";
 
 /// @dev Local subset of Aura Booster + reward pool.
-///      Booster mainnet: 0xA57b8d98dAE62B26Ec3bcC4a365338157060B234
+///      Booster mainnet: 0xa57b8d98dae62b26ec3bcc4a365338157060b234
 ///      Each Balancer pool has an Aura PID; users call
 ///      `Booster.deposit(pid, amount, true)` to deposit BPT and
 ///      auto-stake into the reward pool. Withdraw via the rewards pool's
@@ -51,7 +51,7 @@ contract F13_08_BalancerBPTAuraStakeTest is StrategyBase {
     uint256 constant FORK_BLOCK = 20_900_000;
 
     /// @dev Aura Booster on mainnet.
-    address constant AURA_BOOSTER = 0xA57b8d98dAE62B26Ec3bcC4a365338157060B234;
+    address constant AURA_BOOSTER = 0xa57b8d98dae62b26ec3bcc4a365338157060b234;
 
     /// @dev Aura PID for the Balancer wstETH/WETH CSP gauge.
     ///      Verified mainnet PID for the "Balancer wstETH-WETH-BPT" pool
@@ -60,7 +60,7 @@ contract F13_08_BalancerBPTAuraStakeTest is StrategyBase {
     uint256 constant AURA_PID = 153;
 
     /// @dev Balancer wstETH/WETH CSP (token + pool id), same as F13-03.
-    address constant BAL_WSTETH_WETH_POOL = 0x93d199263632a4EF4Bb438F1feB99e57b4b5f0BD;
+    address constant BAL_WSTETH_WETH_POOL = 0x93d199263632a4ef4bb438f1feb99e57b4b5f0bd;
     bytes32 constant BAL_WSTETH_WETH_POOL_ID =
         0x93d199263632a4ef4bb438f1feb99e57b4b5f0bd0000000000000000000005c2;
 
@@ -70,10 +70,10 @@ contract F13_08_BalancerBPTAuraStakeTest is StrategyBase {
     uint256 constant JOIN_EXACT_TOKENS_IN_FOR_BPT_OUT = 1;
 
     /// @dev AURA token (mainnet).
-    address constant AURA_TOKEN = 0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF;
+    address constant AURA_TOKEN = 0xc0c293ce456ff0ed870add98a0828dd4d2903dbf;
 
     /// @dev BAL token (mainnet).
-    address constant BAL_TOKEN = 0xba100000625a3754423978a60c9317c58a424e3D;
+    address constant BAL_TOKEN = 0xba100000625a3754423978a60c9317c58a424e3d;
 
     function setUp() public {
         _fork(FORK_BLOCK);

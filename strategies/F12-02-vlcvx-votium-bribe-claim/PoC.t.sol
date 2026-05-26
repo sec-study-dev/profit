@@ -28,7 +28,7 @@ contract F12_02_PoC is StrategyBase {
     uint256 constant CVX_LOCK = 10_000 ether;
 
     // Bribe tokens we'll simulate claiming.
-    address constant FXS = 0x3432B6A60D23Ca0dFCa7761B7ab56459D9C964D0;
+    address constant FXS = 0x3432b6a60d23ca0dfca7761b7ab56459d9c964d0;
 
     // Bribe sizes (chosen to be representative for a 10k-CVX claimant).
     uint256 constant BRIBE_FXS = 50 ether;           // ~$160 at $3.2
@@ -37,7 +37,7 @@ contract F12_02_PoC is StrategyBase {
     // Votium vote-proxy delegate (well-known Convex Votium operator).
     // We delegate to this so off-chain Snapshot consumers (if any) see us
     // opted-in. On-chain it's a state-write only.
-    address constant VOTIUM_VOTE_PROXY = 0xde1E6A7ED0ad3F61D531a8a78E83CcDdbd6E0c49;
+    address constant VOTIUM_VOTE_PROXY = 0xde1e6a7ed0ad3f61d531a8a78e83ccddbd6e0c49;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -65,7 +65,7 @@ contract F12_02_PoC is StrategyBase {
         // ---- 2) Delegate to Votium's snapshot proxy ----
         // Note: on the canonical CvxLockerV2 the `delegate()` function may not
         // exist (delegation lives on a separate Gnosis DelegateRegistry at
-        // 0x469788fE6E9E9681C6ebF3bF78e7Fd26Fc015446). We try the locker call
+        // 0x469788fe6e9e9681c6ebf3bf78e7fd26fc015446). We try the locker call
         // and tolerate a revert - the bribe claim path below is independent of
         // delegation state, since we are injecting the merkle root ourselves.
         (bool delegOk,) = Mainnet.VLCVX.call(

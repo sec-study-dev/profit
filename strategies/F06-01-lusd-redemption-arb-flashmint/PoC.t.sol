@@ -73,14 +73,14 @@ contract F06_01_LusdRedemptionArbFlashmintTest is StrategyBase, IERC3156FlashBor
     // ---- Liquity v1 mainnet addresses (immutable since 2021) ----
 
     /// @dev Liquity TroveManager.
-    address constant TROVE_MANAGER = 0xA39739EF8b0231DbFA0DcdA07d7e29faAbCf4bb2;
+    address constant TROVE_MANAGER = 0xa39739ef8b0231dbfa0dcda07d7e29faabcf4bb2;
     /// @dev Liquity HintHelpers (view-only redemption hint computer).
-    address constant HINT_HELPERS = 0xE84251b93D9524E0d2e621Ba7dc7cb3579F997C0;
+    address constant HINT_HELPERS = 0xe84251b93d9524e0d2e621ba7dc7cb3579f997c0;
     /// @dev Liquity PriceFeed (Chainlink/Tellor medianiser).
-    address constant LIQUITY_PRICE_FEED = 0x4c517D4e2C851CA76d7eC94B805269Df0f2201De;
+    address constant LIQUITY_PRICE_FEED = 0x4c517d4e2c851ca76d7ec94b805269df0f2201de;
 
     /// @dev Curve LUSD/3pool (meta-pool).
-    address constant CURVE_LUSD_3POOL = 0xEd279fDD11ca84bEef15AF5D39BB4d4bEE23F0cA;
+    address constant CURVE_LUSD_3POOL = 0xed279fdd11ca84beef15af5d39bb4d4bee23f0ca;
 
     // ---- Tunables ----
 
@@ -135,7 +135,7 @@ contract F06_01_LusdRedemptionArbFlashmintTest is StrategyBase, IERC3156FlashBor
 
         // Trigger the arb via flashmint. All action happens in onFlashLoan.
         IDssFlash(Mainnet.DSS_FLASH).flashLoan(
-            IERC3156FlashBorrower(address(this)),
+            address(this),
             Mainnet.DAI,
             FLASH_DAI,
             ""

@@ -21,18 +21,18 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 ///         the loan. Captures the EMA-vs-spot spread.
 contract F05_01_PoC is StrategyBase, IFlashLoanRecipientBalancer {
     // --- Per-collateral crvUSD addresses (verified on etherscan) ---
-    address constant LLAMMA_WSTETH = 0x37417B2238AA52D0DD2D6252d989E728e8f706e4;
-    address constant CONTROLLER_WSTETH = 0x100dAa78fC509Db39Ef7D04DE0c1ABD299f4C6CE;
+    address constant LLAMMA_WSTETH = 0x37417b2238aa52d0dd2d6252d989e728e8f706e4;
+    address constant CONTROLLER_WSTETH = 0x100daa78fc509db39ef7d04de0c1abd299f4c6ce;
 
     // Curve crvUSD/USDC stableswap-NG (index 0=crvUSD, 1=USDC).
-    address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
+    address constant CURVE_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
 
     // Uni v3 routers / pools
-    address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    address constant UNIV3_ROUTER = 0xe592427a0aece92de3edee1f18e0157c05861564;
     uint24 constant UNIV3_FEE_USDC_WETH = 500; // 0.05% - deepest pool
 
     // Balancer V2 Vault for flashloan
-    address constant BAL_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
+    address constant BAL_VAULT = 0xba12222222228d8ba445958a75a0704d566bf2c8;
 
     // Block: Apr 13 2024 mid-fall; wstETH dropped ~9% in 90 min.
     uint256 constant FORK_BLOCK = 19_643_500;

@@ -47,7 +47,7 @@ contract F15_06_EigenpodNativeValidatorRestakeTest is StrategyBase {
     ///      Etherscan label "EigenPodManager". The proxy at this address has
     ///      been the canonical pod manager since EL native-restake launch
     ///      (June 2023).
-    address constant EIGEN_POD_MANAGER = 0x91E677b07F7AF907ec9a428aafA9fc14a0d3A338;
+    address constant EIGEN_POD_MANAGER = 0x91e677b07f7af907ec9a428aafa9fc14a0d3a338;
 
     /// @dev Aug 2024 - post-Pectra-prep, native-restake well-established and
     ///      pod creation gas-tractable.
@@ -105,7 +105,7 @@ contract F15_06_EigenpodNativeValidatorRestakeTest is StrategyBase {
         //   (a) Run a beacon-chain validator with `withdrawal_credentials` set
         //       to 0x010000...0000<pod_address>. This requires a 32 ETH
         //       deposit on the beacon-chain DepositContract
-        //       (0x00000000219ab540356cBB839Cbe05303d7705Fa), CL infra, etc.
+        //       (0x00000000219ab540356cbb839cbe05303d7705fa), CL infra, etc.
         //   (b) After ~16 hours of finalisation, call
         //       IEigenPod.verifyWithdrawalCredentials(
         //           oracleTimestamp,

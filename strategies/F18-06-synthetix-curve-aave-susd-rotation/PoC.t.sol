@@ -34,13 +34,13 @@ contract F18_06_SynthetixCurveAaveSusdRotation is StrategyBase {
     uint256 constant FORK_BLOCK = 20_300_000;
 
     /// @dev Curve sUSD 4pool: sUSD(0) / DAI(1) / USDC(2) / USDT(3).
-    address constant LOCAL_CURVE_SUSD_4POOL = 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD;
+    address constant LOCAL_CURVE_SUSD_4POOL = 0xa5407eae9ba41422680e2e00537571bcc53efbfd;
 
     /// @dev Curve sETH/ETH pool (used to close the sETH leg back to ETH).
-    address constant LOCAL_CURVE_SETH_ETH = 0xc5424B857f758E906013F3555Dad202e4bdB4567;
+    address constant LOCAL_CURVE_SETH_ETH = 0xc5424b857f758e906013f3555dad202e4bdb4567;
 
     /// @dev Synthetix AddressResolver (immutable across the V2x system).
-    address constant LOCAL_SYNTHETIX_ADDRESS_RESOLVER = 0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83;
+    address constant LOCAL_SYNTHETIX_ADDRESS_RESOLVER = 0x823be81bbf96bec0e25ca13170f5aacb5b79ba83;
 
     bytes32 constant CK_sUSD = bytes32("sUSD");
     bytes32 constant CK_sETH = bytes32("sETH");

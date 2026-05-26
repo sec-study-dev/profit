@@ -37,16 +37,16 @@ interface IVePendle {
 ///         all three identifiers.
 contract F12_08_PoC is StrategyBase {
     // ---- Vote-locked positions ----
-    address constant AURA = 0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF;
-    address constant PENDLE = 0x808507121B80c02388fAd14726482e061B8da827;
+    address constant AURA = 0xc0c293ce456ff0ed870add98a0828dd4d2903dbf;
+    address constant PENDLE = 0x808507121b80c02388fad14726482e061b8da827;
 
     // vlAURA (auraLocker). Verified on Aura docs + Etherscan.
-    address constant VLAURA = 0x3Fa73f1E5d8A792C80F426fc8F84FBF7Ce9bBCAC;
+    address constant VLAURA = 0x3fa73f1e5d8a792c80f426fc8f84fbf7ce9bbcac;
     // vePENDLE. Verified on Pendle docs.
-    address constant VEPENDLE = 0x4f30A9D41B80ecC5B94306AB4364951AE3170210;
+    address constant VEPENDLE = 0x4f30a9d41b80ecc5b94306ab4364951ae3170210;
 
     // ---- Hidden Hand ----
-    address constant HIDDEN_HAND_REWARDS = 0xa9b08B4CeEC1EF29EdEC7F9C94583270337D6416;
+    address constant HIDDEN_HAND_REWARDS = 0xa9b08b4ceec1ef29edec7f9c94583270337d6416;
 
     // ---- Lock sizes ----
     uint256 constant CVX_LOCK = 10_000 ether;

@@ -26,12 +26,12 @@ contract F13_02_BalancerRETHRateLagUniV3Test is StrategyBase, IFlashLoanRecipien
     uint256 constant FORK_BLOCK = 21_500_000;
 
     /// @dev Balancer rETH/wETH MetaStable pool.
-    address constant BAL_RETH_POOL = 0x1E19CF2D73a72Ef1332C882F20534B6519Be0276;
+    address constant BAL_RETH_POOL = 0x1e19cf2d73a72ef1332c882f20534b6519be0276;
     bytes32 constant BAL_RETH_POOL_ID =
         0x1e19cf2d73a72ef1332c882f20534b6519be0276000200000000000000000112;
 
     /// @dev UniV3 rETH/WETH 0.01% (fee tier 100) pool. Deepest rETH/WETH UniV3.
-    address constant UNIV3_RETH_WETH_100 = 0x553e9C493678d8606d6a5ba284643dB2110Df823;
+    address constant UNIV3_RETH_WETH_100 = 0x553e9c493678d8606d6a5ba284643db2110df823;
 
     uint256 constant FLASH_NOTIONAL = 500 ether;
     uint256 constant MIN_SPREAD_BPS = 5;

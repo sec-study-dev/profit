@@ -19,7 +19,7 @@ import {console2} from "forge-std/console2.sol";
 /// The "secondary-market sale" leg is documented in the README but not
 /// implementable on-chain at this block - EL withdrawals are non-transferable.
 contract F15_03_EigenWithdrawalQueueSecondaryTest is StrategyBase {
-    address constant STETH_STRATEGY = 0x93c4b944D05dfe6df7645A86cd2206016c51564D;
+    address constant STETH_STRATEGY = 0x93c4b944d05dfe6df7645a86cd2206016c51564d;
 
     uint256 constant FORK_BLOCK = 19_700_000;
     uint256 constant DEPOSIT_AMOUNT = 50 ether;

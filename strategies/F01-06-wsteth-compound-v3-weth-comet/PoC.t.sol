@@ -34,7 +34,7 @@ contract F01_06_WstethCompoundV3CometTest is StrategyBase {
 
     // Compound v3 WETH Comet - verified via compound.finance/markets and
     // Compound v3 deployment json (cWETHv3): the WETH base market.
-    address constant LOCAL_COMET_WETH = 0xA17581A9E3356d9A858b789D68B4d866e593aE94;
+    address constant LOCAL_COMET_WETH = 0xa17581a9e3356d9a858b789d68b4d866e593ae94;
 
     // Per-loop LTV - borrow-collateral-factor for wstETH on this Comet is
     // 0.90 at fork; we target 0.85 for a buffer.
@@ -129,7 +129,7 @@ contract F01_06_WstethCompoundV3CometTest is StrategyBase {
     }
 
     function _ethUsdE8() internal view returns (uint256) {
-        (bool ok, bytes memory data) = address(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)
+        (bool ok, bytes memory data) = address(0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419)
             .staticcall(abi.encodeWithSignature("latestAnswer()"));
         if (!ok || data.length < 32) return 0;
         int256 ans = abi.decode(data, (int256));

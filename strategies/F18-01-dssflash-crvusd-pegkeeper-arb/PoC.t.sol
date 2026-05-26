@@ -34,13 +34,13 @@ contract F18_01_DssFlashCrvUsdPegKeeperArb is StrategyBase, IERC3156FlashBorrowe
     uint256 constant FORK_BLOCK = 20_500_000;
 
     /// @dev Curve crvUSD/USDC stableswap-NG pool. coins[0] = crvUSD, coins[1] = USDC.
-    address constant LOCAL_CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
+    address constant LOCAL_CURVE_CRVUSD_USDC = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
 
     /// @dev Curve PegKeeper for the crvUSD/USDC NG pool. Mints fresh crvUSD
     ///      from a PegKeeper-Regulator-managed CDP and provides liquidity to
     ///      the pool when it's crvUSD-light. Confirmed on Curve's PegKeeper
     ///      registry. (Deployment: PegKeeperV2 for crvUSD/USDC).
-    address constant LOCAL_PEGKEEPER_USDC = 0x9201da0D97CaAAff53f01B2fB56767C7072dE340;
+    address constant LOCAL_PEGKEEPER_USDC = 0x9201da0d97caaaff53f01b2fb56767c7072de340;
 
     /// @dev int128 indices for the NG pool.
     int128 constant IDX_CRVUSD = 0;
@@ -94,7 +94,7 @@ contract F18_01_DssFlashCrvUsdPegKeeperArb is StrategyBase, IERC3156FlashBorrowe
         // If at this exact block the keeper has nothing to offer, the keeper
         // update will be a no-op (return 0) and we'll eat the Curve fee on
         // both legs. We still report PnL so Wave-3 grep can pick it up.
-        try flash.flashLoan(IERC3156FlashBorrower(address(this)), Mainnet.DAI, FLASH_DAI, "") {
+        try flash.flashLoan(address(this), Mainnet.DAI, FLASH_DAI, "") {
             // success
         } catch Error(string memory reason) {
             console2.log("Flash route reverted:", reason);

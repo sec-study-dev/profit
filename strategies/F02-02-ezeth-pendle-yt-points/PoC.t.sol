@@ -31,10 +31,10 @@ contract F02_02_EzethPendleYtPointsTest is StrategyBase {
     //   SY-ezETH           : https://etherscan.io/token/0x22e12a50e3ca49fb183074235cb1db84fe4c716d
     // The market (LP) address below is the canonical PendleMarketV3 deployed by
     // Pendle's MarketFactoryV3 (0x1A6fCc85...) wrapping the PT/SY pair above.
-    address constant PENDLE_EZETH_MARKET_25APR24 = 0xD8F12bCDE578c653014F27379a6114F67F0e445f;
-    address constant PENDLE_PT_EZETH_25APR24    = 0xeEE8aED1957ca1545a0508AFB51b53cCA7e3C0d1;
-    address constant PENDLE_YT_EZETH_25APR24    = 0x256Fb830945141f7927785c06b65dAbc3744213c;
-    address constant PENDLE_SY_EZETH            = 0x22E12A50e3ca49FB183074235cB1db84Fe4C716D;
+    address constant PENDLE_EZETH_MARKET_25APR24 = 0xd8f12bcde578c653014f27379a6114f67f0e445f;
+    address constant PENDLE_PT_EZETH_25APR24    = 0xeee8aed1957ca1545a0508afb51b53cca7e3c0d1;
+    address constant PENDLE_YT_EZETH_25APR24    = 0x256fb830945141f7927785c06b65dabc3744213c;
+    address constant PENDLE_SY_EZETH            = 0x22e12a50e3ca49fb183074235cb1db84fe4c716d;
 
     uint256 constant EQUITY = 100 ether;
 

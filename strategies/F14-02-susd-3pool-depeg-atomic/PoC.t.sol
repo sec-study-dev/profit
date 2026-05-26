@@ -12,7 +12,7 @@ import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.so
 
 // ============================================================================
 // Local Synthetix V2x interfaces (inline to avoid touching shared interfaces).
-// AddressResolver mainnet:  0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83
+// AddressResolver mainnet:  0x823be81bbf96bec0e25ca13170f5aacb5b79ba83
 // Verified against docs.synthetix.io legacy registry.
 // ============================================================================
 
@@ -59,20 +59,20 @@ interface IUniV3RouterMinimal {
 contract F14_02_SusdDepegAtomic is StrategyBase, IERC3156FlashBorrower {
     bytes32 internal constant CALLBACK_SUCCESS = keccak256("ERC3156FlashBorrower.onFlashLoan");
 
-    address constant SYNTHETIX_ADDRESS_RESOLVER = 0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83;
+    address constant SYNTHETIX_ADDRESS_RESOLVER = 0x823be81bbf96bec0e25ca13170f5aacb5b79ba83;
 
     bytes32 constant CK_sUSD = bytes32("sUSD");
     bytes32 constant CK_sETH = bytes32("sETH");
     bytes32 constant TRACKING_CODE = bytes32("F14-02-arb");
 
     // Curve sUSD 4pool (sUSD=0, DAI=1, USDC=2, USDT=3).
-    address constant CURVE_SUSD_4POOL = 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD;
+    address constant CURVE_SUSD_4POOL = 0xa5407eae9ba41422680e2e00537571bcc53efbfd;
     // Curve 3pool (DAI=0, USDC=1, USDT=2).
-    address constant CURVE_3POOL = 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7;
+    address constant CURVE_3POOL = 0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7;
     // Curve sETH/ETH (ETH=0 sentinel, sETH=1).
-    address constant CURVE_SETH_ETH = 0xc5424B857f758E906013F3555Dad202e4bdB4567;
+    address constant CURVE_SETH_ETH = 0xc5424b857f758e906013f3555dad202e4bdb4567;
 
-    address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    address constant UNIV3_ROUTER = 0xe592427a0aece92de3edee1f18e0157c05861564;
     uint24  constant UNIV3_USDC_WETH_FEE = 500;
 
     uint256 constant FORK_BLOCK = 16_818_900; // SVB weekend

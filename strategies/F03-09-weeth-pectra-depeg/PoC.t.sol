@@ -22,10 +22,10 @@ contract F03_09_WeETHPectraDepegTest is StrategyBase, IFlashLoanRecipientBalance
     uint256 constant FORK_BLOCK = 22_431_500;
 
     /// @dev Curve weETH/WETH NG pool. coins[0] = weETH, coins[1] = WETH.
-    address constant LOCAL_CURVE_WEETH_WETH = 0x13947303F63b363876868D070F14dc865C36463b;
+    address constant LOCAL_CURVE_WEETH_WETH = 0x13947303f63b363876868d070f14dc865c36463b;
 
     /// @dev UniV3 weETH/WETH 0.05% (fee tier 500) pool.
-    address constant LOCAL_UNIV3_WEETH_WETH_500 = 0x7A415B19932c0105c82FDB6b720bb01B0CC2CAe3;
+    address constant LOCAL_UNIV3_WEETH_WETH_500 = 0x7a415b19932c0105c82fdb6b720bb01b0cc2cae3;
 
     uint256 constant FLASH_NOTIONAL = 800 ether;
 

@@ -35,9 +35,9 @@ contract F02_01_WeethMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCallba
 
     /// @dev MorphoChainlinkOracleV2 for weETH/WETH - wraps EtherFi's getRate().
     /// Verified from the Morpho weETH/WETH market parameters at FORK_BLOCK.
-    address constant MORPHO_ORACLE_WEETH_WETH = 0x3fa58b74e9a8eA8768eb33c8453e9C2Ed089A40a;
+    address constant MORPHO_ORACLE_WEETH_WETH = 0x3fa58b74e9a8ea8768eb33c8453e9c2ed089a40a;
     /// @dev Morpho Blue AdaptiveCurveIRM.
-    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
+    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870ac11d48b15db9a138cf899d20f13f79ba00bc;
     uint256 constant LLTV_86 = 0.86e18;
 
     uint256 constant EQUITY = 100 ether;

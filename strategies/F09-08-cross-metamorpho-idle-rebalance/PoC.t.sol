@@ -36,13 +36,13 @@ contract F09_08_CrossMetaMorphoIdleRebalanceTest is StrategyBase, IMorphoFlashLo
     uint256 constant FORK_BLOCK = 21_400_000;
 
     /// @dev Steakhouse USDC MetaMorpho vault (Steakhouse Financial curator).
-    address constant STEAKHOUSE_USDC_VAULT = 0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB;
+    address constant STEAKHOUSE_USDC_VAULT = 0xbeef01735c132ada46aa9aa4c54623caa92a64cb;
 
     /// @dev Gauntlet USDC Prime MetaMorpho vault (Gauntlet curator).
-    address constant GAUNTLET_USDC_PRIME_VAULT = 0xdd0f28e19C1780eb6396170735D985153D32D11C;
+    address constant GAUNTLET_USDC_PRIME_VAULT = 0xdd0f28e19c1780eb6396170735d985153d32d11c;
 
     /// @dev Re7 USDC vault - third MetaMorpho USDC vault for triangular check.
-    address constant RE7_USDC_VAULT = 0x95EeF579155cd2C5510F312c8fA39208c3Be01a8;
+    address constant RE7_USDC_VAULT = 0x95eef579155cd2c5510f312c8fa39208c3be01a8;
 
     uint256 constant EQUITY_USDC = 2_000_000e6; // 2M USDC
 

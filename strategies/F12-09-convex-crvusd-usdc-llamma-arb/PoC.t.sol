@@ -31,7 +31,7 @@ import {ILLAMMA} from "src/interfaces/cdp/ILLAMMA.sol";
 ///         arb composition on a live fork.
 contract F12_09_PoC is StrategyBase {
     // ---- Curve crvUSD/USDC pool (StableSwap-NG, indices: 0=crvUSD, 1=USDC) ----
-    address constant CRVUSD_USDC_POOL = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
+    address constant CRVUSD_USDC_POOL = 0x4dece678ceceb27446b35c672dc7d61f30bad69e;
 
     // ---- Convex ----
     // Convex Booster PID for crvUSD/USDC: PID 182 (Convex's pool registry,
@@ -42,10 +42,10 @@ contract F12_09_PoC is StrategyBase {
     address internal _cvxCrvUsdRewards;
 
     // ---- LLAMMA (wstETH market - biggest crvUSD market by USD outstanding) ----
-    address constant LLAMMA_WSTETH = 0x37417B2238AA52D0DD2D6252d989E728e8f706e4;
+    address constant LLAMMA_WSTETH = 0x37417b2238aa52d0dd2d6252d989e728e8f706e4;
 
     // ---- Reward tokens ----
-    address constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
+    address constant CRV = 0xd533a949740bb3306d119cc777fa900ba034cd52;
 
     // ---- Block ----
     uint256 constant FORK_BLOCK = 19_643_500;

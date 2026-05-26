@@ -27,10 +27,10 @@ contract F02_08_WeethFluidSmartCollateralLoopTest is StrategyBase {
 
     /// @dev Fluid VaultT2 weETH-ETH<>wstETH smart-collateral vault.
     /// https://etherscan.io/address/0xb4a15526d427f4d20b0dadaf3bab4177c85a699a
-    address constant LOCAL_FLUID_WEETH_ETH_WSTETH_VAULT = 0xb4a15526d427f4d20b0dAdaF3baB4177C85A699A;
+    address constant LOCAL_FLUID_WEETH_ETH_WSTETH_VAULT = 0xb4a15526d427f4d20b0dadaf3bab4177c85a699a;
 
     /// @dev Fluid uses the canonical native-ETH sentinel.
-    address constant LOCAL_ETH_SENTINEL = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address constant LOCAL_ETH_SENTINEL = 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee;
 
     uint256 constant EQUITY = 100 ether;
     /// @dev Iterations of the leverage loop. 3 -> ~3x leverage at 60% borrow ratio.

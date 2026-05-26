@@ -76,14 +76,14 @@ interface IAaveV3Pool {
 /// @title F16-01 - LUSD trove (0% borrow) -> USDC -> Aave V3 supply carry
 contract F16_01_LusdTroveAaveUsdcSupplyCarry is StrategyBase {
     // ---- Liquity v1 mainnet addresses (immutable since 2021) ----
-    address constant BORROWER_OPS = 0x24179CD81c9e782A4096035f7eC97fB8B783e007;
-    address constant TROVE_MANAGER = 0xA39739EF8b0231DbFA0DcdA07d7e29faAbCf4bb2;
+    address constant BORROWER_OPS = 0x24179cd81c9e782a4096035f7ec97fb8b783e007;
+    address constant TROVE_MANAGER = 0xa39739ef8b0231dbfa0dcda07d7e29faabcf4bb2;
 
     /// @dev Curve LUSD/3pool meta-pool.
-    address constant CURVE_LUSD_3POOL = 0xEd279fDD11ca84bEef15AF5D39BB4d4bEE23F0cA;
+    address constant CURVE_LUSD_3POOL = 0xed279fdd11ca84beef15af5d39bb4d4bee23f0ca;
 
     // ---- Aave V3 Pool ----
-    address constant AAVE_POOL = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2;
+    address constant AAVE_POOL = 0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2;
 
     // ---- Tunables ----
     /// @dev Aug 31 2024 - LUSD baseRate near floor, Aave USDC supply ~3.8%.

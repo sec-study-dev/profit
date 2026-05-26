@@ -10,7 +10,7 @@ import {ICurveGaugeController} from "src/interfaces/bribe/ICurveGaugeController.
 
 /// @notice Local interface for Curve veCRV (VotingEscrow.vy). Inlined per the
 ///         family's "no shared-interface edits" rule. The canonical contract
-///         lives at 0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2 and has been
+///         lives at 0x5f3b5dfeb7b28cdbd7faba78963ee202a494e2a2 and has been
 ///         immutable since 2020.
 interface IVotingEscrowCRV {
     function create_lock(uint256 _value, uint256 _unlock_time) external;
@@ -32,14 +32,14 @@ interface IVotingEscrowCRV {
 ///         redirected emission is the off-chain accounting value (see README).
 contract F12_04_PoC is StrategyBase {
     // ---- Addresses ----
-    address constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
+    address constant CRV = 0xd533a949740bb3306d119cc777fa900ba034cd52;
     // veCRV (VotingEscrow). Hardcoded inline per family rules; verified against
     // both Curve docs and Mainnet.sol's CURVE_GAUGE_CONTROLLER pairing.
-    address constant VECRV = 0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2;
+    address constant VECRV = 0x5f3b5dfeb7b28cdbd7faba78963ee202a494e2a2;
     // GaugeController (same as Mainnet.CURVE_GAUGE_CONTROLLER).
-    address constant GAUGE_CONTROLLER = 0x2F50D538606Fa9EDD2B11E2446BEb18C9D5846bB;
+    address constant GAUGE_CONTROLLER = 0x2f50d538606fa9edd2b11e2446beb18c9d5846bb;
     // Target gauge: frxETH/ETH (low TVL relative to stETH/3pool - vote moves it).
-    address constant FRXETH_GAUGE = 0x0Cad1700FaA86B33b5f8094B2cE94D4Cfd14Cd2c;
+    address constant FRXETH_GAUGE = 0x0cad1700faa86b33b5f8094b2ce94d4cfd14cd2c;
 
     uint256 constant FORK_BLOCK = 19_643_500;
     uint256 constant CRV_LOCK_AMOUNT = 100_000 ether;
