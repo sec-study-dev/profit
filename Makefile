@@ -1,8 +1,9 @@
 .PHONY: install build test test-one summary clean
 
 install:
-	forge install foundry-rs/forge-std --no-commit || true
-	forge install OpenZeppelin/openzeppelin-contracts --no-commit || true
+	@# forge >= 1.x drops --no-commit; older forge needs it. Try both.
+	forge install foundry-rs/forge-std 2>/dev/null || forge install foundry-rs/forge-std --no-commit || true
+	forge install OpenZeppelin/openzeppelin-contracts 2>/dev/null || forge install OpenZeppelin/openzeppelin-contracts --no-commit || true
 
 build:
 	forge build
