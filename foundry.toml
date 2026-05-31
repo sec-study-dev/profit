@@ -11,6 +11,7 @@ fs_permissions = [{ access = "read", path = "./" }]
 
 [rpc_endpoints]
 mainnet = "${RPC_URL}"
+bsc = "${BSC_RPC_URL}"
 
 [fuzz]
 runs = 64
