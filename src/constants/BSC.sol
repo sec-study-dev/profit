@@ -22,7 +22,7 @@ library BSC {
 
     // ---- LST / LRT (BNB) ----
     /// @notice Stader BNBx (non-rebasing LST). Exchange rate via StaderStakeManager.
-    address constant BNBx = 0x1bdd3Cf7F79cfB8EdbB955f20ad99211044F6aE4;
+    address constant BNBx = 0x1BDD3CF7F79cFB8edbb955F20aD99211044f6AE4;
     /// @notice Ankr aBNBc (legacy bond token). // TODO verify: aBNBc still active or replaced by ankrBNB.
     address constant aBNBc = 0x52F24a5e03aee338Da5fd9Df68D2b6FAe1178827;
     /// @notice Ankr ankrBNB (wrapped non-rebasing). Same address as aBNBc on most explorers.
@@ -44,7 +44,7 @@ library BSC {
     /// @notice BUSD (legacy, frozen issuance).
     address constant BUSD = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
     /// @notice First Digital USD.
-    address constant FDUSD = 0xc5f0F7b66764F6ec8C8Dff7BA683102295E16409;
+    address constant FDUSD = 0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409;
     /// @notice World Liberty Financial USD1. // TODO verify
     address constant USD1 = 0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d;
     /// @notice Lista DAO lisUSD (CDP-issued stable).
@@ -78,9 +78,9 @@ library BSC {
 
     // ---- Lista DAO ----
     /// @notice Lista Interaction (CDP open/close, lisUSD mint/burn). // TODO verify
-    address constant LISTA_INTERACTION = 0x1A0D55a5fC2dA0C71eE0aD63D43308F45a16cBE0;
+    address constant LISTA_INTERACTION = 0x1A0D55A5FC2dA0C71ee0ad63D43308f45A16CBe0;
     /// @notice Lista Lending (slisBNB market). // TODO verify (placeholder).
-    address constant LISTA_LENDING = 0xaA0F8c41E3DC22a8C4d4Da6da1A1cAF048D7e4b5;
+    address constant LISTA_LENDING = 0xAa0F8C41E3DC22a8C4d4Da6Da1A1caF048D7e4B5;
     /// @notice Lista slisBNB StakeManager (BNB <-> slisBNB exchange-rate source).
     address constant LISTA_STAKE_MANAGER = 0x1adB950d8bB3dA4bE104211D5AB038628e477fE6;
 
@@ -94,7 +94,7 @@ library BSC {
     /// @notice PancakeSwap V3 Factory.
     address constant PCS_V3_FACTORY = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
     /// @notice PancakeSwap StableSwap Router. // TODO verify
-    address constant PCS_STABLE_ROUTER = 0xeC2D6Da16e9aDe97c6da8ad6E8C5e6dD7e9d4e8e;
+    address constant PCS_STABLE_ROUTER = 0xec2D6Da16E9ADE97C6da8ad6e8c5e6Dd7E9d4E8e;
     /// @notice CAKE governance / reward token.
     address constant CAKE = 0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82;
 
@@ -118,15 +118,15 @@ library BSC {
 
     // ---- Avalon / BTC-LSD ----
     /// @notice Avalon Lending Pool (BTC-LSD collateral markets). // TODO verify
-    address constant AVALON_LENDING_POOL = 0xf9278C7c4aEfaC4dDfd0d496f7a1c39Ca6BcA6d4;
+    address constant AVALON_LENDING_POOL = 0xf9278C7c4AEfAC4dDfd0D496f7a1C39cA6BCA6d4;
     /// @notice Solv solvBTC.
     address constant solvBTC = 0x4aae823a6a0b376De6A78e74eCC5b079d38cBCf7;
     /// @notice Solv solvBTC.BBN (Babylon-restaked).
-    address constant solvBTC_BBN = 0x1346b81C8E3FE38d6cFc7e1B1cdF92C6b0050BFE;
+    address constant solvBTC_BBN = 0x1346b81C8E3fE38d6Cfc7E1B1cdF92C6b0050BFE;
 
     // ---- Astherus ----
     /// @notice Astherus StakeManager (asBNB mint/burn). // TODO verify
-    address constant ASTHERUS_STAKE_MANAGER = 0xb0fd0bf41fbDd5C56db8FFa2Ad5D9F0b27c2B0a1;
+    address constant ASTHERUS_STAKE_MANAGER = 0xb0fd0bF41fbdD5C56DB8FFA2AD5D9F0B27c2b0A1;
 
     // ---- Bridges (LayerZero OFT) ----
     /// @notice USDT OFT Adapter (LayerZero V2). // TODO verify
