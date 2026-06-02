@@ -71,7 +71,7 @@ contract F06_08_BoldSpMintRecycleTest is StrategyBase {
 
     // ---- Tunables ----
     /// @dev Post-redeployment block.
-    uint256 constant FORK_BLOCK = 22_500_000;
+    uint256 constant FORK_BLOCK = 22_800_000;
 
     /// @dev Equity (wstETH).
     uint256 constant EQUITY_WSTETH = 50 ether;

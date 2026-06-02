@@ -93,7 +93,7 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
 
     /// @dev Post-redeployment block (Liquity v2 re-live on 2025-05-19).
     ///      ~22,500,000 is mid-June 2025 - first month with v2 trove activity.
-    uint256 constant FORK_BLOCK = 22_500_000;
+    uint256 constant FORK_BLOCK = 22_800_000;
 
     /// @dev DAI flashmint notional to deploy in the BOLD-buy leg.
     uint256 constant FLASH_DAI = 1_000_000e18;

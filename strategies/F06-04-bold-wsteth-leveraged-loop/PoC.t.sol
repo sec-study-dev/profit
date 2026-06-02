@@ -81,7 +81,7 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
 
     /// @dev Post-redeployment block (Liquity v2 re-live on 2025-05-19).
     ///      ~22,500,000 ~= mid-June 2025; first month with v2 trove activity.
-    uint256 constant FORK_BLOCK = 22_500_000;
+    uint256 constant FORK_BLOCK = 22_800_000;
 
     /// @dev wstETH equity tranche.
     uint256 constant EQUITY_WSTETH = 10 ether;
