@@ -7,7 +7,8 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {IRETH} from "src/interfaces/lst/IRETH.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
-import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
+import {IBalancerVault} from "src/interfaces/amm/IBalancerVault.sol";
+import {IUniswapV3Router} from "src/interfaces/amm/IUniswapV3Router.sol";
 import {ISDAI} from "src/interfaces/stable/ISDAI.sol";
 import {IPot} from "src/interfaces/cdp/IPot.sol";
 
@@ -19,8 +20,14 @@ import {IPot} from "src/interfaces/cdp/IPot.sol";
 contract F01_07_RethSparkDaiSdaiCarryTest is StrategyBase {
     uint256 constant FORK_BLOCK = 19_700_000;
 
-    // Curve rETH/ETH pool - same address used in F01-03; verified on Curve registry.
-    address constant LOCAL_CURVE_RETH_ETH_POOL = 0x0f3159811670c117c372428D4E69AC32325e4D0F;
+    // Balancer rETH/WETH MetaStable pool - deepest on-chain rETH venue
+    // (~8.7k rETH / 9.8k WETH at this block). Used for both the entry
+    // (WETH->rETH) and exit (rETH->WETH) legs so costs are realised.
+    bytes32 constant BAL_RETH_WETH_POOL_ID =
+        0x1e19cf2d73a72ef1332c882f20534b6519be0276000200000000000000000112;
+    // Uniswap v3 DAI/WETH 0.3% pool fee tier (deep, ~5M DAI) for the small
+    // WETH->DAI top-up that covers the borrow-vs-DSR carry shortfall on exit.
+    uint24 constant UNIV3_DAI_WETH_FEE = 3000;
 
     uint256 constant RATE_MODE_VARIABLE = 2;
 
@@ -53,14 +60,9 @@ contract F01_07_RethSparkDaiSdaiCarryTest is StrategyBase {
         emit log_named_uint("dsr_ray_per_sec", dsr);
         emit log_named_uint("spark_dai_var_rate_ray", daiRes.currentVariableBorrowRate);
 
-        // ---- 1. WETH -> rETH ----
-        // The Curve rETH/WETH pool (0x0f3159...) is an old-style pool with void
-        // return from exchange() (causes revert on uint256 decode) AND only ~31 WETH
-        // of liquidity (can't handle 100 ETH). Use deal() with Rocket Pool NAV instead.
-        uint256 rEthRate = IRETH(Mainnet.RETH).getExchangeRate(); // wei per rETH, 1e18 scale
-        uint256 rEthOut = (principal * 1e18) / rEthRate;
-        deal(Mainnet.RETH, address(this), rEthOut);
-        assertGt(rEthOut, 0, "rETH deal: zero amount");
+        // ---- 1. WETH -> rETH (real swap on Balancer; ~1% of pool, tiny slippage) ----
+        uint256 rEthOut = _swap(Mainnet.WETH, Mainnet.RETH, principal);
+        assertGt(rEthOut, 0, "rETH swap: zero amount");
 
         // ---- 2. Supply rETH to Spark ----
         // Sanity: confirm Spark has rETH listed (has a non-zero aToken).
@@ -108,6 +110,71 @@ contract F01_07_RethSparkDaiSdaiCarryTest is StrategyBase {
         emit log_named_uint("sdai_value_after_in_dai", sdaiAssetsAfter);
         emit log_named_uint("rETH_exchange_rate_e18", rEthRateFinal);
 
-        _endPnL("F01-07: rETH Spark DAI -> sDAI DSR carry");
+        // ---- 7. Unwind to tracked tokens for an honest round-trip PnL ----
+        // The rETH collateral and DAI debt live inside Spark and are invisible to
+        // StrategyBase's balance accounting; without unwinding, net_usd would just
+        // read -principal. Redeem sDAI, repay the DAI debt (topping up the small
+        // borrow-vs-DSR shortfall from collateral), withdraw all rETH, swap back to
+        // WETH. Everything then lands in tracked balances, so net_usd is the true
+        // result (entry+exit swap fees + Spark borrow interest - rETH yield - DSR).
+        sdai.redeem(IERC20(Mainnet.SDAI).balanceOf(address(this)), address(this), address(this));
+
+        address vDebtDai = spark.getReserveData(Mainnet.DAI).variableDebtTokenAddress;
+        IERC20(Mainnet.DAI).approve(Mainnet.SPARK_POOL, type(uint256).max);
+        // Repay as much as the sDAI proceeds cover (caps to debt if we have extra).
+        spark.repay(Mainnet.DAI, IERC20(Mainnet.DAI).balanceOf(address(this)), RATE_MODE_VARIABLE, address(this));
+
+        // Spark borrow rate slightly exceeds the DSR, so the sDAI proceeds fall a
+        // little short of the debt. Free a small slice of collateral, convert just
+        // enough WETH->DAI to cover the shortfall, and clear the debt. (Aave's
+        // withdraw(max) reverts while ANY debt remains, so we must zero it first.)
+        uint256 residual = IERC20(vDebtDai).balanceOf(address(this));
+        if (residual > 0) {
+            spark.withdraw(Mainnet.RETH, 2 ether, address(this)); // tiny vs ~90 rETH; HF stays high
+            _swap(Mainnet.RETH, Mainnet.WETH, IERC20(Mainnet.RETH).balanceOf(address(this)));
+            IERC20(Mainnet.WETH).approve(Mainnet.UNI_V3_ROUTER, type(uint256).max);
+            IUniswapV3Router(Mainnet.UNI_V3_ROUTER).exactOutputSingle(
+                IUniswapV3Router.ExactOutputSingleParams({
+                    tokenIn: Mainnet.WETH,
+                    tokenOut: Mainnet.DAI,
+                    fee: UNIV3_DAI_WETH_FEE,
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountOut: residual + 1e18, // +1 DAI margin for interest accrued during the tx
+                    amountInMaximum: type(uint256).max,
+                    sqrtPriceLimitX96: 0
+                })
+            );
+            spark.repay(Mainnet.DAI, type(uint256).max, RATE_MODE_VARIABLE, address(this));
+        }
+
+        // Debt is now zero: withdraw all rETH and swap back to WETH.
+        spark.withdraw(Mainnet.RETH, type(uint256).max, address(this));
+        uint256 rBal = IERC20(Mainnet.RETH).balanceOf(address(this));
+        if (rBal > 1) _swap(Mainnet.RETH, Mainnet.WETH, rBal);
+
+        _endPnL("F01-07: rETH Spark DAI -> sDAI DSR carry (round-trip)");
+    }
+
+    /// @dev rETH<->WETH single swap on the Balancer MetaStable pool, GIVEN_IN.
+    function _swap(address tokenIn, address tokenOut, uint256 amountIn) internal returns (uint256) {
+        IERC20(tokenIn).approve(Mainnet.BAL_VAULT, amountIn);
+        IBalancerVault.SingleSwap memory ss = IBalancerVault.SingleSwap({
+            poolId: BAL_RETH_WETH_POOL_ID,
+            kind: IBalancerVault.SwapKind.GIVEN_IN,
+            assetIn: tokenIn,
+            assetOut: tokenOut,
+            amount: amountIn,
+            userData: ""
+        });
+        IBalancerVault.FundManagement memory fm = IBalancerVault.FundManagement({
+            sender: address(this),
+            fromInternalBalance: false,
+            recipient: payable(address(this)),
+            toInternalBalance: false
+        });
+        // minOut 0: this is a measurement PoC and the realised price IS the result
+        // we want to surface; the Balancer pool itself protects against zero-out.
+        return IBalancerVault(Mainnet.BAL_VAULT).swap(ss, fm, 0, block.timestamp);
     }
 }
