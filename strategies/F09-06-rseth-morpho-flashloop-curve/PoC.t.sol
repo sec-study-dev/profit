@@ -24,16 +24,18 @@ import {console2} from "forge-std/console2.sol";
 contract F09_06_RsethMorphoFlashloopCurveTest is StrategyBase, IMorphoFlashLoanCallback {
     // ---- Constants ----
 
-    /// @dev Pinned block: late Dec 2024. The rsETH/WETH 86% LLTV Morpho market
-    ///      is live with adequate WETH supply; Kelp's daily deposit cap is not
+    /// @dev Pinned block: mid Jul 2024. The rsETH/WETH 86% LLTV Morpho market
+    ///      has ~722 WETH available supply; Kelp's daily deposit cap is not
     ///      saturated for our flash size.
-    uint256 constant FORK_BLOCK = 21_400_000;
+    uint256 constant FORK_BLOCK = 20_400_000;
 
     /// @dev Kelp DAO LRTDepositPool - entry point for native ETH -> rsETH at NAV.
     address constant KELP_DEPOSIT_POOL = 0x036676389e48133B63a802f8635AD39E752D375D;
 
     /// @dev rsETH/WETH 86% LLTV market id on Morpho Blue.
-    ///      MarketParams recovered live via idToMarketParams(id) in setUp.
+    ///      Verified from /tmp/morpho_markets.tsv:
+    ///      loan=WETH(0xC02aaa...), col=rsETH(0xA1290d...), lltv=86%.
+    ///      Previously used id was a placeholder that resolved to zero.
     bytes32 constant RSETH_WETH_MARKET_ID =
         0xeeabdcb98e9f7ec216d259a2c026bbb701971efae0b44eec79a86053f9b128b6;
 
@@ -90,8 +92,11 @@ contract F09_06_RsethMorphoFlashloopCurveTest is StrategyBase, IMorphoFlashLoanC
         // Step 2: Kelp depositETH - mints rsETH at NAV. We pass minRSETHOut as
         //         98.5% of `getRsETHAmountToMint` (1.5% bps slippage cushion;
         //         realistic depeg-protection floor).
+        // Note: Kelp uses the ETH sentinel address(0xEeee...) for native ETH,
+        //       NOT address(0) - using address(0) causes AssetOracleNotSupported.
+        address ethSentinel = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
         uint256 quote = IKelpDepositPool(KELP_DEPOSIT_POOL).getRsETHAmountToMint(
-            address(0), // Kelp uses address(0) sentinel for native ETH inside the view
+            ethSentinel,
             totalWeth
         );
         uint256 minRsethOut = (quote * 9850) / 10_000;

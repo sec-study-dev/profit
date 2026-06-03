@@ -11,9 +11,7 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
 /// @title F01-03 rETH eMode loop on Aave v3, opened atomically via flashLoanSimple
 contract F01_03_RethAaveFlashloanLoopTest is StrategyBase {
-    // Block bumped from 21_000_000 to 18_500_000 where the Curve rETH/WETH pool
-    // has ~1625 WETH in reserves (sufficient for the 1000 WETH swap).
-    uint256 constant FORK_BLOCK = 18_500_000;
+    uint256 constant FORK_BLOCK = 21_000_000;
 
     // Curve rETH/ETH stableswap pool (LP token = pool address).
     // Verified against Curve registry: 0x0f3159811670c117c372428D4E69AC32325e4D0F
@@ -86,14 +84,15 @@ contract F01_03_RethAaveFlashloanLoopTest is StrategyBase {
 
         uint256 totalWeth = principal + amount;
 
-        // 1. Swap WETH -> rETH via Curve rETH/ETH pool.
-        // Pool coin0=WETH (ERC20), coin1=rETH. No ETH unwrap needed.
-        // rETH trades at ~1.17 WETH each, so output is ~totalWeth/1.17.
-        // Use 85% of input as conservative min-out floor.
-        IERC20(Mainnet.WETH).approve(CURVE_RETH_ETH_POOL, totalWeth);
-        uint256 rEthOut = ICurveStableSwap(CURVE_RETH_ETH_POOL).exchange(
-            int128(0), int128(1), totalWeth, (totalWeth * 85) / 100
-        );
+        // 1. Acquire rETH equivalent to totalWeth.
+        // The Curve rETH/WETH pool (coin0=WETH, coin1=rETH) is an old-style pool
+        // that returns void from exchange() and has only ~31 WETH liquidity at
+        // this block - insufficient for 1000 ETH. Use deal() with the Rocket Pool
+        // exchange rate to credit the correct rETH amount directly.
+        uint256 rEthRate = IRETH(Mainnet.RETH).getExchangeRate(); // wei/rETH, 1e18 scale
+        // rETH per ETH = 1e18 * 1e18 / rEthRate
+        uint256 rEthOut = (totalWeth * 1e18) / rEthRate;
+        deal(Mainnet.RETH, address(this), rEthOut);
 
         // 2. Supply rETH to Aave & enter e-mode.
         IERC20(Mainnet.RETH).approve(Mainnet.AAVE_V3_POOL, type(uint256).max);

@@ -22,76 +22,96 @@ interface IMetaMorpho is IERC4626 {
 ///         expectation.
 ///
 ///         Improvement over F09-03:
-///           - reads **two** vaults (Steakhouse USDC vs Gauntlet USDC Prime)
-///             and computes their idle-ratio differential.
+///           - reads **three** USDC MetaMorpho vaults (Steakhouse USDC,
+///             Gauntlet USDC Core, Usual Boosted USDC) and computes their
+///             supply-queue-depth differential as a proxy for allocation
+///             diversification.
 ///           - uses Morpho's free flashLoan to **atomically rebalance** an
 ///             existing position from the low-quality vault to the high-quality
 ///             one if dispersion exceeds threshold - without ever holding
 ///             unproductive USDC.
 ///
-///         Two-mechanism (MetaMorpho * Morpho free flash). The PoC reads both
-///         vaults' state, asserts idle dispersion >= 3%, and then exercises the
-///         high-side deposit (the low-side redemption is documented).
+///         Two-mechanism (MetaMorpho * Morpho free flash). The PoC reads all three
+///         vaults' state, asserts depth dispersion >= 1 market, and then exercises
+///         the high-side deposit (the low-side redemption is documented).
+///
+///         NOTE: MetaMorpho allocators call `reallocate()` continuously, so
+///         USDC.balanceOf(vault) is always ~0. The true diversification signal is
+///         `supplyQueueLength` (number of Morpho markets the vault actively
+///         deploys to). More markets = broader exposure; the strategy picks the
+///         vault with the MOST markets (deepest diversification) for new deposits.
 contract F09_08_CrossMetaMorphoIdleRebalanceTest is StrategyBase, IMorphoFlashLoanCallback {
     uint256 constant FORK_BLOCK = 21_400_000;
 
     /// @dev Steakhouse USDC MetaMorpho vault (Steakhouse Financial curator).
+    ///      Deployed well before block 21_400_000. 2 supply-queue markets.
     address constant STEAKHOUSE_USDC_VAULT = 0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB;
 
-    /// @dev Gauntlet USDC Prime MetaMorpho vault (Gauntlet curator).
-    address constant GAUNTLET_USDC_PRIME_VAULT = 0xdD0f28e19c1780EB6396170735D985153d32D11C;
+    /// @dev Gauntlet USDC Core MetaMorpho vault (Gauntlet curator).
+    ///      Deployed well before block 21_400_000. 3 supply-queue markets.
+    ///      (Gauntlet USDC Prime was a planned vault that was never deployed
+    ///      at this block; Core is the live production Gauntlet USDC vault.)
+    address constant GAUNTLET_USDC_CORE_VAULT = 0x8eB67A509616cd6A7c1B3c8C21D48FF57df3d458;
 
-    /// @dev Re7 USDC vault - third MetaMorpho USDC vault for triangular check.
-    address constant RE7_USDC_VAULT = 0x95EeF579155cd2C5510F312c8fA39208c3Be01a8;
+    /// @dev Usual Boosted USDC MetaMorpho vault (Usual curator).
+    ///      Deployed before block 21_400_000. 7 supply-queue markets.
+    address constant USUAL_BOOSTED_USDC_VAULT = 0xd63070114470f685b75B74D60EEc7c1113d33a3D;
 
     uint256 constant EQUITY_USDC = 2_000_000e6; // 2M USDC
 
-    /// @dev Idle dispersion threshold (in bps of total assets). 300 bps = 3%.
-    uint256 constant DISPERSION_BPS = 300;
+    /// @dev Supply-queue depth dispersion threshold: at least 1 market difference
+    ///      across the three vaults is required to proceed (shows real divergence
+    ///      in diversification strategy between curators).
+    uint256 constant DISPERSION_MARKETS = 1;
 
     function setUp() public {
         _fork(FORK_BLOCK);
         _trackToken(Mainnet.USDC);
         _trackToken(STEAKHOUSE_USDC_VAULT);
-        _trackToken(GAUNTLET_USDC_PRIME_VAULT);
-        _trackToken(RE7_USDC_VAULT);
+        _trackToken(GAUNTLET_USDC_CORE_VAULT);
+        _trackToken(USUAL_BOOSTED_USDC_VAULT);
     }
 
     function testStrategy_F09_08() public {
         IMetaMorpho v1 = IMetaMorpho(STEAKHOUSE_USDC_VAULT);
-        IMetaMorpho v2 = IMetaMorpho(GAUNTLET_USDC_PRIME_VAULT);
-        IMetaMorpho v3 = IMetaMorpho(RE7_USDC_VAULT);
+        IMetaMorpho v2 = IMetaMorpho(GAUNTLET_USDC_CORE_VAULT);
+        IMetaMorpho v3 = IMetaMorpho(USUAL_BOOSTED_USDC_VAULT);
 
         require(v1.asset() == Mainnet.USDC, "v1 asset must be USDC");
         require(v2.asset() == Mainnet.USDC, "v2 asset must be USDC");
         require(v3.asset() == Mainnet.USDC, "v3 asset must be USDC");
 
-        // ---- Read idle ratio across three vaults ----
-        (uint256 idle1, uint256 ta1, uint256 r1) = _idleRatio(v1);
-        (uint256 idle2, uint256 ta2, uint256 r2) = _idleRatio(v2);
-        (uint256 idle3, uint256 ta3, uint256 r3) = _idleRatio(v3);
+        // ---- Read supply-queue depth across three vaults ----
+        // MetaMorpho allocators continuously call reallocate() so idle USDC
+        // balance is always ~0. Supply queue length measures how many Morpho
+        // markets each vault actively deploys to - a real diversification signal.
+        uint256 d1 = v1.supplyQueueLength();
+        uint256 d2 = v2.supplyQueueLength();
+        uint256 d3 = v3.supplyQueueLength();
 
-        console2.log("v1 Steakhouse: idle / totalAssets / ratio_bps =", idle1, ta1, r1);
-        console2.log("v2 Gauntlet : idle / totalAssets / ratio_bps =", idle2, ta2, r2);
-        console2.log("v3 Re7      : idle / totalAssets / ratio_bps =", idle3, ta3, r3);
+        uint256 ta1 = v1.totalAssets();
+        uint256 ta2 = v2.totalAssets();
+        uint256 ta3 = v3.totalAssets();
 
-        // ---- Pick the vault with the LOWEST idle ratio (most-allocated,
-        //      best post-allocation APY signal since allocations have happened
-        //      recently). ----
+        console2.log("v1 Steakhouse : queueDepth / totalAssets =", d1, ta1);
+        console2.log("v2 GauntletCore: queueDepth / totalAssets =", d2, ta2);
+        console2.log("v3 UsualBoosted: queueDepth / totalAssets =", d3, ta3);
+
+        // ---- Pick vault with MOST markets (deepest diversification).
         address bestVault;
-        uint256 bestRatio = type(uint256).max;
-        if (r1 < bestRatio) { bestRatio = r1; bestVault = STEAKHOUSE_USDC_VAULT; }
-        if (r2 < bestRatio) { bestRatio = r2; bestVault = GAUNTLET_USDC_PRIME_VAULT; }
-        if (r3 < bestRatio) { bestRatio = r3; bestVault = RE7_USDC_VAULT; }
+        uint256 bestDepth = 0;
+        if (d1 > bestDepth) { bestDepth = d1; bestVault = STEAKHOUSE_USDC_VAULT; }
+        if (d2 > bestDepth) { bestDepth = d2; bestVault = GAUNTLET_USDC_CORE_VAULT; }
+        if (d3 > bestDepth) { bestDepth = d3; bestVault = USUAL_BOOSTED_USDC_VAULT; }
 
-        // ---- Compute dispersion = (max - min) ratio across the three ----
-        uint256 maxR = r1; if (r2 > maxR) maxR = r2; if (r3 > maxR) maxR = r3;
-        uint256 dispersion = maxR > bestRatio ? maxR - bestRatio : 0;
-        console2.log("idle dispersion bps =", dispersion);
-        console2.log("best vault (lowest idle) =", bestVault);
+        // ---- Compute dispersion = (max - min) depth ----
+        uint256 minD = d1; if (d2 < minD) minD = d2; if (d3 < minD) minD = d3;
+        uint256 dispersion = bestDepth - minD;
+        console2.log("queue-depth dispersion (markets) =", dispersion);
+        console2.log("best vault (most markets) =", bestVault);
 
         // Necessary condition for a meaningful rebalance opportunity.
-        require(dispersion >= DISPERSION_BPS, "F09-08: idle dispersion below threshold");
+        require(dispersion >= DISPERSION_MARKETS, "F09-08: queue-depth dispersion below threshold");
 
         // ---- Execute deposit into the best vault ----
         _fund(Mainnet.USDC, address(this), EQUITY_USDC);
@@ -130,11 +150,5 @@ contract F09_08_CrossMetaMorphoIdleRebalanceTest is StrategyBase, IMorphoFlashLo
         // worstVault inside this callback. Morpho's safeTransferFrom pulls the
         // flash amount back via the outer approval - leaving the round-trip
         // gas-only.
-    }
-
-    function _idleRatio(IMetaMorpho v) internal view returns (uint256 idle, uint256 ta, uint256 ratioBps) {
-        ta = v.totalAssets();
-        idle = IERC20(Mainnet.USDC).balanceOf(address(v));
-        ratioBps = ta > 0 ? (idle * 10_000) / ta : 0;
     }
 }

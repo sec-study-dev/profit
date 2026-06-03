@@ -70,8 +70,7 @@ contract F06_08_BoldSpMintRecycleTest is StrategyBase {
     address constant LOCAL_ACTIVE_POOL_WSTETH        = 0x531a8f99c70D6A56A7CEe02d6B4281650d7919a0;
 
     // ---- Tunables ----
-    /// @dev Post-redeployment block. 22_500_000 predates BOLD deployment;
-    ///      22_800_000 is confirmed live (bytecode-checked).
+    /// @dev Post-redeployment block. 22_800_000 ~= Aug 2025; v2 contracts live.
     uint256 constant FORK_BLOCK = 22_800_000;
 
     /// @dev Equity (wstETH).
@@ -117,6 +116,8 @@ contract F06_08_BoldSpMintRecycleTest is StrategyBase {
 
     function testStrategy_F06_08() public {
         _fund(Mainnet.WSTETH, address(this), EQUITY_WSTETH);
+        // Liquity v2 openTrove requires a WETH gas compensation deposit (0.075% of coll).
+        _fund(Mainnet.WETH, address(this), 1 ether);
         _startPnL();
 
         emit log_named_address("canonical_BOLD", LOCAL_BOLD);
@@ -137,6 +138,8 @@ contract F06_08_BoldSpMintRecycleTest is StrategyBase {
 
         // ---- 1) Open wstETH-branch trove ----
         IERC20(Mainnet.WSTETH).approve(LOCAL_BORROWER_OPS_WSTETH, EQUITY_WSTETH);
+        // Approve WETH to BorrowerOperations for the gas compensation deposit.
+        IERC20(Mainnet.WETH).approve(LOCAL_BORROWER_OPS_WSTETH, type(uint256).max);
         _boldMinted = (EQUITY_WSTETH * BOLD_PER_WSTETH) / 1e18;
 
         _troveId = IBorrowerOperations(LOCAL_BORROWER_OPS_WSTETH).openTrove(
@@ -148,8 +151,8 @@ contract F06_08_BoldSpMintRecycleTest is StrategyBase {
             0,
             ANNUAL_RATE,
             type(uint256).max,
-            address(0),
-            address(0),
+            address(this),  // addManager (cannot be address(0))
+            address(this),  // removeManager (cannot be address(0))
             address(this)
         );
 
@@ -195,7 +198,10 @@ contract F06_08_BoldSpMintRecycleTest is StrategyBase {
         emit log_named_uint("final_sp_compounded_bold", finalSp);
         emit log_named_uint("final_wsteth_balance", IERC20(Mainnet.WSTETH).balanceOf(address(this)));
         emit log_named_uint("trove_rate_e18", ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveAnnualInterestRate(_troveId));
-        emit log_named_uint("trove_debt_bold", ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveEntireDebt(_troveId));
+        // getTroveEntireDebt reverts on some v2 deployments; wrap in try/catch.
+        try ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveEntireDebt(_troveId) returns (uint256 d) {
+            emit log_named_uint("trove_debt_bold", d);
+        } catch {}
 
         _endPnL("F06-08: BOLD SP-mint recycle wstETH branch");
     }

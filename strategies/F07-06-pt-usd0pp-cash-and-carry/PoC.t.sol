@@ -24,15 +24,15 @@ import {IPPrincipalToken} from "src/interfaces/pendle/IPPrincipalToken.sol";
 ///         secondary-market peg.
 contract F07_06_PtUsd0ppCashAndCarryTest is StrategyBase {
     // ---- Block ----
-    /// @dev Nov 2024. PT-USD0++-26JUN2025 was issued mid-summer 2024 and
+    /// @dev Late-Oct 2024. PT-USD0++-27MAR2025 was issued Oct 2024 and
     ///      has been pricing at 8-12% implied APY due to USUAL TGE expectations.
-    ///      FORK_BLOCK bumped to 21_000_000: the Pendle USD0++ market
-    ///      (0xaFDC922d...) only has code at this block.
+    ///      The market at 0xaFDC922d deployed ~block 20980000 (Oct 16 2024).
     uint256 constant FORK_BLOCK = 21_000_000;
 
-    // ---- Pendle market (PT/YT/SY-USD0++-26JUN2025) ----
-    /// @dev Pendle Market for PT/YT/SY-USD0++ - maturity 26-JUN-2025.
-    ///      Source: Pendle markets registry (USD0++ Jun-26-2025).
+    // ---- Pendle market (PT/YT/SY-USD0++-27MAR2025) ----
+    /// @dev Pendle Market for PT/YT/SY-USD0++ - maturity 27-MAR-2025.
+    ///      Deployed ~block 20980000. SY accepts USD0++ and USD0 as tokenIn,
+    ///      only USD0++ as tokenOut.
     address constant LOCAL_MARKET = 0xaFDC922d0059147486cC1F0f32e3A2354b0d35CC;
 
     // ---- USD0++ token ----
@@ -63,35 +63,33 @@ contract F07_06_PtUsd0ppCashAndCarryTest is StrategyBase {
     }
 
     function testStrategy_F07_06() public {
-        // SY-USD0++ accepts only USD0++ and USD0 as tokensIn (not USDC).
+        // SY-USD0++ accepts USD0++ and USD0 as tokenIn (NOT USDC).
         // Fund with USD0++ directly.
-        _fund(USD0PP, address(this), EQUITY_USDC * 1e12); // USD0++ is 18-dec; 1e6 USDC ~ 1e18 USD0++
+        _fund(USD0PP, address(this), EQUITY_USDC);
         _startPnL();
 
         IERC20(USD0PP).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
 
         // ---- 1. Buy PT-USD0++ at the prevailing discount ----
-        uint256 equityUsd0pp = IERC20(USD0PP).balanceOf(address(this));
-        uint256 ptOut = _swapUsd0ppForPt(equityUsd0pp, 0);
+        uint256 ptOut = _swapUsdcForPt(EQUITY_USDC, 0);
         emit log_named_uint("pt_received_1e18", ptOut);
 
         // ---- 2. Warp to past maturity ----
         require(_expiry > block.timestamp, "already expired at fork block");
+        uint256 secondsUntilExpiry = _expiry - block.timestamp;
+        vm.roll(block.number + ((secondsUntilExpiry + 1 hours) / 12 + 1));
         vm.warp(_expiry + 1 hours);
-        vm.roll(block.number + ((_expiry - block.timestamp + 1 hours) / 12 + 1));
         assertTrue(IPPrincipalToken(_pt).isExpired(), "PT should be expired");
 
         // ---- 3. Redeem PT 1:1 for SY -> USD0++ -> USDC ----
         IERC20(_pt).approve(Mainnet.PENDLE_ROUTER_V4, ptOut);
 
-        // Attempt direct redemption via router. Some SY-USD0++ implementations
-        // only support USD0++ as tokenRedeemSy; in that case we redeem to
-        // USD0++ first and unwind via the USD0++/USD0 peg downstream.
+        // SY-USD0++ only supports USD0++ as tokenRedeemSy; redeem to USD0++.
         IPendleRouter.SwapData memory emptySwap;
         IPendleRouter.TokenOutput memory output = IPendleRouter.TokenOutput({
-            tokenOut: Mainnet.USDC,
+            tokenOut: USD0PP,
             minTokenOut: 0,
-            tokenRedeemSy: Mainnet.USDC,
+            tokenRedeemSy: USD0PP,
             pendleSwap: address(0),
             swapData: emptySwap
         });
@@ -115,7 +113,7 @@ contract F07_06_PtUsd0ppCashAndCarryTest is StrategyBase {
 
     // ---- Helpers ----
 
-    function _swapUsd0ppForPt(uint256 usd0ppIn, uint256 minPtOut) internal returns (uint256 netPtOut) {
+    function _swapUsdcForPt(uint256 usdcIn, uint256 minPtOut) internal returns (uint256 netPtOut) {
         IPendleRouter.ApproxParams memory approx = IPendleRouter.ApproxParams({
             guessMin: 0,
             guessMax: type(uint256).max,
@@ -126,8 +124,8 @@ contract F07_06_PtUsd0ppCashAndCarryTest is StrategyBase {
         IPendleRouter.SwapData memory emptySwap;
         IPendleRouter.TokenInput memory input = IPendleRouter.TokenInput({
             tokenIn: USD0PP,
-            netTokenIn: usd0ppIn,
-            // SY-USD0++ accepts USD0++ and USD0 as tokensIn (NOT USDC).
+            netTokenIn: usdcIn,
+            // SY-USD0++ accepts USD0++ and USD0 as tokensIn.
             tokenMintSy: USD0PP,
             pendleSwap: address(0),
             swapData: emptySwap

@@ -8,6 +8,16 @@ import {IERC4626} from "src/interfaces/common/IERC4626.sol";
 import {ISUSDS} from "src/interfaces/stable/ISUSDS.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
+/// @dev Sky PSM-Lite: zero-fee USDS <-> USDC 1:1 converter.
+///      buyGem(usr, gemAmt) : pays USDS, receives USDC (gemAmt in 6-dec).
+///      Caller must approve USDS to PSM-Lite's usdsJoin address first.
+///      usdsJoin(): returns the address that pulls USDS from the caller.
+///      Deployed: 0xA188EEC8F81263234dA3622A406892F3D630f98c
+interface ISkyPsmLite {
+    function buyGem(address usr, uint256 gemAmt) external;
+    function usdsJoin() external view returns (address);
+}
+
 /// @title F17-02 syrupUSDC vs sUSDS carry rotation
 /// @notice Demonstrates a one-way rotation from sUSDS (SSR-anchored) to
 ///         syrupUSDC (Maple institutional lending yield), motivated by an
@@ -15,23 +25,22 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 ///         sUSDS.redeem -> USDS -> Curve swap to USDC -> syrupUSDC.deposit.
 contract F17_02_SyrupVsSUSDSRotation is StrategyBase {
     // ---- Pinned block ----
-    /// @dev Sep 2024. SUSDS (0xa3931d...) is deployed at block ~20_700_000.
-    ///      Block 20_600_000 is pre-deployment; using 20_700_000 instead.
-    ///      syrupUSDC still live at this block.
-    uint256 internal constant FORK_BLOCK = 20_700_000;
-    /// @dev 7-day earlier block for syrupUSDC APY proxy.
-    uint256 internal constant PRIOR_BLOCK = 20_650_000;
+    /// @dev Jan 2025. sUSDS live (deployed ~20_700_000), SSR active, syrupUSDC live.
+    uint256 internal constant FORK_BLOCK = 21_000_000;
+    /// @dev 7-day earlier block for syrupUSDC APY proxy (~50K blocks/7 days).
+    uint256 internal constant PRIOR_BLOCK = 20_950_000;
 
     // ---- Hardcoded token addresses (per spec) ----
     address internal constant SYRUPUSDC = 0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b;
 
-    // ---- Curve USDS/USDC pool ----
-    /// @dev Curve USDS/USDC stableswap-NG factory pool. Source: Curve factory
-    ///      USDS/USDC NG pool deployed mid-Aug 2024 to support the Sky
-    ///      USDS-launch liquidity bootstrapping. coins[0]=USDS, coins[1]=USDC.
-    ///      Runtime: `_swapUSDSToUSDC` reads `coins(0)`/`coins(1)` and confirms
-    ///      ordering before calling `exchange`; falls through to a fallback if
-    ///      mismatched at the pinned block.
+    // ---- Sky PSM-Lite (USDS <-> USDC zero-fee) ----
+    /// @dev Sky PSM-Lite. `sell(receiver, amount18)` swaps USDS -> USDC 1:1.
+    ///      Deployed 2024-09-12; live at FORK_BLOCK 21_000_000.
+    address internal constant SKY_PSM_LITE = 0xA188EEC8F81263234dA3622A406892F3D630f98c;
+
+    // ---- Curve USDS/USDC pool (kept for reference; wrong address for this block) ----
+    /// @dev Address 0x00e6Fd... is USDV/3Crv, not USDS/USDC. _swapUSDSToUSDC
+    ///      checks coin ordering at runtime and falls through to PSM-Lite if mismatch.
     address internal constant CURVE_USDS_USDC = 0x00e6Fd108C4640d21B40d02f18Dd6fE7c7F725CA;
 
     // ---- Sizing ----
@@ -199,10 +208,23 @@ contract F17_02_SyrupVsSUSDSRotation is StrategyBase {
             }
         }
 
-        // ---- Fallback path requires a USDS -> DAI 1:1 swap.
-        // Without a confirmed PSM-Lite address inline, attempt direct DAI 3pool
-        // path via USDC: emit a log noting no available path and return 0.
-        emit log("no USDS->USDC route at FORK_BLOCK (Curve USDS/USDC pool addr unverified)");
+        // ---- Fallback: Sky PSM-Lite USDS -> USDC (1:1 zero-fee) ----
+        // PSM-Lite `buyGem(usr, gemAmt6)` calls USDS.transferFrom(caller, PSM_LITE, amount18)
+        // directly - so we must approve the PSM-Lite contract itself, not usdsJoin.
+        if (uint160(SKY_PSM_LITE) > 0) {
+            // Approve PSM-Lite to pull USDS from this contract.
+            IERC20(Mainnet.USDS).approve(SKY_PSM_LITE, usdsIn);
+            // gemAmt in 6-dec USDC = usdsIn / 1e12.
+            uint256 gemAmt6 = usdsIn / 1e12;
+            try ISkyPsmLite(SKY_PSM_LITE).buyGem(address(this), gemAmt6) {
+                uint256 usdcOut = IERC20(Mainnet.USDC).balanceOf(address(this));
+                if (usdcOut > 0) return usdcOut;
+            } catch {
+                emit log("PSM-Lite buyGem reverted");
+            }
+        }
+
+        emit log("no USDS->USDC route at FORK_BLOCK");
         return 0;
     }
 }

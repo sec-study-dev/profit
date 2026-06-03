@@ -42,9 +42,11 @@ contract F18_01_DssFlashCrvUsdPegKeeperArb is StrategyBase, IERC3156FlashBorrowe
     ///      registry. (Deployment: PegKeeperV2 for crvUSD/USDC).
     address constant LOCAL_PEGKEEPER_USDC = 0x9201da0D97CaAAff53f01B2fB56767C7072dE340;
 
-    /// @dev int128 indices for the NG pool.
-    int128 constant IDX_CRVUSD = 0;
-    int128 constant IDX_USDC = 1;
+    /// @dev int128 indices for the pool at FORK_BLOCK 20_500_000.
+    ///      coins[0]=USDC, coins[1]=crvUSD at this block (ordering reversed
+    ///      from the "crvUSD/USDC" naming convention).
+    int128 constant IDX_CRVUSD = 1;
+    int128 constant IDX_USDC = 0;
 
     /// @dev Probe notional: 50M DAI (= 50M USDC equiv via PSM).
     uint256 constant FLASH_DAI = 50_000_000e18;
@@ -63,10 +65,12 @@ contract F18_01_DssFlashCrvUsdPegKeeperArb is StrategyBase, IERC3156FlashBorrowe
     function testStrategy_F18_01() public {
         IDssFlash flash = IDssFlash(Mainnet.DSS_FLASH);
 
-        // ---- Pre-flight: cap and toll checks ----
-        if (flash.toll() != 0) {
-            console2.log("DSS toll non-zero, abort");
-            _endPnL("F18-01: DSS toll non-zero (no-op)");
+        // ---- Pre-flight: cap and fee checks ----
+        // `toll()` was removed from the newer DSS Flash contract; use flashFee() instead.
+        uint256 flashFeeAmt = flash.flashFee(Mainnet.DAI, FLASH_DAI);
+        if (flashFeeAmt != 0) {
+            console2.log("DSS flashFee non-zero, abort");
+            _endPnL("F18-01: DSS flashFee non-zero (no-op)");
             return;
         }
         if (flash.maxFlashLoan(Mainnet.DAI) < FLASH_DAI) {
@@ -74,9 +78,10 @@ contract F18_01_DssFlashCrvUsdPegKeeperArb is StrategyBase, IERC3156FlashBorrowe
         }
 
         // ---- Verify Curve coin ordering ----
+        // At FORK_BLOCK 20_500_000: coins[0]=USDC, coins[1]=crvUSD.
         address c0 = ICurveStableSwap(LOCAL_CURVE_CRVUSD_USDC).coins(0);
         address c1 = ICurveStableSwap(LOCAL_CURVE_CRVUSD_USDC).coins(1);
-        require(c0 == Mainnet.CRVUSD && c1 == Mainnet.USDC, "F18-01: pool coin ordering changed");
+        require(c0 == Mainnet.USDC && c1 == Mainnet.CRVUSD, "F18-01: pool coin ordering changed");
 
         // ---- Sample PegKeeper readiness ----
         uint256 estProfit;

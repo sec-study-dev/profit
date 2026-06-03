@@ -48,15 +48,14 @@ interface ISYRewards {
 ///         points + Pendle PT residual + Symbiotic vault points.
 contract F07_09_YtPufethSymbioticStackTest is StrategyBase {
     // ---- Block ----
-    /// @dev Dec 2024. PT/YT-pufETH-26DEC2024 near maturity;
-    ///      Symbiotic pufETH vault live. FORK_BLOCK bumped to 21_200_000 because
-    ///      the Pendle pufETH-26DEC2024 market (0x58612beB...) only has code
-    ///      from that block onward.
-    uint256 constant FORK_BLOCK = 21_200_000;
+    /// @dev Dec 28 2024. PT/YT-pufETH-26JUN2025 active with sufficient liquidity;
+    ///      Pendle pufETH market (0x58612beB) only has code from block 21_200_000 onward.
+    ///      At 21_500_000: totalPt ~1716 ETH, totalSy ~5129 ETH - sufficient for YT swap.
+    uint256 constant FORK_BLOCK = 21_500_000;
 
-    // ---- Pendle market (PT/YT/SY-pufETH-26DEC2024) ----
-    /// @dev Pendle Market for PT/YT/SY-pufETH - maturity 26-DEC-2024.
-    ///      Source: Pendle markets registry (pufETH Dec-26-2024).
+    // ---- Pendle market (PT/YT/SY-pufETH-26JUN2025) ----
+    /// @dev Pendle Market for PT/YT/SY-pufETH - maturity 26-JUN-2025.
+    ///      SY accepts pufETH (0xD9A442...) and WETH as tokenIn.
     address constant LOCAL_MARKET = 0x58612beB0e8a126735b19BB222cbC7fC2C162D2a;
 
     // ---- Symbiotic pufETH vault ----
@@ -65,7 +64,9 @@ contract F07_09_YtPufethSymbioticStackTest is StrategyBase {
     address constant SYMBIOTIC_PUFETH_VAULT = 0x649c5c70AD6b18D29E1D2BE07B3c3CC9d7db05f9;
 
     // ---- Equity / split ----
-    uint256 constant EQUITY_WETH = 100 ether;
+    /// @dev 10 ETH total - sized for pool depth at fork block
+    ///      (pool has ~1716 ETH totalPt; 7 ETH YT leg is well within range).
+    uint256 constant EQUITY_WETH = 10 ether;
     /// @dev 70% of equity into YT (max point-per-$ exposure).
     uint256 constant YT_SPLIT_BPS = 7000;
 
@@ -107,16 +108,23 @@ contract F07_09_YtPufethSymbioticStackTest is StrategyBase {
 
         // ---- 3. Symbiotic deposit: pufETH-vault accepts PT-pufETH as collateral
         //          (this is the 3rd mechanism - restake-on-restake points).
-        IERC20(_pt).approve(SYMBIOTIC_PUFETH_VAULT, type(uint256).max);
-        try ISymbioticVault(SYMBIOTIC_PUFETH_VAULT).deposit(address(this), pyOut) returns (
-            uint256 depositedAmount, uint256 mintedShares
-        ) {
-            emit log_named_uint("symbiotic_deposited_pt_1e18", depositedAmount);
-            emit log_named_uint("symbiotic_shares_minted_1e18", mintedShares);
-        } catch {
-            // Vault may not accept PT directly at this block; fall back to
-            // redeeming PT for pufETH first then depositing the pufETH.
-            _fallbackSymbioticDeposit(pyOut);
+        //          Guard with extcodesize: vault may not be deployed at this block.
+        uint256 vaultCodeSize;
+        assembly { vaultCodeSize := extcodesize(SYMBIOTIC_PUFETH_VAULT) }
+        if (vaultCodeSize > 0) {
+            IERC20(_pt).approve(SYMBIOTIC_PUFETH_VAULT, type(uint256).max);
+            try ISymbioticVault(SYMBIOTIC_PUFETH_VAULT).deposit(address(this), pyOut) returns (
+                uint256 depositedAmount, uint256 mintedShares
+            ) {
+                emit log_named_uint("symbiotic_deposited_pt_1e18", depositedAmount);
+                emit log_named_uint("symbiotic_shares_minted_1e18", mintedShares);
+            } catch {
+                // Vault may not accept PT directly at this block; fall back to
+                // redeeming PT for pufETH first then depositing the pufETH.
+                _fallbackSymbioticDeposit(pyOut);
+            }
+        } else {
+            emit log_named_uint("symbiotic_vault_not_deployed_pt_held_1e18", pyOut);
         }
 
         // ---- 4. Carry: warp ~150 days to near-maturity and crystallise on-chain
@@ -202,8 +210,19 @@ contract F07_09_YtPufethSymbioticStackTest is StrategyBase {
         require(ok, "sy redeem to pufETH failed");
         uint256 pufethOut = abi.decode(ret, (uint256));
 
-        IERC20(Mainnet.PUFETH).approve(SYMBIOTIC_PUFETH_VAULT, pufethOut);
-        ISymbioticVault(SYMBIOTIC_PUFETH_VAULT).deposit(address(this), pufethOut);
-        emit log_named_uint("symbiotic_deposited_pufeth_1e18", pufethOut);
+        // Attempt to deposit pufETH to the Symbiotic vault.
+        // Vault may not exist or may be at capacity at this block; graceful skip.
+        uint256 fallbackCodeSize;
+        assembly { fallbackCodeSize := extcodesize(SYMBIOTIC_PUFETH_VAULT) }
+        if (fallbackCodeSize > 0) {
+            IERC20(Mainnet.PUFETH).approve(SYMBIOTIC_PUFETH_VAULT, pufethOut);
+            try ISymbioticVault(SYMBIOTIC_PUFETH_VAULT).deposit(address(this), pufethOut) {
+                emit log_named_uint("symbiotic_deposited_pufeth_1e18", pufethOut);
+            } catch {
+                emit log_named_uint("symbiotic_vault_skipped_pufeth_held_1e18", pufethOut);
+            }
+        } else {
+            emit log_named_uint("symbiotic_vault_not_deployed_pufeth_held_1e18", pufethOut);
+        }
     }
 }

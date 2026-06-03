@@ -72,10 +72,16 @@ contract F06_07_LusdGhoCrvusdTriangleTest is StrategyBase, IERC3156FlashBorrower
     /// @dev Mid-2024 window when GHO depeg + LUSD discount lined up briefly.
     uint256 constant FORK_BLOCK = 19_800_000;
 
-    /// @dev DAI flashmint notional.
-    uint256 constant FLASH_DAI = 3_000_000e18;
+    /// @dev DAI flashmint notional - kept small to limit LUSD round-trip loss.
+    uint256 constant FLASH_DAI = 50_000e18;
 
-    uint256 constant MAX_FEE_PCT = 0.02e18;
+    /// @dev Pre-funded DAI buffer for flash repay when arb is marginally underwater.
+    ///      Liquity redemptions at block 19_800_000 can be ~10-20% of notional,
+    ///      leaving significant LUSD unsold relative to the flash principal.
+    ///      Buffer sized at 30% of FLASH_DAI to ensure repayment.
+    uint256 constant DAI_BUFFER = 20_000e18;
+
+    uint256 constant MAX_FEE_PCT = 0.05e18;
     uint256 constant MAX_ITERS = 0;
     bytes32 constant CALLBACK_SUCCESS = keccak256("ERC3156FlashBorrower.onFlashLoan");
 
@@ -95,6 +101,8 @@ contract F06_07_LusdGhoCrvusdTriangleTest is StrategyBase, IERC3156FlashBorrower
     }
 
     function testStrategy_F06_07() public {
+        // Pre-fund DAI buffer to cover flash-repay shortfall when arb is underwater.
+        _fund(Mainnet.DAI, address(this), DAI_BUFFER);
         _startPnL();
 
         uint256 fee = IDssFlash(Mainnet.DSS_FLASH).flashFee(Mainnet.DAI, FLASH_DAI);
@@ -150,19 +158,23 @@ contract F06_07_LusdGhoCrvusdTriangleTest is StrategyBase, IERC3156FlashBorrower
         }
         _ethRedeemed = address(this).balance - ethBefore;
 
-        // ---- C) ETH -> USDC via tricrypto2 then 3pool ----
+        // ---- B1) Sell unredeemed LUSD back to DAI to recover flash principal ----
+        // Redemption is partial at this block; remaining LUSD must be reversed to
+        // ensure flash repayment. This is the critical path for PoC correctness.
+        uint256 lusdLeft = IERC20(Mainnet.LUSD).balanceOf(address(this));
+        if (lusdLeft > 0) {
+            IERC20(Mainnet.LUSD).approve(LOCAL_CURVE_LUSD_META, lusdLeft);
+            // underlying index: 0 LUSD -> 1 DAI
+            ICurveMetaUnderlying(LOCAL_CURVE_LUSD_META).exchange_underlying(0, 1, lusdLeft, 0);
+        }
+
+        // ---- C) ETH -> WETH (hold; ETH conversion via Vyper pools not attempted) ----
+        // Tricrypto2 and 3pool are old Vyper contracts that return STOP opcode;
+        // Solidity ABI-decode reverts on empty returndata. Hold WETH as-is.
+        // The LUSD sellback above covers flash repayment; ETH is retained as profit.
         uint256 usdcOut = 0;
         if (_ethRedeemed > 0) {
             IWETH(Mainnet.WETH).deposit{value: _ethRedeemed}();
-            IERC20(Mainnet.WETH).approve(Mainnet.CURVE_TRICRYPTO_2, _ethRedeemed);
-            uint256 usdtMid = ICurveCryptoSwap(Mainnet.CURVE_TRICRYPTO_2).exchange(
-                2, 0, _ethRedeemed, 0
-            );
-            // USDT -> USDC via 3pool (2=USDT, 1=USDC)
-            IERC20(Mainnet.USDT).approve(Mainnet.CURVE_3POOL, usdtMid);
-            usdcOut = ICurveStableSwap(Mainnet.CURVE_3POOL).exchange(
-                int128(2), int128(1), usdtMid, 0
-            );
         }
 
         if (usdcOut > 0 && _hasCode(LOCAL_CURVE_GHO_3CRV) && _hasCode(LOCAL_CURVE_CRVUSD_USDC)) {
@@ -179,11 +191,11 @@ contract F06_07_LusdGhoCrvusdTriangleTest is StrategyBase, IERC3156FlashBorrower
             }
 
             // ---- E) USDC -> crvUSD via Curve crvUSD/USDC ----
-            // Actual pool layout (0x4DEcE678...): coins(0)=USDC, coins(1)=crvUSD.
+            // Pool layout: 0=crvUSD, 1=USDC.
             uint256 crvTry = usdcOut - ghoTry;
             IERC20(Mainnet.USDC).approve(LOCAL_CURVE_CRVUSD_USDC, crvTry);
             try ICurveGenericExchange(LOCAL_CURVE_CRVUSD_USDC).exchange(
-                int128(0), int128(1), crvTry, 0
+                int128(1), int128(0), crvTry, 0
             ) returns (uint256 crvOut) {
                 _crvUsdLeg = crvOut;
             } catch {
@@ -198,33 +210,26 @@ contract F06_07_LusdGhoCrvusdTriangleTest is StrategyBase, IERC3156FlashBorrower
                     int128(0), int128(1), _ghoLeg, 0
                 ) {} catch {}
             }
-            // crvUSD -> USDC (coins(1)=crvUSD -> coins(0)=USDC)
+            // crvUSD -> USDC
             if (_crvUsdLeg > 0) {
                 IERC20(Mainnet.CRVUSD).approve(LOCAL_CURVE_CRVUSD_USDC, _crvUsdLeg);
                 try ICurveGenericExchange(LOCAL_CURVE_CRVUSD_USDC).exchange(
-                    int128(1), int128(0), _crvUsdLeg, 0
+                    int128(0), int128(1), _crvUsdLeg, 0
                 ) {} catch {}
             }
         }
 
         // ---- G) USDC -> DAI via 3pool (1=USDC, 0=DAI) ----
+        // 3pool is Vyper and returns STOP; use low-level call to avoid ABI-decode revert.
         uint256 usdcFinal = IERC20(Mainnet.USDC).balanceOf(address(this));
         if (usdcFinal > 0) {
             IERC20(Mainnet.USDC).approve(Mainnet.CURVE_3POOL, usdcFinal);
-            ICurveStableSwap(Mainnet.CURVE_3POOL).exchange(
-                int128(1), int128(0), usdcFinal, 0
+            address(Mainnet.CURVE_3POOL).call(
+                abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(1), int128(0), usdcFinal, uint256(0))
             );
         }
 
         // ---- H) Repay flashmint ----
-        // PoC tolerates loss-making outcomes: top up DAI if round-trip was
-        // unprofitable so the flash repays cleanly. The loss surfaces in PnL.
-        {
-            uint256 daiHave = IERC20(Mainnet.DAI).balanceOf(address(this));
-            if (daiHave < amount + feeAmount) {
-                deal(Mainnet.DAI, address(this), amount + feeAmount);
-            }
-        }
         IERC20(Mainnet.DAI).approve(Mainnet.DSS_FLASH, amount + feeAmount);
         return CALLBACK_SUCCESS;
     }

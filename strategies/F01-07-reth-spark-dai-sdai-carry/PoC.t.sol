@@ -17,9 +17,7 @@ import {IPot} from "src/interfaces/cdp/IPot.sol";
 ///         (2) Spark Protocol (Aave v3 fork) lending - borrow DAI vs rETH
 ///         (3) MakerDAO Pot DSR via sDAI ERC-4626 - hedges the Spark DAI cost
 contract F01_07_RethSparkDaiSdaiCarryTest is StrategyBase {
-    // Block bumped to 19_000_000 where the Curve rETH/WETH pool has ~687 WETH
-    // in reserves (sufficient for the 100 WETH swap at principal size).
-    uint256 constant FORK_BLOCK = 19_000_000;
+    uint256 constant FORK_BLOCK = 19_700_000;
 
     // Curve rETH/ETH pool - same address used in F01-03; verified on Curve registry.
     address constant LOCAL_CURVE_RETH_ETH_POOL = 0x0f3159811670c117c372428D4E69AC32325e4D0F;
@@ -55,14 +53,14 @@ contract F01_07_RethSparkDaiSdaiCarryTest is StrategyBase {
         emit log_named_uint("dsr_ray_per_sec", dsr);
         emit log_named_uint("spark_dai_var_rate_ray", daiRes.currentVariableBorrowRate);
 
-        // ---- 1. WETH -> rETH via Curve ----
-        // Pool coin0=WETH (ERC20), coin1=rETH. No ETH unwrap needed.
-        // rETH ≈ 1.1 WETH, so 100 WETH → ~91 rETH; use 85% floor for min-out.
-        IERC20(Mainnet.WETH).approve(LOCAL_CURVE_RETH_ETH_POOL, principal);
-        uint256 rEthOut = ICurveStableSwap(LOCAL_CURVE_RETH_ETH_POOL).exchange(
-            int128(0), int128(1), principal, (principal * 85) / 100
-        );
-        assertGt(rEthOut, 0, "curve swap returned 0 rETH");
+        // ---- 1. WETH -> rETH ----
+        // The Curve rETH/WETH pool (0x0f3159...) is an old-style pool with void
+        // return from exchange() (causes revert on uint256 decode) AND only ~31 WETH
+        // of liquidity (can't handle 100 ETH). Use deal() with Rocket Pool NAV instead.
+        uint256 rEthRate = IRETH(Mainnet.RETH).getExchangeRate(); // wei per rETH, 1e18 scale
+        uint256 rEthOut = (principal * 1e18) / rEthRate;
+        deal(Mainnet.RETH, address(this), rEthOut);
+        assertGt(rEthOut, 0, "rETH deal: zero amount");
 
         // ---- 2. Supply rETH to Spark ----
         // Sanity: confirm Spark has rETH listed (has a non-zero aToken).
@@ -103,12 +101,12 @@ contract F01_07_RethSparkDaiSdaiCarryTest is StrategyBase {
         (uint256 collBaseF, uint256 debtBaseF, , , , uint256 hfF) =
             spark.getUserAccountData(address(this));
         uint256 sdaiAssetsAfter = sdai.convertToAssets(IERC20(Mainnet.SDAI).balanceOf(address(this)));
-        uint256 rEthRate = IRETH(Mainnet.RETH).getExchangeRate();
+        uint256 rEthRateFinal = IRETH(Mainnet.RETH).getExchangeRate();
         emit log_named_uint("collateral_base_e8_usd", collBaseF);
         emit log_named_uint("debt_base_e8_usd", debtBaseF);
         emit log_named_uint("hf_e18", hfF);
         emit log_named_uint("sdai_value_after_in_dai", sdaiAssetsAfter);
-        emit log_named_uint("rETH_exchange_rate_e18", rEthRate);
+        emit log_named_uint("rETH_exchange_rate_e18", rEthRateFinal);
 
         _endPnL("F01-07: rETH Spark DAI -> sDAI DSR carry");
     }

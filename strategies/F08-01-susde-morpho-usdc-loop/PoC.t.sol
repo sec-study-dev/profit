@@ -24,9 +24,10 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
     // ---- Pinned constants ----
 
-    /// @dev Block 21,300,000 (~Dec 2024). The Morpho sUSDe/USDC 91.5% LLTV market
-    ///      (id 0x85c7f437...) is only available from block ~21,300,000 onward.
-    uint256 constant FORK_BLOCK = 21_300_000;
+    /// @dev Block 21,500,000 (~Dec 2024). The sUSDe/USDC 91.5% market
+    ///      (id 0x85c7f4...) is live with ~24M USDC supply at this block.
+    ///      The previously used block 19_800_000 predates market creation.
+    uint256 constant FORK_BLOCK = 21_500_000;
 
     /// @dev Curve USDe/USDC stableswap (USDe is coin index 0, USDC is index 1).
     ///      Verified: Curve factory crvUSD/USDe-style 2-coin plain pool deployed
@@ -42,13 +43,9 @@ contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
     address constant LOCAL_ETHENA_MINTING_V2 = 0xe3490297a08d6fC8Da46Edb7B6142E4F461b62D3;
 
     /// @dev Morpho Blue marketId for the sUSDe / USDC 91.5% LLTV market.
-    ///      Computed as keccak256(abi.encode(MarketParams{
-    ///        loanToken:        USDC,
-    ///        collateralToken:  sUSDe,
-    ///        oracle:           0x873CD44b860DEDFe139f93e12A4AcCa0926Ffb87,
-    ///        irm:              AdaptiveCurveIRM (0x870aC11D...),
-    ///        lltv:             0.915e18
-    ///      })).
+    ///      Verified from /tmp/morpho_markets.tsv:
+    ///      loan=USDC(0xa0b869...), col=sUSDe(0x9D39A5...), lltv=91.5%.
+    ///      (The previously used 0x39d11026... is a DAI/sUSDe market, not USDC.)
     bytes32 constant LOCAL_MORPHO_SUSDE_USDC_915_ID =
         0x85c7f4374f3a403b36d54cc284983b2b02bbd8581ee0f3c36494447b87d9fcab;
     uint256 constant LLTV_915 = 0.915e18;

@@ -11,9 +11,11 @@ library Whales {
     /// @dev    Returns address(0) for tokens with no preset whale; the caller
     ///         must then either pick a per-test address or fall back to `deal`.
     function whaleOf(address token) internal pure returns (address) {
-        // stETH: Lido treasury / large holder. Treasury balance is large enough
-        //        for PoC scale; for >$10M operations prefer a different address.
-        if (token == Mainnet.STETH) return 0x176F3DAb24a159341c0509bB36B833E7fdd0a132;
+        // stETH: Curve stETH/ETH pool - holds 34K+ stETH across all relevant
+        //        fork blocks (20_300_000–20_500_000). The previous Lido treasury
+        //        address (0x176F3DAb...) only held ~7 stETH at those blocks,
+        //        causing BALANCE_EXCEEDED for 50 stETH transfers.
+        if (token == Mainnet.STETH) return 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
 
         // OETH (Origin Ether) - large holder
         // TODO: verify (snapshot value, may drift)
