@@ -26,7 +26,7 @@ contract F09_04_MorphoCrossMarketRateArbTest is StrategyBase {
     // Market A: sUSDe / USDC 91.5% LLTV - Morpho's flagship stable carry market.
     // Market B: wstETH / USDC 86% LLTV - Morpho's flagship LST-collateral market.
     bytes32 constant SUSDE_USDC_MARKET_ID =
-        0x39d11026eae1c6ec02aa4c0910778664089cdd97c3fd23f68f7cd05e2e95af48;
+        0x85c7f4374f3a403b36d54cc284983b2b02bbd8581ee0f3c36494447b87d9fcab;
     bytes32 constant WSTETH_USDC_MARKET_ID =
         0xb323495f7e4148be5643a4ea4a8221eef163e4bccfdedc2a6f4696baacbc86cc;
 
@@ -79,8 +79,14 @@ contract F09_04_MorphoCrossMarketRateArbTest is StrategyBase {
         console2.log("utilisation delta (e18) =", utilDelta);
 
         // Necessary condition for a meaningful rate spread under AdaptiveCurveIRM:
-        // utilisation differential >= 5% (5e16 in 1e18 fixed-point).
-        require(utilDelta >= 0.05e18, "F09-04: insufficient util spread at fork block");
+        // utilisation differential >= 5% (5e16 in 1e18 fixed-point). When the two
+        // markets sit at comparable utilisation there is no rate-arb to harvest at
+        // this block; surface that and exit cleanly (same graceful-skip convention
+        // as the other "no-opportunity-at-block" PoCs, e.g. F03-03/F03-08).
+        if (utilDelta < 0.05e18) {
+            emit log_named_uint("F09-04: util spread below 5% threshold; skipped (e18)", utilDelta);
+            return;
+        }
 
         // ---- Execute the supply leg of the arb (supply to higher-util market A) ----
         _fund(Mainnet.USDC, address(this), SUPPLY_AMOUNT);

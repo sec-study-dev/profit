@@ -35,7 +35,7 @@ contract F09_06_RsethMorphoFlashloopCurveTest is StrategyBase, IMorphoFlashLoanC
     /// @dev rsETH/WETH 86% LLTV market id on Morpho Blue.
     ///      MarketParams recovered live via idToMarketParams(id) in setUp.
     bytes32 constant RSETH_WETH_MARKET_ID =
-        0x4e64d5b97df6c5b1a1e3d6dbd1ed0a45f00e7c8b2c6f4af96f1f8e7c5a1a4ee1;
+        0xeeabdcb98e9f7ec216d259a2c026bbb701971efae0b44eec79a86053f9b128b6;
 
     uint256 constant EQUITY = 20 ether;
     /// @dev 5x flash on equity = 6x total notional. With 86% LLTV and rsETH/ETH
