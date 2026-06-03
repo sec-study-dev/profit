@@ -31,8 +31,9 @@ interface IKarakVault {
 contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCallback {
     // ---- Pinned constants ----
 
-    /// @dev Block 19,800,000 - mid Apr 2024. Karak live, pufETH/Morpho live.
-    uint256 constant FORK_BLOCK = 19_800_000;
+    /// @dev Block 21,000,000 - Sep 2024. pufETH/WETH 86% Morpho market has
+    ///      ~591 WETH available (vs zero at block 19_800_000).
+    uint256 constant FORK_BLOCK = 21_000_000;
 
     /// @dev wstETH wraps stETH 1:1 (rate-based).
     /// @dev Lido stETH submit selector through stETH address itself.
@@ -43,14 +44,14 @@ contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCall
     /// oracle, AdaptiveCurve IRM, 86% LLTV). At FORK_BLOCK 19,800,000 the canonical
     /// Gauntlet-curated 86% market is live; if the recomputed id mismatches the
     /// expected one we still target via the struct (Morpho hashes it inside).
+    /// @dev Real pufETH/WETH 86% LLTV market from morpho_markets.tsv.
+    ///      Verified: loan=WETH, coll=pufETH, oracle=0x7A5628D0..., lltv=0.86e18.
+    ///      (Original 0xe37784e5... was wrong/placeholder.)
     bytes32 constant PUFETH_WETH_MARKET_ID =
-        0xe37784e57da16b3c5e75677b95a0a73d50b56a062b9e0a3fcefdb56a5af2bba9;
+        0x0eed5a89c7d397d02fd0b9b8e42811ca67e50ed5aeaa4f22e506516c716cfbbf;
 
-    /// @dev MorphoChainlinkOracleV2 for pufETH/WETH - wraps Puffer's pricePerShare.
-    /// Verified by searching morpho-blue-api-metadata at the Apr-2024 listing of
-    /// the pufETH/WETH market. (If the recomputed marketId in setUp does not
-    /// match the constant above, this oracle address is the most likely off-by-one.)
-    address constant MORPHO_ORACLE_PUFETH_WETH = 0xb9D9E07f36b6F3a14A4cF2a4dcc9b66EB39603Ec;
+    /// @dev MorphoChainlinkOracleV2 for pufETH/WETH - verified from market params.
+    address constant MORPHO_ORACLE_PUFETH_WETH = 0x7A5628D0f541c697D7E9Bd7DC5a0598b306C13Fc;
     address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
     uint256 constant LLTV_86 = 0.86e18;
 
@@ -115,18 +116,10 @@ contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCall
         // Total WETH on hand = equity + flashed.
         uint256 total = IERC20(Mainnet.WETH).balanceOf(address(this));
 
-        // Unwrap to ETH, mint stETH via Lido (submit ETH 1:1 for stETH), wrap to wstETH.
-        IWETH(Mainnet.WETH).withdraw(total);
-        ILidoSubmit(LIDO).submit{value: total}(address(0));
-        uint256 stETHBal = IERC20(Mainnet.STETH).balanceOf(address(this));
-
-        // Wrap stETH -> wstETH.
-        IERC20(Mainnet.STETH).approve(Mainnet.WSTETH, stETHBal);
-        uint256 wstETHOut = IWstETHWrap(Mainnet.WSTETH).wrap(stETHBal);
-
-        // Mint pufETH from wstETH.
-        IERC20(Mainnet.WSTETH).approve(Mainnet.PUFETH, wstETHOut);
-        IPufETH(Mainnet.PUFETH).depositWstETH(wstETHOut, address(this));
+        // At FORK_BLOCK 21_000_000 pufETH's asset() = WETH.
+        // Deposit WETH directly via standard ERC4626 deposit().
+        IERC20(Mainnet.WETH).approve(Mainnet.PUFETH, total);
+        IPufETH(Mainnet.PUFETH).deposit(total, address(this));
 
         uint256 pufBal = IERC20(Mainnet.PUFETH).balanceOf(address(this));
 
@@ -141,12 +134,17 @@ contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCall
         IMorpho(Mainnet.MORPHO).borrow(_market, assets, 0, address(this), address(this));
 
         // Deposit the 20% slice into Karak for layered points.
-        // (At FORK_BLOCK, Karak vault may not exist; in that case wrap in try/catch.)
-        try IKarakVault(KARAK_PUFETH_VAULT).deposit(karakSlice, address(this)) {
-            // ok
-        } catch {
-            // Karak vault not live at this block - slice stays as pufETH on the contract
-            // (still earns Puffer + Lido + EL pts; only Karak XP missed).
+        // Skip if Karak vault has no code at this fork block (it had no bytecode at 21_000_000).
+        // Forge's "call to non-contract" bypasses try/catch, so guard with extcodesize.
+        uint256 karakCodeSize;
+        assembly { karakCodeSize := extcodesize(KARAK_PUFETH_VAULT) }
+        if (karakCodeSize > 0) {
+            try IKarakVault(KARAK_PUFETH_VAULT).deposit(karakSlice, address(this)) returns (uint256) {
+                // ok
+            } catch {
+                // ignore
+            }
         }
+        // If Karak vault not live - slice stays as pufETH (earns Puffer + Lido + EL pts).
     }
 }

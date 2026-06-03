@@ -24,9 +24,9 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
     // ---- Pinned constants ----
 
-    /// @dev Block 19,800,000 (~May 2024). sUSDe yield ~15-20%, Morpho sUSDe/USDC
-    ///      markets curated by MEV Capital / Gauntlet are live with LLTV 86-91.5%.
-    uint256 constant FORK_BLOCK = 19_800_000;
+    /// @dev Block 21,300,000 (~Dec 2024). The Morpho sUSDe/USDC 91.5% LLTV market
+    ///      (id 0x85c7f437...) is only available from block ~21,300,000 onward.
+    uint256 constant FORK_BLOCK = 21_300_000;
 
     /// @dev Curve USDe/USDC stableswap (USDe is coin index 0, USDC is index 1).
     ///      Verified: Curve factory crvUSD/USDe-style 2-coin plain pool deployed
@@ -41,13 +41,16 @@ contract F08_01_SusdeMorphoUsdcLoopTest is StrategyBase {
     ///      reference and for the F08-09 minting-arb PoC.
     address constant LOCAL_ETHENA_MINTING_V2 = 0xe3490297a08d6fC8Da46Edb7B6142E4F461b62D3;
 
-    /// @dev Morpho Blue marketId for the sUSDe / USDC 91.5% LLTV market (the
-    ///      flagship Gauntlet-curated leverage market). Verified by F09-04 /
-    ///      F09-02 (same id). At setUp we recover MarketParams via
-    ///      IMorpho.idToMarketParams(id) - this is more robust than hardcoding
-    ///      oracle/IRM addresses which may shift across redeployments.
+    /// @dev Morpho Blue marketId for the sUSDe / USDC 91.5% LLTV market.
+    ///      Computed as keccak256(abi.encode(MarketParams{
+    ///        loanToken:        USDC,
+    ///        collateralToken:  sUSDe,
+    ///        oracle:           0x873CD44b860DEDFe139f93e12A4AcCa0926Ffb87,
+    ///        irm:              AdaptiveCurveIRM (0x870aC11D...),
+    ///        lltv:             0.915e18
+    ///      })).
     bytes32 constant LOCAL_MORPHO_SUSDE_USDC_915_ID =
-        0x39d11026eae1c6ec02aa4c0910778664089cdd97c3fd23f68f7cd05e2e95af48;
+        0x85c7f4374f3a403b36d54cc284983b2b02bbd8581ee0f3c36494447b87d9fcab;
     uint256 constant LLTV_915 = 0.915e18;
 
     uint256 constant EQUITY_USDE = 1_000_000e18; // 1M USDe equity start

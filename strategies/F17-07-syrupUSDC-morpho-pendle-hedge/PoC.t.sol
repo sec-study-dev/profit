@@ -76,15 +76,22 @@ contract F17_07_SyrupMorphoPendleHedge is StrategyBase {
         _trackToken(Mainnet.USDC);
         _trackToken(SYRUPUSDC);
 
-        // Try to load the Pendle market tokens. Mark unavailable if read fails.
-        try IPendleMarket(PENDLE_MKT_SYRUP).readTokens() returns (address sy, address pt, address yt) {
-            _sy = sy;
-            _pt = pt;
-            _yt = yt;
-            _pendleAvailable = true;
-            _trackToken(_pt);
-            _trackToken(_sy);
-        } catch {
+        // Try to load the Pendle market tokens. Mark unavailable if the market
+        // contract is not deployed at this fork block.  Solidity try/catch does
+        // NOT catch "call to non-contract address" when the callee has no code,
+        // so we guard with extcodesize before attempting the call.
+        if (PENDLE_MKT_SYRUP.code.length > 0) {
+            try IPendleMarket(PENDLE_MKT_SYRUP).readTokens() returns (address sy, address pt, address yt) {
+                _sy = sy;
+                _pt = pt;
+                _yt = yt;
+                _pendleAvailable = true;
+                _trackToken(_pt);
+                _trackToken(_sy);
+            } catch {
+                _pendleAvailable = false;
+            }
+        } else {
             _pendleAvailable = false;
         }
 

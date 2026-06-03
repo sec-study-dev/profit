@@ -22,7 +22,7 @@ contract F05_03_PoC is StrategyBase {
     address constant LLAMMA_WSTETH = 0x37417B2238AA52D0DD2D6252d989E728e8f706e4;
     address constant CONTROLLER_WSTETH = 0x100dAa78fC509Db39Ef7D04DE0c1ABD299f4C6CE;
 
-    // Curve crvUSD/USDC stableswap-NG: 0=crvUSD, 1=USDC
+    // Curve crvUSD/USDC stableswap-NG: actual coins[0]=USDC, coins[1]=crvUSD
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
     // Curve stETH/ETH classic stableswap: 0=ETH, 1=stETH
     address constant CURVE_STETH_ETH = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
@@ -65,10 +65,10 @@ contract F05_03_PoC is StrategyBase {
             uint256 crvUsdBal = IERC20(Mainnet.CRVUSD).balanceOf(address(this));
             if (crvUsdBal == 0) break;
 
-            // crvUSD -> USDC
+            // crvUSD -> USDC (actual coins[0]=USDC, coins[1]=crvUSD; crvUSD->USDC is 1->0)
             IERC20(Mainnet.CRVUSD).approve(CURVE_CRVUSD_USDC, crvUsdBal);
             uint256 usdcOut = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
-                int128(0), int128(1), crvUsdBal, 0
+                int128(1), int128(0), crvUsdBal, 0
             );
 
             // USDC -> WETH on Uni v3 USDC/WETH 0.05%.

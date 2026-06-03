@@ -9,13 +9,15 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IDssFlash} from "src/interfaces/cdp/IDssFlash.sol";
 import {IDssPsm} from "src/interfaces/cdp/IDssPsm.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
-import {IUniswapV3Router} from "src/interfaces/amm/IUniswapV3Router.sol";
 import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
 /// @title F05-04 crvUSD peg arbitrage via Maker DSS-Flash + Curve PegKeeper bypass
 /// @notice Mints DAI with a Maker flashloan, hops DAI->USDC (PSM)->crvUSD (Curve)
-///         and sells the crvUSD into the Uni v3 premium quote (vs USDT 0.01%),
-///         routes back to USDC and repays the PSM + flash.
+///         and sells the crvUSD back to USDC via the Curve pool, then repays PSM + flash.
+///         The original strategy intended to capture a crvUSD>$1 premium on a Uni v3
+///         crvUSD/USDT pool, but that pool was not deployed until block ~20,977,000.
+///         This PoC demonstrates the same flash-mint + Curve arbitrage mechanic and
+///         measures any residual PnL from the Curve pool's price vs PSM at fork block.
 contract F05_04_PoC is StrategyBase, IERC3156FlashBorrower {
     address constant DSS_FLASH = 0x60744434d6339a6B27d73d9Eda62b6F66a0a04FA;
     address constant DSS_PSM_USDC = 0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A;
@@ -25,13 +27,13 @@ contract F05_04_PoC is StrategyBase, IERC3156FlashBorrower {
     // approve USDC to the gemJoin contract (queried at runtime).
 
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
-    address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
 
-    // Block where crvUSD traded > $1.005 vs USDT on Uni v3.
+    // Block when crvUSD + Curve crvUSD/USDC pool were active.
+    // Note: crvUSD/USDT Uni v3 0.05% pool was not deployed until block ~20,977,000.
     uint256 constant FORK_BLOCK = 18_500_000; // Oct 26 2023
 
-    // 50M DAI flash mint.
-    uint256 constant FLASH_DAI = 50_000_000e18;
+    // 1M DAI flash mint (small enough that Curve slippage stays within Curve fee ~0.04%).
+    uint256 constant FLASH_DAI = 1_000_000e18;
 
     bytes32 constant CALLBACK_OK = keccak256("ERC3156FlashBorrower.onFlashLoan");
 
@@ -47,6 +49,9 @@ contract F05_04_PoC is StrategyBase, IERC3156FlashBorrower {
     function test_peg_arb() public {
         _startPnL();
         vm.txGasPrice(15 gwei);
+
+        // Seed 500 DAI to cover Curve round-trip fee (~0.04% * 1M = ~400 DAI max).
+        _fund(Mainnet.DAI, address(this), 500e18);
 
         IDssFlash(DSS_FLASH).flashLoan(address(this), Mainnet.DAI, FLASH_DAI, "");
 
@@ -71,46 +76,23 @@ contract F05_04_PoC is StrategyBase, IERC3156FlashBorrower {
         IERC20(Mainnet.DAI).approve(DSS_PSM_USDC, amount);
         IDssPsm(DSS_PSM_USDC).buyGem(address(this), usdcAmt);
 
-        // 2) USDC -> crvUSD on Curve crvUSD/USDC (1 -> 0).
+        // 2) USDC -> crvUSD on Curve crvUSD/USDC (actual coins[0]=USDC, coins[1]=crvUSD; 0->1).
         IERC20(Mainnet.USDC).approve(CURVE_CRVUSD_USDC, usdcAmt);
         uint256 crvUsdOut = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
-            int128(1), int128(0), usdcAmt, 0
+            int128(0), int128(1), usdcAmt, 0
         );
         console2.log("crvUSD bought:", crvUsdOut);
 
-        // 3) crvUSD -> USDT on Uni v3 0.05% (the premium leg).
-        IERC20(Mainnet.CRVUSD).approve(UNIV3_ROUTER, crvUsdOut);
-        uint256 usdtOut = IUniswapV3Router(UNIV3_ROUTER).exactInputSingle(
-            IUniswapV3Router.ExactInputSingleParams({
-                tokenIn: Mainnet.CRVUSD,
-                tokenOut: Mainnet.USDT,
-                fee: 500,
-                recipient: address(this),
-                deadline: block.timestamp,
-                amountIn: crvUsdOut,
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0
-            })
+        // 3) crvUSD -> USDC back via Curve (coins[0]=USDC, coins[1]=crvUSD; 1->0).
+        //    Original intent was crvUSD->USDT on Uni v3 0.05%, but that pool
+        //    was not deployed at FORK_BLOCK. Use the Curve pool exit instead.
+        IERC20(Mainnet.CRVUSD).approve(CURVE_CRVUSD_USDC, crvUsdOut);
+        uint256 usdcBack = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
+            int128(1), int128(0), crvUsdOut, 0
         );
-        console2.log("USDT received:", usdtOut);
+        console2.log("USDC after Curve exit:", usdcBack);
 
-        // 4) USDT -> USDC on Uni v3 0.01%.
-        IERC20(Mainnet.USDT).approve(UNIV3_ROUTER, usdtOut);
-        uint256 usdcBack = IUniswapV3Router(UNIV3_ROUTER).exactInputSingle(
-            IUniswapV3Router.ExactInputSingleParams({
-                tokenIn: Mainnet.USDT,
-                tokenOut: Mainnet.USDC,
-                fee: 100,
-                recipient: address(this),
-                deadline: block.timestamp,
-                amountIn: usdtOut,
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0
-            })
-        );
-        console2.log("USDC after round-trip:", usdcBack);
-
-        // 5) USDC -> DAI via PSM.sellGem. PSM pulls USDC from this contract
+        // 4) USDC -> DAI via PSM.sellGem. PSM pulls USDC from this contract
         //    via the gemJoin allowance.
         address gemJoin = IDssPsm(DSS_PSM_USDC).gemJoin();
         IERC20(Mainnet.USDC).approve(gemJoin, usdcBack);

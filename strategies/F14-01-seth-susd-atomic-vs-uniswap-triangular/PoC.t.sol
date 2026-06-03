@@ -82,7 +82,8 @@ contract F14_01_AtomicTriangular is StrategyBase, IFlashLoanRecipientBalancer {
     // indices on the older pool; verified on etherscan @ block 17_500_000.
     address constant CURVE_SETH_ETH = 0xc5424B857f758E906013F3555Dad202e4bdB4567;
 
-    // sUSD/DAI/USDC/USDT 4pool (susd v2). Indices: 0=sUSD,1=DAI,2=USDC,3=USDT.
+    // Curve sUSD 4pool. Actual coin ordering (verified on-chain):
+    //   0=DAI, 1=USDC, 2=USDT, 3=sUSD.
     address constant CURVE_SUSD_4POOL = 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD;
 
     // ---- Uniswap ----
@@ -215,9 +216,20 @@ contract F14_01_AtomicTriangular is StrategyBase, IFlashLoanRecipientBalancer {
         }
         emit log_named_uint("step2_susd_received", susdOut);
 
-        // 3) sUSD -> USDC via Curve sUSD 4pool (sUSD=0, USDC=2).
+        // 3) sUSD -> USDC via Curve sUSD 4pool.
+        // Actual coin ordering: 0=DAI, 1=USDC, 2=USDT, 3=sUSD.
+        // Sell sUSD(3) for USDC(1).
+        // NOTE: The sUSD 4pool was deployed with old Vyper that returns no data
+        // on `exchange()`. Calling via the typed interface causes the ABI decoder
+        // to revert on empty returndata. Use low-level call and measure balance
+        // delta instead.
         IERC20(Mainnet.SUSD).approve(CURVE_SUSD_4POOL, susdOut);
-        uint256 usdcOut = ICurveStableSwap(CURVE_SUSD_4POOL).exchange(0, 2, susdOut, 0);
+        uint256 usdcBefore = IERC20(Mainnet.USDC).balanceOf(address(this));
+        (bool ok3,) = CURVE_SUSD_4POOL.call(
+            abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(3), int128(1), susdOut, uint256(0))
+        );
+        require(ok3, "F14-01: sUSD 4pool exchange failed");
+        uint256 usdcOut = IERC20(Mainnet.USDC).balanceOf(address(this)) - usdcBefore;
         emit log_named_uint("step3_usdc_received", usdcOut);
 
         // 4) USDC -> WETH via Uniswap v3 0.05%.

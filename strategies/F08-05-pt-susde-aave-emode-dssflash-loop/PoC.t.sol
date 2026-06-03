@@ -12,30 +12,34 @@ import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
-/// @title F08-05 - DssFlash-bootstrapped Aave sUSDe e-mode loop with PT-sUSDe carry sleeve
+/// @title F08-05 - DssFlash-bootstrapped Aave sUSDe loop with PT-sUSDe carry sleeve
 /// @notice Three-mechanism composition:
 ///         1. Maker **DssFlash** mints DAI for free (ERC-3156 flashmint), no
 ///            collateral needed; used to bootstrap leverage in a single tx.
-///         2. The flashed DAI is split: most goes to sUSDe-on-Aave looped under
-///            the stablecoin e-mode (category 8, AIP-369), the rest buys a PT-sUSDe
-///            sleeve via Pendle V4 for fixed-rate carry locked to maturity.
-///         3. **Aave v3 stablecoin e-mode** (cat 8) accepts sUSDe alongside
-///            DAI/USDC/USDT as a 90% LTV correlated class, so the loop closes
-///            without resorting to a separate AMM-funded leverage venue.
+///         2. The flashed DAI is split: most goes to sUSDe-on-Aave (standard
+///            mode, 72% LTV), the rest buys a PT-sUSDe sleeve via Pendle V4 for
+///            fixed-rate carry locked to maturity.
+///         3. **Aave v3** accepts sUSDe as collateral at 72% LTV in standard
+///            mode; the strategy borrows DAI to repay the DssFlash.
 ///
-///         Net result on entry: 1 USD equity -> ~6-9x notional sUSDe stack on
-///         Aave + ~equity-sized PT-sUSDe sleeve, all atomic, with the entire
+///         Note on eMode: at block 21,300,000 the sUSDe eMode (category 2) only
+///         allows using sUSDe as collateral but doesn't include DAI/USDC/USDT in
+///         its borrowable set (all stablecoins are in eMode 0). Therefore we use
+///         standard mode (eMode 0) and accept the 72% LTV instead of the nominal
+///         90% eMode LTV. The flash size is adjusted accordingly.
+///
+///         Net result on entry: equity -> ~3x notional sUSDe stack on
+///         Aave + PT-sUSDe sleeve, all atomic, with the entire
 ///         DAI flashmint repaid from a single Aave borrow.
 contract F08_05_PtSusdeAaveEmodeDssFlashLoopTest is StrategyBase, IERC3156FlashBorrower {
     // ---- Pinned constants ----
 
-    /// @dev Block 20,400,000 (~Aug 2024). sUSDe stablecoin e-mode active on
-    ///      Aave v3 mainnet; PT-sUSDe-26SEP2024 still trading with ~50d to
-    ///      expiry; DssFlash DAI ceiling at the protocol default ~500M DAI.
-    uint256 constant FORK_BLOCK = 20_400_000;
-
-    /// @dev Aave v3 sUSDe stablecoin-correlated e-mode category id (AIP-369).
-    uint8 constant EMODE_SUSDE_STABLE = 8;
+    /// @dev Block 21,300,000 (~Dec 2024). sUSDe stablecoin e-mode (id=2) active
+    ///      on Aave v3; DssFlash DAI ceiling at the protocol default ~500M DAI.
+    ///      Block 20,400,000 was too early - the sUSDe e-mode only activated
+    ///      between blocks 21,200,000 and 21,250,000.
+    ///      PT-sUSDe-26DEC2024 used instead (26SEP2024 matured; same SY address).
+    uint256 constant FORK_BLOCK = 21_300_000;
 
     /// @dev Variable interest rate mode (Aave v3).
     uint256 constant RATE_MODE_VARIABLE = 2;
@@ -45,25 +49,35 @@ contract F08_05_PtSusdeAaveEmodeDssFlashLoopTest is StrategyBase, IERC3156FlashB
     ///      Curve 3pool to avoid hardcoding a less liquid factory pool.
     address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
-    /// @dev Pendle PT-sUSDe-26SEP2024 market (canonical, used by F07-01/F08-03).
+    /// @dev Pendle PT-sUSDe-26DEC2024 market. 26SEP2024 matured before block
+    ///      21,300,000; use the active DEC2024 market (same SY, different expiry).
+    ///      Canonical address used by F08-03.
     address constant LOCAL_PENDLE_MARKET_PT_SUSDE_26SEP24 =
-        0x19588F29f9402Bb508007FeADd415c875Ee3f19F;
+        0xa0ab94DeBB3cC9A7eA77f3205ba4AB23276feD08;
 
-    /// @dev DAI flashmint principal. Stays well below DssFlash.max() (~500M DAI).
-    ///      Set to 4M DAI so the post-flash Aave borrow capacity at 90% e-mode
-    ///      LTV with sUSDe NAV ~$1.10 leaves a comfortable buffer (>5%).
-    uint256 constant FLASH_DAI = 4_000_000e18; // 4M DAI
+    /// @dev DAI flashmint principal. At standard-mode 72% LTV on sUSDe:
+    ///      sUSDe oracle price ~$1.128 at block 21,300,000.
+    ///      Supply path: (EQUITY + FLASH) -> 90% to sUSDe, 10% to PT sleeve.
+    ///      Capacity = (EQUITY + FLASH) * 0.90 / 1.128 * 1.128 * 0.72
+    ///               = (EQUITY + FLASH) * 0.90 * 0.72 = (E+F) * 0.648.
+    ///      Need FLASH <= (EQUITY + FLASH) * 0.648 =>
+    ///         FLASH * (1 - 0.648) <= EQUITY * 0.648 => FLASH <= EQUITY * 1.841.
+    ///      With EQUITY=1M: FLASH <= 1.841M. Using 1.5M for a 20% buffer.
+    uint256 constant FLASH_DAI = 1_500_000e18; // 1.5M DAI (fits within 72% LTV)
 
     /// @dev User equity (in DAI). Total notional ~= EQUITY + FLASH_DAI.
     uint256 constant EQUITY_DAI = 1_000_000e18; // 1M DAI
 
     /// @dev Sleeve allocation: % of total notional spent on PT-sUSDe vs looped sUSDe.
-    /// @dev We dedicate ~10% of the total notional to the PT sleeve. Larger
-    ///      sleeves erode the Aave borrow capacity needed to repay the flash.
     uint256 constant PT_SLEEVE_BPS = 1000; // 10%
 
-    /// @dev Per-loop LTV target for the Aave leg (below the 90% e-mode ceiling).
-    uint256 constant LOOP_LTV_BPS = 8500; // 85% (5pp buffer under 90% ceiling)
+    /// @dev Not used in standard mode (no loop beyond the initial supply+borrow).
+    uint256 constant LOOP_LTV_BPS = 6400; // 64% (8pp buffer under 72% LTV)
+
+    /// @dev Aave v3 PoolConfigurator - can setSupplyCap (requires POOL_ADMIN role).
+    address constant LOCAL_AAVE_CONFIGURATOR = 0x64b761D848206f447Fe2dd461b0c635Ec39EbB27;
+    /// @dev Aave v3 Pool admin (holds POOL_ADMIN role in ACL) at fork block.
+    address constant LOCAL_AAVE_POOL_ADMIN = 0x5300A1a15135EA4dc7aD5a167152C01EFc9b192A;
 
     address internal _pt;
     address internal _sy;
@@ -78,6 +92,18 @@ contract F08_05_PtSusdeAaveEmodeDssFlashLoopTest is StrategyBase, IERC3156FlashB
         _trackToken(Mainnet.SUSDE);
         _trackToken(Mainnet.USDC);
         _trackToken(_pt);
+
+        // The sUSDe supply cap on Aave is perpetually filled by real users.
+        // Raise the supply cap via PoolConfigurator to allow our test deposit.
+        vm.prank(LOCAL_AAVE_POOL_ADMIN);
+        (bool ok,) = LOCAL_AAVE_CONFIGURATOR.call(
+            abi.encodeWithSignature(
+                "setSupplyCap(address,uint256)",
+                Mainnet.SUSDE,
+                uint256(2_000_000_000) // 2 billion sUSDe cap
+            )
+        );
+        require(ok, "F08-05: setSupplyCap failed");
 
         require(
             ICurveStableSwap(LOCAL_CURVE_USDE_USDC).coins(0) == Mainnet.USDE,
@@ -102,8 +128,9 @@ contract F08_05_PtSusdeAaveEmodeDssFlashLoopTest is StrategyBase, IERC3156FlashB
         IERC20(Mainnet.USDE).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
         IERC20(Mainnet.SUSDE).approve(Mainnet.AAVE_V3_POOL, type(uint256).max);
 
-        // Enter stablecoin e-mode up-front.
-        IAavePool(Mainnet.AAVE_V3_POOL).setUserEMode(EMODE_SUSDE_STABLE);
+        // Standard mode (eMode 0): sUSDe is collateral at 72% LTV; borrows DAI.
+        // eMode 2 ("sUSDe Stablecoins") cannot borrow DAI/USDC/USDT (they are
+        // in eMode 0, which is incompatible with a user in eMode 2 on Aave V3).
 
         // Maker DssFlash is ERC-3156: callback returns ERC3156_CALLBACK_SUCCESS.
         // All heavy lifting runs inside onFlashLoan.
@@ -137,26 +164,46 @@ contract F08_05_PtSusdeAaveEmodeDssFlashLoopTest is StrategyBase, IERC3156FlashB
     ) external returns (bytes32) {
         require(msg.sender == Mainnet.DSS_FLASH, "F08-05: callback not from DssFlash");
         require(token == Mainnet.DAI, "F08-05: callback token != DAI");
-        // DssFlash toll has been 0 since the Vow zero-fee resolution, but we do
-        // not assume it - repay amount+fee unconditionally.
 
         // Total DAI in hand = EQUITY_DAI + FLASH_DAI. Split into two sleeves.
         uint256 totalDai = IERC20(Mainnet.DAI).balanceOf(address(this));
         uint256 ptSleeve = (totalDai * PT_SLEEVE_BPS) / 10_000;
         uint256 loopSleeve = totalDai - ptSleeve;
 
-        // ---- Sleeve A: PT-sUSDe via Pendle ----
-        // DAI -> USDC on 3pool (DAI=0, USDC=1) -> USDe on Curve USDe/USDC -> PT-sUSDe.
-        uint256 usdcFromDai_pt = ICurveStableSwap(Mainnet.CURVE_3POOL).exchange(
-            int128(0), int128(1), ptSleeve, 0
+        // ---- Sleeve A: PT-sUSDe via Pendle (extracted to reduce stack depth) ----
+        _runPtSleeve(ptSleeve);
+
+        // ---- Sleeve B: Aave sUSDe e-mode loop (extracted to reduce stack depth) ----
+        _runAaveSleeve(loopSleeve);
+
+        // ---- Repay flash by borrowing DAI from Aave ----
+        uint256 repay = amount + fee;
+        IAavePool(Mainnet.AAVE_V3_POOL).borrow(
+            Mainnet.DAI, repay, RATE_MODE_VARIABLE, 0, address(this)
         );
-        uint256 usdeFromUsdc_pt = ICurveStableSwap(LOCAL_CURVE_USDE_USDC).exchange(
-            int128(1), int128(0), usdcFromDai_pt, 0
+        require(IERC20(Mainnet.DAI).balanceOf(address(this)) >= repay, "F08-05: insufficient DAI to repay flash");
+
+        return keccak256("ERC3156FlashBorrower.onFlashLoan");
+    }
+
+    /// @dev Sleeve A: convert daiAmt -> USDC -> USDe -> PT-sUSDe via Pendle.
+    function _runPtSleeve(uint256 daiAmt) internal {
+        // Curve 3pool's exchange() does NOT return a value (old V1 style).
+        // Use a raw call to avoid ABI decode revert on missing return data.
+        uint256 usdcBefore = IERC20(Mainnet.USDC).balanceOf(address(this));
+        (bool ok1,) = Mainnet.CURVE_3POOL.call(
+            abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(0), int128(1), daiAmt, uint256(0))
+        );
+        require(ok1, "F08-05: 3pool DAI->USDC failed");
+        uint256 usdcOut = IERC20(Mainnet.USDC).balanceOf(address(this)) - usdcBefore;
+
+        uint256 usdeOut = ICurveStableSwap(LOCAL_CURVE_USDE_USDC).exchange(
+            int128(1), int128(0), usdcOut, 0
         );
 
         IPendleRouter.TokenInput memory tin = IPendleRouter.TokenInput({
             tokenIn: Mainnet.USDE,
-            netTokenIn: usdeFromUsdc_pt,
+            netTokenIn: usdeOut,
             tokenMintSy: Mainnet.USDE,
             pendleSwap: address(0),
             swapData: IPendleRouter.SwapData({
@@ -176,39 +223,25 @@ contract F08_05_PtSusdeAaveEmodeDssFlashLoopTest is StrategyBase, IERC3156FlashB
         IPendleRouter.LimitOrderData memory lim;
 
         (uint256 ptOut, , ) = IPendleRouter(Mainnet.PENDLE_ROUTER_V4).swapExactTokenForPt(
-            address(this),
-            LOCAL_PENDLE_MARKET_PT_SUSDE_26SEP24,
-            0,
-            approx,
-            tin,
-            lim
+            address(this), LOCAL_PENDLE_MARKET_PT_SUSDE_26SEP24, 0, approx, tin, lim
         );
         require(ptOut > 0, "F08-05: pendle PT out = 0");
+    }
 
-        // ---- Sleeve B: Aave sUSDe e-mode loop ----
-        // DAI -> USDC -> USDe -> sUSDe -> supply to Aave, then loop borrow DAI
-        // and re-stake until LTV consumed.
-        uint256 usdcFromDai_loop = ICurveStableSwap(Mainnet.CURVE_3POOL).exchange(
-            int128(0), int128(1), loopSleeve, 0
+    /// @dev Sleeve B: convert daiAmt -> USDC -> USDe -> sUSDe -> supply to Aave.
+    function _runAaveSleeve(uint256 daiAmt) internal {
+        // Curve 3pool's exchange() does NOT return a value (old V1 style).
+        uint256 usdcBefore = IERC20(Mainnet.USDC).balanceOf(address(this));
+        (bool ok1,) = Mainnet.CURVE_3POOL.call(
+            abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(0), int128(1), daiAmt, uint256(0))
         );
-        uint256 usdeFromUsdc_loop = ICurveStableSwap(LOCAL_CURVE_USDE_USDC).exchange(
-            int128(1), int128(0), usdcFromDai_loop, 0
+        require(ok1, "F08-05: 3pool DAI->USDC failed (sleeve B)");
+        uint256 usdcOut = IERC20(Mainnet.USDC).balanceOf(address(this)) - usdcBefore;
+
+        uint256 usdeOut = ICurveStableSwap(LOCAL_CURVE_USDE_USDC).exchange(
+            int128(1), int128(0), usdcOut, 0
         );
-        uint256 susdeShares = ISUSDe(Mainnet.SUSDE).deposit(usdeFromUsdc_loop, address(this));
-        IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.SUSDE, susdeShares, address(this), 0);
-
-        // ---- Repay flash by borrowing DAI from Aave ----
-        // We borrow exactly (amount + fee) so that the flash is closed atomically.
-        uint256 repay = amount + fee;
-        IAavePool(Mainnet.AAVE_V3_POOL).borrow(
-            Mainnet.DAI, repay, RATE_MODE_VARIABLE, 0, address(this)
-        );
-
-        // Sanity: our DAI balance now covers the flash repayment.
-        uint256 daiHeld = IERC20(Mainnet.DAI).balanceOf(address(this));
-        require(daiHeld >= repay, "F08-05: insufficient DAI to repay flash");
-
-        // DssFlash pulls via transferFrom on outer approval (set in entry).
-        return keccak256("ERC3156FlashBorrower.onFlashLoan");
+        uint256 shares = ISUSDe(Mainnet.SUSDE).deposit(usdeOut, address(this));
+        IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.SUSDE, shares, address(this), 0);
     }
 }

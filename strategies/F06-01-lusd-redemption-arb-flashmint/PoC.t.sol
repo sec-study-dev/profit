@@ -85,8 +85,10 @@ contract F06_01_LusdRedemptionArbFlashmintTest is StrategyBase, IERC3156FlashBor
     // ---- Tunables ----
 
     /// @dev Pinned block - LUSD ~99 cents on Curve, baseRate near floor.
-    /// TODO verify: 14_400_000 is around mid-March 2022 (post-LFG/Anchor wobble).
-    uint256 constant FORK_BLOCK = 14_400_000;
+    ///      14_400_000 (~mid-Mar 2022) predates DssFlash deployment at
+    ///      0x60744434... which went live around block 14_700_000.
+    ///      15_000_000 (~mid-Apr 2022) has DssFlash live + LUSD mildly off-peg.
+    uint256 constant FORK_BLOCK = 15_000_000;
 
     /// @dev DAI flashmint size - keep modest so Curve sandwich isn't required.
     uint256 constant FLASH_DAI = 5_000_000e18;

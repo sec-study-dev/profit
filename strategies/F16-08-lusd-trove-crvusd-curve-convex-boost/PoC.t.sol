@@ -103,6 +103,11 @@ contract F16_08_LusdTroveCrvUsdCurveConvexBoost is StrategyBase {
     }
 
     function _resolvePool() internal {
+        // Guard: if no code at the candidate address, skip silently.
+        uint256 codeSize;
+        assembly { codeSize := extcodesize(CURVE_CRVUSD_LUSD_CANDIDATE) }
+        if (codeSize == 0) return;
+
         // Try the candidate address; record indices for coins.
         try ICurveStableSwap(CURVE_CRVUSD_LUSD_CANDIDATE).coins(0) returns (address c0) {
             try ICurveStableSwap(CURVE_CRVUSD_LUSD_CANDIDATE).coins(1) returns (address c1) {

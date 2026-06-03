@@ -15,10 +15,12 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 ///         sUSDS.redeem -> USDS -> Curve swap to USDC -> syrupUSDC.deposit.
 contract F17_02_SyrupVsSUSDSRotation is StrategyBase {
     // ---- Pinned block ----
-    /// @dev Aug 16 2024. SSR=6%, Maple syrupUSDC quoted ~= 11.5%.
-    uint256 internal constant FORK_BLOCK = 20_600_000;
+    /// @dev Sep 2024. SUSDS (0xa3931d...) is deployed at block ~20_700_000.
+    ///      Block 20_600_000 is pre-deployment; using 20_700_000 instead.
+    ///      syrupUSDC still live at this block.
+    uint256 internal constant FORK_BLOCK = 20_700_000;
     /// @dev 7-day earlier block for syrupUSDC APY proxy.
-    uint256 internal constant PRIOR_BLOCK = 20_550_000;
+    uint256 internal constant PRIOR_BLOCK = 20_650_000;
 
     // ---- Hardcoded token addresses (per spec) ----
     address internal constant SYRUPUSDC = 0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b;

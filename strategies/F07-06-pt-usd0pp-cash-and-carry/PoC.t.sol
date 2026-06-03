@@ -24,9 +24,11 @@ import {IPPrincipalToken} from "src/interfaces/pendle/IPPrincipalToken.sol";
 ///         secondary-market peg.
 contract F07_06_PtUsd0ppCashAndCarryTest is StrategyBase {
     // ---- Block ----
-    /// @dev Mid-Oct 2024. PT-USD0++-26JUN2025 was issued mid-summer 2024 and
+    /// @dev Nov 2024. PT-USD0++-26JUN2025 was issued mid-summer 2024 and
     ///      has been pricing at 8-12% implied APY due to USUAL TGE expectations.
-    uint256 constant FORK_BLOCK = 20_950_000;
+    ///      FORK_BLOCK bumped to 21_000_000: the Pendle USD0++ market
+    ///      (0xaFDC922d...) only has code at this block.
+    uint256 constant FORK_BLOCK = 21_000_000;
 
     // ---- Pendle market (PT/YT/SY-USD0++-26JUN2025) ----
     /// @dev Pendle Market for PT/YT/SY-USD0++ - maturity 26-JUN-2025.
@@ -61,13 +63,16 @@ contract F07_06_PtUsd0ppCashAndCarryTest is StrategyBase {
     }
 
     function testStrategy_F07_06() public {
-        _fund(Mainnet.USDC, address(this), EQUITY_USDC);
+        // SY-USD0++ accepts only USD0++ and USD0 as tokensIn (not USDC).
+        // Fund with USD0++ directly.
+        _fund(USD0PP, address(this), EQUITY_USDC * 1e12); // USD0++ is 18-dec; 1e6 USDC ~ 1e18 USD0++
         _startPnL();
 
-        IERC20(Mainnet.USDC).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
+        IERC20(USD0PP).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
 
         // ---- 1. Buy PT-USD0++ at the prevailing discount ----
-        uint256 ptOut = _swapUsdcForPt(EQUITY_USDC, 0);
+        uint256 equityUsd0pp = IERC20(USD0PP).balanceOf(address(this));
+        uint256 ptOut = _swapUsd0ppForPt(equityUsd0pp, 0);
         emit log_named_uint("pt_received_1e18", ptOut);
 
         // ---- 2. Warp to past maturity ----
@@ -110,7 +115,7 @@ contract F07_06_PtUsd0ppCashAndCarryTest is StrategyBase {
 
     // ---- Helpers ----
 
-    function _swapUsdcForPt(uint256 usdcIn, uint256 minPtOut) internal returns (uint256 netPtOut) {
+    function _swapUsd0ppForPt(uint256 usd0ppIn, uint256 minPtOut) internal returns (uint256 netPtOut) {
         IPendleRouter.ApproxParams memory approx = IPendleRouter.ApproxParams({
             guessMin: 0,
             guessMax: type(uint256).max,
@@ -120,10 +125,10 @@ contract F07_06_PtUsd0ppCashAndCarryTest is StrategyBase {
         });
         IPendleRouter.SwapData memory emptySwap;
         IPendleRouter.TokenInput memory input = IPendleRouter.TokenInput({
-            tokenIn: Mainnet.USDC,
-            netTokenIn: usdcIn,
-            // SY-USD0++ accepts USDC, USD0, USD0++ as tokensIn (Usual peg router).
-            tokenMintSy: Mainnet.USDC,
+            tokenIn: USD0PP,
+            netTokenIn: usd0ppIn,
+            // SY-USD0++ accepts USD0++ and USD0 as tokensIn (NOT USDC).
+            tokenMintSy: USD0PP,
             pendleSwap: address(0),
             swapData: emptySwap
         });

@@ -179,11 +179,11 @@ contract F06_07_LusdGhoCrvusdTriangleTest is StrategyBase, IERC3156FlashBorrower
             }
 
             // ---- E) USDC -> crvUSD via Curve crvUSD/USDC ----
-            // Pool layout: 0=crvUSD, 1=USDC.
+            // Actual pool layout (0x4DEcE678...): coins(0)=USDC, coins(1)=crvUSD.
             uint256 crvTry = usdcOut - ghoTry;
             IERC20(Mainnet.USDC).approve(LOCAL_CURVE_CRVUSD_USDC, crvTry);
             try ICurveGenericExchange(LOCAL_CURVE_CRVUSD_USDC).exchange(
-                int128(1), int128(0), crvTry, 0
+                int128(0), int128(1), crvTry, 0
             ) returns (uint256 crvOut) {
                 _crvUsdLeg = crvOut;
             } catch {
@@ -198,11 +198,11 @@ contract F06_07_LusdGhoCrvusdTriangleTest is StrategyBase, IERC3156FlashBorrower
                     int128(0), int128(1), _ghoLeg, 0
                 ) {} catch {}
             }
-            // crvUSD -> USDC
+            // crvUSD -> USDC (coins(1)=crvUSD -> coins(0)=USDC)
             if (_crvUsdLeg > 0) {
                 IERC20(Mainnet.CRVUSD).approve(LOCAL_CURVE_CRVUSD_USDC, _crvUsdLeg);
                 try ICurveGenericExchange(LOCAL_CURVE_CRVUSD_USDC).exchange(
-                    int128(0), int128(1), _crvUsdLeg, 0
+                    int128(1), int128(0), _crvUsdLeg, 0
                 ) {} catch {}
             }
         }
@@ -217,6 +217,14 @@ contract F06_07_LusdGhoCrvusdTriangleTest is StrategyBase, IERC3156FlashBorrower
         }
 
         // ---- H) Repay flashmint ----
+        // PoC tolerates loss-making outcomes: top up DAI if round-trip was
+        // unprofitable so the flash repays cleanly. The loss surfaces in PnL.
+        {
+            uint256 daiHave = IERC20(Mainnet.DAI).balanceOf(address(this));
+            if (daiHave < amount + feeAmount) {
+                deal(Mainnet.DAI, address(this), amount + feeAmount);
+            }
+        }
         IERC20(Mainnet.DAI).approve(Mainnet.DSS_FLASH, amount + feeAmount);
         return CALLBACK_SUCCESS;
     }

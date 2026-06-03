@@ -19,8 +19,9 @@ import {console2} from "forge-std/console2.sol";
 contract F02_01_WeethMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCallback {
     // ---- Constants ----
 
-    /// @dev Pinned block: 19,200,000 (~Feb 2024). Morpho weETH/WETH market live; LRT season 2.
-    uint256 constant FORK_BLOCK = 19_200_000;
+    /// @dev Pinned block: 19,500,000 (~Mar 2024). weETH/WETH 86% LLTV Morpho market
+    ///      has ~1168 WETH available to borrow (vs ~51 at block 19_200_000).
+    uint256 constant FORK_BLOCK = 19_500_000;
 
     /// @dev Morpho weETH/WETH market (Gauntlet-curated, 86% LLTV).
     /// Verified canonical market id via app.morpho.org/ethereum/market/0x37e7484d...:

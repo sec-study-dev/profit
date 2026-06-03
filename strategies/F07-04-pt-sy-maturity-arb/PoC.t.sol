@@ -8,6 +8,7 @@ import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IPYieldToken} from "src/interfaces/pendle/IPYieldToken.sol";
 import {IPPrincipalToken} from "src/interfaces/pendle/IPPrincipalToken.sol";
+import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
 /// @title F07-04 - PT/SY redemption arbitrage near maturity
 ///
@@ -21,6 +22,9 @@ contract F07_04_PtSyMaturityArbTest is StrategyBase {
 
     // ---- Pendle market (PT/YT/SY-sUSDe-26SEP2024) ----
     address constant LOCAL_MARKET = 0x19588F29f9402Bb508007FeADd415c875Ee3f19F;
+
+    // ---- Curve USDe/USDC pool for USDC->USDe conversion ----
+    address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
     // ---- Equity ----
     uint256 constant EQUITY_USDC = 1_000_000e6;
@@ -47,7 +51,8 @@ contract F07_04_PtSyMaturityArbTest is StrategyBase {
         _fund(Mainnet.USDC, address(this), EQUITY_USDC);
         _startPnL();
 
-        IERC20(Mainnet.USDC).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
+        IERC20(Mainnet.USDC).approve(LOCAL_CURVE_USDE_USDC, type(uint256).max);
+        IERC20(Mainnet.USDE).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
 
         // ---- 1. Buy PT at near-maturity discount ----
         uint256 ptOut = _swapUsdcForPt(EQUITY_USDC, 0);
@@ -110,10 +115,16 @@ contract F07_04_PtSyMaturityArbTest is StrategyBase {
             eps: 1e15
         });
         IPendleRouter.SwapData memory emptySwap;
+        // SY-sUSDe-26SEP2024 only accepts USDe and sUSDe as tokensIn.
+        // Convert USDC -> USDe on Curve first (coin1=USDC -> coin0=USDe).
+        uint256 usdeIn = ICurveStableSwap(LOCAL_CURVE_USDE_USDC).exchange(
+            int128(1), int128(0), usdcIn, 0
+        );
+
         IPendleRouter.TokenInput memory input = IPendleRouter.TokenInput({
-            tokenIn: Mainnet.USDC,
-            netTokenIn: usdcIn,
-            tokenMintSy: Mainnet.USDC,
+            tokenIn: Mainnet.USDE,
+            netTokenIn: usdeIn,
+            tokenMintSy: Mainnet.USDE, // SY-sUSDe-26SEP2024 accepts USDe and sUSDe
             pendleSwap: address(0),
             swapData: emptySwap
         });

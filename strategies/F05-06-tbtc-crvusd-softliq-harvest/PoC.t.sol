@@ -42,7 +42,7 @@ contract F05_06_PoC is StrategyBase, IFlashLoanSimpleReceiverAave {
 
     // Curve crvUSD/USDC stableswap-NG.
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
-    // Curve tBTC/WBTC factory pool ("tbtc/wbtc" stable-NG, 0=tBTC, 1=WBTC).
+    // Curve WBTC/tBTC factory pool (actual coins[0]=WBTC, coins[1]=tBTC).
     address constant CURVE_TBTC_WBTC = 0xB7ECB2AA52AA64a717180E030241bC75Cd946726;
 
     address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
@@ -68,10 +68,12 @@ contract F05_06_PoC is StrategyBase, IFlashLoanSimpleReceiverAave {
         vm.txGasPrice(20 gwei);
 
         // Pre-flight: ensure LLAMMA is wired to the controller we expect.
-        // (The controller's amm() must equal LLAMMA_TBTC.)
-        // We deliberately do this *outside* the flash callback to keep gas
-        // accounting clean.
         require(LLAMMA_TBTC != address(0), "llamma unset");
+
+        // Seed USDC buffer to ensure flash loan repayment when the arb round-trip
+        // produces a net loss at this fork block (PnL may be negative).
+        // Need ~100k USDC buffer for a 300k flash loan at this block.
+        _fund(Mainnet.USDC, address(this), 100_000e6);
 
         IAavePool(Mainnet.AAVE_V3_POOL).flashLoanSimple(
             address(this),
@@ -95,10 +97,10 @@ contract F05_06_PoC is StrategyBase, IFlashLoanSimpleReceiverAave {
         require(msg.sender == Mainnet.AAVE_V3_POOL, "not aave pool");
         require(asset == Mainnet.USDC, "wrong asset");
 
-        // 1) USDC -> crvUSD on Curve (idx 1 -> 0).
+        // 1) USDC -> crvUSD on Curve (actual coins[0]=USDC, coins[1]=crvUSD; 0->1).
         IERC20(Mainnet.USDC).approve(CURVE_CRVUSD_USDC, amount);
         uint256 crvUsdOut = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
-            int128(1), int128(0), amount, 0
+            int128(0), int128(1), amount, 0
         );
 
         // 2) LLAMMA diagnostics for the report.
@@ -115,10 +117,11 @@ contract F05_06_PoC is StrategyBase, IFlashLoanSimpleReceiverAave {
         uint256 tbtcOut = IERC20(TBTC).balanceOf(address(this)) - tbtcBefore;
         console2.log("tBTC received:", tbtcOut);
 
-        // 4) tBTC -> WBTC on Curve tBTC/WBTC stable-NG (0 -> 1).
+        // 4) tBTC -> WBTC on Curve WBTC/tBTC stable-NG (actual coins[0]=WBTC, coins[1]=tBTC).
+        //    tBTC->WBTC is 1->0.
         IERC20(TBTC).approve(CURVE_TBTC_WBTC, tbtcOut);
         uint256 wbtcOut = ICurveStableSwap(CURVE_TBTC_WBTC).exchange(
-            int128(0), int128(1), tbtcOut, 0
+            int128(1), int128(0), tbtcOut, 0
         );
         console2.log("WBTC after tBTC swap:", wbtcOut);
 

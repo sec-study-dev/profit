@@ -43,7 +43,7 @@ contract F13_06_BalancerWeETHRateLagUniV3FlashCurveTest is StrategyBase, IUniswa
 
     // ---- UniV3 wstETH/WETH 1bp (cheapest WETH flash source) ----
     /// @dev UniV3 wstETH/WETH 0.01% pool. token0 = wstETH, token1 = WETH.
-    address constant UNIV3_FLASH_POOL = 0x109830A3b59DdAbE21EE0b1C34DD4A59E3F2aC81;
+    address constant UNIV3_FLASH_POOL = 0x109830a1AAaD605BbF02a9dFA7B0B92EC2FB7dAa;
 
     // ---- Balancer weETH / wETH ComposableStable ----
     /// @dev Balancer ezETH/weETH/rswETH or weETH/wETH CSP. We target the

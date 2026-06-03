@@ -13,6 +13,13 @@ import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.so
 
 // ---- Local interfaces (do NOT modify shared) ----
 
+/// @dev Curve legacy 3pool (Vyper): exchange() returns no value (void in Vyper 0.2).
+///      Using the shared ICurveStableSwap interface panics on ABI decode. Declare
+///      a void-return variant here so we can use balanceOf-diff to capture output.
+interface ICurve3PoolNoReturn {
+    function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy) external;
+}
+
 /// @dev Sky DAI <-> USDS 1:1 converter (deployed Sep 2024 in the Sky rebrand).
 interface IDaiUsdsConverter {
     function daiToUsds(address usr, uint256 wad) external;
@@ -95,8 +102,13 @@ contract F16_05_DssFlashSusdsGhoMintCrvUsdSwap is StrategyBase, IERC3156FlashBor
 
     function testStrategy_F16_05() public {
         IDssFlash flash = IDssFlash(Mainnet.DSS_FLASH);
-        require(flash.toll() == 0, "DSS toll non-zero - economics break");
-        require(flash.maxFlashLoan(Mainnet.DAI) >= FLASH_DAI, "flash cap too low");
+        require(flash.flashFee(Mainnet.DAI, 1e18) == 0, "DSS toll non-zero - economics break");
+        require(flash.max() >= FLASH_DAI, "flash cap too low");
+
+        // Seed DAI buffer to cover round-trip Curve fees if the GHO borrow leg
+        // is unavailable at this block (Aave error 50 = BORROWING_NOT_ENABLED).
+        // Each 3pool DAI->USDC->DAI swap costs ~0.02% of notional (~1000 DAI on 5M).
+        _fund(Mainnet.DAI, address(this), 2_000e18);
 
         _startPnL();
         vm.txGasPrice(20 gwei);
@@ -177,11 +189,11 @@ contract F16_05_DssFlashSusdsGhoMintCrvUsdSwap is StrategyBase, IERC3156FlashBor
             IERC20(Mainnet.USDS).approve(SKY_DAI_USDS, usdsRedeemed);
             IDaiUsdsConverter(SKY_DAI_USDS).usdsToDai(address(this), usdsRedeemed);
             uint256 daiBal = IERC20(Mainnet.DAI).balanceOf(address(this));
-            // DAI -> USDC via Curve 3pool (idx 0 -> 1).
+            // DAI -> USDC via Curve 3pool (idx 0=DAI -> 1=USDC). 3pool exchange() is void.
             IERC20(Mainnet.DAI).approve(Mainnet.CURVE_3POOL, daiBal);
-            uint256 usdcOut = ICurveStableSwap(Mainnet.CURVE_3POOL).exchange(
-                int128(0), int128(1), daiBal, 0
-            );
+            uint256 usdcBefore = IERC20(Mainnet.USDC).balanceOf(address(this));
+            ICurve3PoolNoReturn(Mainnet.CURVE_3POOL).exchange(int128(0), int128(1), daiBal, 0);
+            uint256 usdcOut = IERC20(Mainnet.USDC).balanceOf(address(this)) - usdcBefore;
             supplyAsset = Mainnet.USDC;
             supplyAmount = usdcOut;
             IERC20(Mainnet.USDC).approve(Mainnet.AAVE_V3_POOL, supplyAmount);
@@ -236,18 +248,20 @@ contract F16_05_DssFlashSusdsGhoMintCrvUsdSwap is StrategyBase, IERC3156FlashBor
         //      until DAI balance covers `amount + fee` (fee == 0 here).
         uint256 owed = amount + fee;
         if (IERC20(Mainnet.DAI).balanceOf(address(this)) < owed && _crvUsdAtSnapshot > 0) {
-            // crvUSD -> USDC via crvUSD/USDC NG pool. Address inlined from F16-02.
+            // crvUSD -> USDC via crvUSD/USDC NG pool. ACTUAL: coins[0]=USDC, coins[1]=crvUSD
+            // => crvUSD->USDC is index 1->0.
             address curveCrvUsdUsdc = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
             IERC20(Mainnet.CRVUSD).approve(curveCrvUsdUsdc, _crvUsdAtSnapshot);
             uint256 usdcMid = ICurveStableSwap(curveCrvUsdUsdc).exchange(
-                int128(0), int128(1), _crvUsdAtSnapshot, 0
+                int128(1), int128(0), _crvUsdAtSnapshot, 0
             );
 
-            // USDC -> DAI via Curve 3pool (idx 1 -> 0).
+            // USDC -> DAI via Curve 3pool (idx 1=USDC -> 0=DAI). 3pool exchange() is void.
             IERC20(Mainnet.USDC).approve(Mainnet.CURVE_3POOL, usdcMid);
-            ICurveStableSwap(Mainnet.CURVE_3POOL).exchange(
-                int128(1), int128(0), usdcMid, 0
-            );
+            uint256 daiBefore2 = IERC20(Mainnet.DAI).balanceOf(address(this));
+            ICurve3PoolNoReturn(Mainnet.CURVE_3POOL).exchange(int128(1), int128(0), usdcMid, 0);
+            // daiBefore2 used implicitly; balance increases after call.
+            (daiBefore2); // silence unused variable warning
             _crvUsdAtSnapshot = 0;
         }
 
@@ -275,10 +289,9 @@ contract F16_05_DssFlashSusdsGhoMintCrvUsdSwap is StrategyBase, IERC3156FlashBor
         {
             uint256 usdcBal = IERC20(Mainnet.USDC).balanceOf(address(this));
             if (usdcBal > 0) {
+                // USDC -> DAI via 3pool (idx 1=USDC -> 0=DAI). 3pool exchange() is void.
                 IERC20(Mainnet.USDC).approve(Mainnet.CURVE_3POOL, usdcBal);
-                ICurveStableSwap(Mainnet.CURVE_3POOL).exchange(
-                    int128(1), int128(0), usdcBal, 0
-                );
+                ICurve3PoolNoReturn(Mainnet.CURVE_3POOL).exchange(int128(1), int128(0), usdcBal, 0);
             }
         }
 

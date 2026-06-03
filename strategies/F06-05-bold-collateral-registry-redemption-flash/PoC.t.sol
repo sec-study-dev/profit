@@ -80,6 +80,7 @@ contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3
 
     /// @dev Post-redeployment block. Forge-test will fork at this height
     ///      where v2 troves and BOLD AMM liquidity exist.
+    ///      22_500_000 predates BOLD deployment; 22_800_000 is confirmed live.
     uint256 constant FORK_BLOCK = 22_800_000;
 
     /// @dev DAI flashmint notional. 2M keeps each branch slice modest.

@@ -37,7 +37,9 @@ interface ISynthetixSystemSettings {
 
 interface IDssFlash {
     function flashLoan(address receiver, address token, uint256 amount, bytes calldata data) external returns (bool);
-    function toll() external view returns (uint256);
+    // ERC-3156 flashFee() is the canonical way to check the DssFlash fee.
+    // The legacy toll() selector does not exist on 0x60744434...
+    function flashFee(address token, uint256 amount) external view returns (uint256);
     function max() external view returns (uint256);
 }
 
@@ -65,7 +67,8 @@ contract F14_02_SusdDepegAtomic is StrategyBase, IERC3156FlashBorrower {
     bytes32 constant CK_sETH = bytes32("sETH");
     bytes32 constant TRACKING_CODE = bytes32("F14-02-arb");
 
-    // Curve sUSD 4pool (sUSD=0, DAI=1, USDC=2, USDT=3).
+    // Curve sUSD 4pool. Actual coin ordering (verified on-chain):
+    //   0=DAI, 1=USDC, 2=USDT, 3=sUSD.
     address constant CURVE_SUSD_4POOL = 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD;
     // Curve 3pool (DAI=0, USDC=1, USDT=2).
     address constant CURVE_3POOL = 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7;
@@ -111,12 +114,19 @@ contract F14_02_SusdDepegAtomic is StrategyBase, IERC3156FlashBorrower {
         }
 
         // Sanity check DssFlash params.
-        assertEq(flash.toll(), 0, "DssFlash toll non-zero");
+        // DssFlash ERC-3156 implementation (0x60744434...) does not expose
+        // a toll() function; use the ERC-3156 flashFee() selector instead.
+        {
+            uint256 _toll = flash.flashFee(Mainnet.DAI, PROBE_DAI);
+            assertEq(_toll, 0, "DssFlash toll non-zero");
+        }
         assertGe(flash.max(), PROBE_DAI, "DssFlash max too small");
 
         // -- Probe sUSD depeg on Curve 4pool (DAI->sUSD direction) --
+        // Actual coin ordering: 0=DAI, 1=USDC, 2=USDT, 3=sUSD.
+        // Selling DAI (0) to buy sUSD (3) shows if sUSD is cheap (dy > dx).
         ICurveStableSwap pool = ICurveStableSwap(CURVE_SUSD_4POOL);
-        uint256 susdOutForDai = pool.get_dy(1, 0, PROBE_DAI);
+        uint256 susdOutForDai = pool.get_dy(0, 3, PROBE_DAI);
         emit log_named_uint("curve_susd_out_for_2M_DAI", susdOutForDai);
         int256 edgeBps = (int256(susdOutForDai) - int256(PROBE_DAI)) * 10_000 / int256(PROBE_DAI);
         emit log_named_int("susd_depeg_bps_observed", edgeBps);
@@ -170,8 +180,9 @@ contract F14_02_SusdDepegAtomic is StrategyBase, IERC3156FlashBorrower {
         address synthetix = abi.decode(data, (address));
 
         // 1) DAI -> sUSD via Curve 4pool (cheap sUSD).
+        // Actual 4pool indices: 0=DAI, 1=USDC, 2=USDT, 3=sUSD.
         IERC20(Mainnet.DAI).approve(CURVE_SUSD_4POOL, amount);
-        uint256 susdOut = ICurveStableSwap(CURVE_SUSD_4POOL).exchange(1, 0, amount, 0);
+        uint256 susdOut = ICurveStableSwap(CURVE_SUSD_4POOL).exchange(0, 3, amount, 0);
         emit log_named_uint("step1_susd_received", susdOut);
 
         // 2) sUSD -> sETH via atomic exchange.
@@ -223,8 +234,9 @@ contract F14_02_SusdDepegAtomic is StrategyBase, IERC3156FlashBorrower {
         // repay the flashloan. Loss surfaces in PnL.
         uint256 susdBal = IERC20(Mainnet.SUSD).balanceOf(address(this));
         if (susdBal > 0) {
+            // sUSD(3) -> DAI(0) to recover some DAI.
             IERC20(Mainnet.SUSD).approve(CURVE_SUSD_4POOL, susdBal);
-            try ICurveStableSwap(CURVE_SUSD_4POOL).exchange(0, 1, susdBal, 0) returns (uint256) {} catch {}
+            try ICurveStableSwap(CURVE_SUSD_4POOL).exchange(3, 0, susdBal, 0) returns (uint256) {} catch {}
         }
         _approveAndRepay(amount);
     }

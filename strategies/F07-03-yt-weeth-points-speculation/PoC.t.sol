@@ -43,12 +43,13 @@ contract F07_03_YtWeethPointsSpecTest is StrategyBase {
     }
 
     function testStrategy_F07_03() public {
-        _fund(Mainnet.WETH, address(this), EQUITY_WETH);
+        // Fund weETH: SY-weETH-26DEC2024 only accepts weETH, eETH, ETH(0) as tokenMintSy.
+        _fund(Mainnet.WEETH, address(this), EQUITY_WETH);
         _startPnL();
 
-        IERC20(Mainnet.WETH).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
+        IERC20(Mainnet.WEETH).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
 
-        // ---- 1. Buy YT-weETH with all WETH ----
+        // ---- 1. Buy YT-weETH with all weETH ----
         uint256 ytOut = _swapWethForYt(EQUITY_WETH, 0);
         emit log_named_uint("yt_received_1e18", ytOut);
         emit log_named_uint("implied_notional_weETH_1e18", ytOut); // 1:1 YT:SY notional units
@@ -94,9 +95,9 @@ contract F07_03_YtWeethPointsSpecTest is StrategyBase {
         });
         IPendleRouter.SwapData memory emptySwap;
         IPendleRouter.TokenInput memory input = IPendleRouter.TokenInput({
-            tokenIn: Mainnet.WETH,
+            tokenIn: Mainnet.WEETH,
             netTokenIn: wethIn,
-            tokenMintSy: Mainnet.WETH,
+            tokenMintSy: Mainnet.WEETH, // SY-weETH-26DEC2024 accepts weETH, eETH, ETH(0)
             pendleSwap: address(0),
             swapData: emptySwap
         });

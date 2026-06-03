@@ -50,9 +50,11 @@ contract F15_08_SymbioticEigenPendleYtTripleTest is StrategyBase {
     ///      two-legs.
     address constant PENDLE_RSETH_MARKET = 0x4f43c77872Db6BA177c270986CD30c3381AF37Ee;
 
-    /// @dev Aug 2024 - Symbiotic live, EL caps periodically open, Pendle
-    ///      rsETH market has post-Jun24 successor maturities trading.
-    uint256 constant FORK_BLOCK = 20_400_000;
+    /// @dev Jun 2024 - Symbiotic wstETH vault still has capacity (supply < 41290 wstETH
+    ///      limit), EL stETH strategy whitelisted, and the rsETH Pendle Jun-2024 market
+    ///      is still active (expires Jun 27 2024). Block 20_400_000 (Aug 2024) had the
+    ///      vault at capacity and the Pendle market expired, so both Legs A and C failed.
+    uint256 constant FORK_BLOCK = 20_070_000;
 
     uint256 constant EQUITY_WSTETH = 90 ether;
     uint256 constant LEG_WSTETH = 30 ether;

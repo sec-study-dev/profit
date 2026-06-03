@@ -30,7 +30,8 @@ import {ILLAMMA} from "src/interfaces/cdp/ILLAMMA.sol";
 ///         peg shift by direct LLAMMA `exchange()` to demonstrate the
 ///         arb composition on a live fork.
 contract F12_09_PoC is StrategyBase {
-    // ---- Curve crvUSD/USDC pool (StableSwap-NG, indices: 0=crvUSD, 1=USDC) ----
+    // ---- Curve crvUSD/USDC pool (StableSwap-NG, indices: 0=USDC, 1=crvUSD) ----
+    // NOTE: actual on-chain coin ordering is coins(0)=USDC, coins(1)=crvUSD.
     address constant CRVUSD_USDC_POOL = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
 
     // ---- Convex ----
@@ -70,13 +71,14 @@ contract F12_09_PoC is StrategyBase {
 
     function test_F12_09_convex_llamma_arb() public {
         // ---- 1) Sanity-check the Curve pool & Convex Booster ----
+        // On-chain coin ordering: coins(0)=USDC, coins(1)=crvUSD.
         require(
-            ICurveStableSwap(CRVUSD_USDC_POOL).coins(0) == Mainnet.CRVUSD,
-            "pool coin0 != crvUSD"
+            ICurveStableSwap(CRVUSD_USDC_POOL).coins(0) == Mainnet.USDC,
+            "pool coin0 != USDC"
         );
         require(
-            ICurveStableSwap(CRVUSD_USDC_POOL).coins(1) == Mainnet.USDC,
-            "pool coin1 != USDC"
+            ICurveStableSwap(CRVUSD_USDC_POOL).coins(1) == Mainnet.CRVUSD,
+            "pool coin1 != crvUSD"
         );
 
         IConvexBooster.PoolInfo memory pi =
@@ -120,8 +122,9 @@ contract F12_09_PoC is StrategyBase {
         // crvUSD/USDC pool* to recreate the off-peg state a real soft-liq
         // produces. Pool spot will shift from ~1.00 to ~0.998-0.999.
         IERC20(Mainnet.USDC).approve(CRVUSD_USDC_POOL, USDC_SHIFT);
+        // coins(0)=USDC, coins(1)=crvUSD: sell USDC(0) for crvUSD(1).
         uint256 crvUsdReceivedFromShift = ICurveStableSwap(CRVUSD_USDC_POOL).exchange(
-            int128(1), int128(0), USDC_SHIFT, 0  // USDC -> crvUSD, no min
+            int128(0), int128(1), USDC_SHIFT, 0  // USDC(0) -> crvUSD(1), no min
         );
         console2.log("USDC->crvUSD shift dy (raw):", crvUsdReceivedFromShift);
         // After this dump the pool has excess USDC and crvUSD is now
@@ -134,16 +137,18 @@ contract F12_09_PoC is StrategyBase {
         IERC20(Mainnet.CRVUSD).approve(CRVUSD_USDC_POOL, myCrvUsd);
         // Quote first so we can require a positive edge: dy must exceed
         // (crvUsd at peg) by some bps.
+        // coins(0)=USDC, coins(1)=crvUSD: sell crvUSD(1) for USDC(0).
         uint256 dyEstimate = ICurveStableSwap(CRVUSD_USDC_POOL).get_dy(
-            int128(0), int128(1), myCrvUsd
+            int128(1), int128(0), myCrvUsd
         );
         console2.log("crvUSD->USDC quote dy (raw, 6-dec):", dyEstimate);
         // crvUSD is 18-dec, USDC is 6-dec. Naive "peg dy" = myCrvUsd / 1e12.
         uint256 pegDy = myCrvUsd / 1e12;
         if (dyEstimate > pegDy) {
             uint256 minOut = (dyEstimate * 9999) / 10000;  // 1 bp slip
+            // sell crvUSD(1) for USDC(0)
             uint256 arbedUsdc = ICurveStableSwap(CRVUSD_USDC_POOL).exchange(
-                int128(0), int128(1), myCrvUsd, minOut
+                int128(1), int128(0), myCrvUsd, minOut
             );
             console2.log("Arb leg USDC out (raw):", arbedUsdc);
             // Edge captured = arbedUsdc - pegDy.

@@ -95,7 +95,7 @@ contract F04_07_DssFlashLusdLiquityRedemption is StrategyBase, IERC3156FlashBorr
         ICurveMeta meta = ICurveMeta(LOCAL_CURVE_LUSD_3POOL);
 
         // ---- Sanity ----
-        assertEq(flash.toll(), 0, "DssFlash toll non-zero");
+        assertEq(flash.flashFee(Mainnet.DAI, 1e18), 0, "DssFlash toll non-zero");
         assertGe(flash.max(), FLASH_DAI, "DssFlash cap too small");
 
         // ---- Discovery: quote the round trip ----

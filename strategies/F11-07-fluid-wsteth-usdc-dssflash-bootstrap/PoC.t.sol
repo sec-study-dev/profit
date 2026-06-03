@@ -22,12 +22,12 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 contract F11_07_FluidWstethUsdcDssflashBootstrapTest is StrategyBase, IERC3156FlashBorrower {
     uint256 internal constant FORK_BLOCK = 21_300_000;
 
-    // Fluid wstETH (collateral) / USDC (debt) vault T1.
-    // verified at
-    // https://etherscan.io/address/0x40D9b8417E6E1DcD358f04E3328bCEd061018A82
-    // (Fluid Vault T1 wstETH<>USDC, deployed by Fluid VaultFactoryT1, vault ID 14).
+    // Fluid wstETH (collateral) / USDC (debt) vault T1 (vault ID 14).
+    // Verified via VaultFactory.getVaultAddress(14) + constantsView():
+    //   col = wstETH (0x7f39...), debt = USDC (0xA0b8...).
+    // Previous address 0x40D9b8 was WRONG (col=weETH, debt=wstETH).
     address internal constant LOCAL_FLUID_WSTETH_USDC_VAULT =
-        0x40D9b8417E6E1DcD358f04E3328bCEd061018A82;
+        0x1982CC7b1570C2503282d0A0B41F69b3B28fdcc3;
 
     // DssFlash mainnet (DAI flash mint).
     // verified at
@@ -115,29 +115,38 @@ contract F11_07_FluidWstethUsdcDssflashBootstrapTest is StrategyBase, IERC3156Fl
 
         uint256 wstAmt = abi.decode(data, (uint256));
 
-        // (a) Swap a slice of the DAI flash to USDC on Curve 3pool so we have
-        //     USDC headroom to mirror Fluid's debt leg.
-        // We swap 1.05x the Fluid debt notional in DAI to USDC.
-        // Fluid LTV target ~70% - wstAmt * stEthPerToken * ethUsd * 0.70.
-        // For PoC we hard-cap the borrow at 50% of wstETH USD value via
-        // a conservative scaling (stEthPerToken*1e18 ~ 1.17e18, ethUsd~3500e8).
+        // (a) Swap a small slice of the DAI flash to USDC on Curve 3pool.
+        // We keep the swap amount small so that after the round-trip (USDC->DAI)
+        // we retain enough DAI to repay the flash. The round-trip costs ~0.1%
+        // in Curve 3pool fees, so we cap the swap at 5% of the flash amount to
+        // keep slippage well within the residual DAI balance.
         uint256 ethUsdE8 = _ethUsdE8();
         if (ethUsdE8 == 0) ethUsdE8 = 3500e8;
         uint256 wstUsdE6 = (wstAmt * IWstETH(Mainnet.WSTETH).stEthPerToken() * ethUsdE8) / 1e38;
         uint256 borrowTargetUsdc = (wstUsdE6 * 50) / 100;
 
-        // Swap (borrowTargetUsdc * 1.01e12) DAI -> USDC.
+        // Cap daiToSwap at 2% of flash amount so that Curve round-trip losses
+        // stay well below the surplus DAI held after the swap-back.
         uint256 daiToSwap = (borrowTargetUsdc * 101 * 1e12) / 100;
-        if (daiToSwap > amount) daiToSwap = amount / 2;
+        uint256 maxSwap = amount / 50; // 2% of 5M DAI = 100k DAI
+        if (daiToSwap > maxSwap) daiToSwap = maxSwap;
         IERC20(Mainnet.DAI).approve(LOCAL_CURVE_3POOL, daiToSwap);
-        ICurveStableSwap(LOCAL_CURVE_3POOL).exchange(int128(0), int128(1), daiToSwap, 0);
+        // Curve 3pool exchange() returns void in its Vyper ABI; use low-level call
+        // to avoid Solidity 0.8 return-data length check reverting.
+        (bool ok1,) = LOCAL_CURVE_3POOL.call(
+            abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(0), int128(1), daiToSwap, uint256(0))
+        );
+        require(ok1, "curve dai->usdc failed");
         uint256 usdcOnHand = IERC20(Mainnet.USDC).balanceOf(address(this));
         emit log_named_uint("flash_usdc_after_3pool", usdcOnHand);
 
         // (b) Open the Fluid NFT: supply wstETH collateral, borrow USDC.
         // operate(0, +wstAmt, +borrowAmt, address(this))
         IFluidVault vault = IFluidVault(LOCAL_FLUID_WSTETH_USDC_VAULT);
-        try vault.operate(0, int256(wstAmt), int256(borrowTargetUsdc), address(this))
+        // Borrow at most the USDC we have on hand so the NFT is opened within
+        // available liquidity and the debt is immediately covered by existing USDC.
+        uint256 fluidBorrowUsdc = usdcOnHand < borrowTargetUsdc ? usdcOnHand : borrowTargetUsdc;
+        try vault.operate(0, int256(wstAmt), int256(fluidBorrowUsdc), address(this))
             returns (uint256 nftId_, int256, int256)
         {
             _nftId = nftId_;
@@ -151,7 +160,10 @@ contract F11_07_FluidWstethUsdcDssflashBootstrapTest is StrategyBase, IERC3156Fl
         uint256 totalUsdc = IERC20(Mainnet.USDC).balanceOf(address(this));
         if (totalUsdc > 0) {
             IERC20(Mainnet.USDC).approve(LOCAL_CURVE_3POOL, totalUsdc);
-            ICurveStableSwap(LOCAL_CURVE_3POOL).exchange(int128(1), int128(0), totalUsdc, 0);
+            (bool ok2,) = LOCAL_CURVE_3POOL.call(
+                abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(1), int128(0), totalUsdc, uint256(0))
+            );
+            require(ok2, "curve usdc->dai failed");
         }
 
         // (d) DSS will pull DAI back at end-of-flash via transferFrom; ensure balance.

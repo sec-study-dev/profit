@@ -48,9 +48,11 @@ interface ISYRewards {
 ///         points + Pendle PT residual + Symbiotic vault points.
 contract F07_09_YtPufethSymbioticStackTest is StrategyBase {
     // ---- Block ----
-    /// @dev Mid-Aug 2024. PT/YT-pufETH-26DEC2024 has ~4 months to maturity;
-    ///      Symbiotic pufETH vault live and accepting deposits (capacity-gated).
-    uint256 constant FORK_BLOCK = 20_650_000;
+    /// @dev Dec 2024. PT/YT-pufETH-26DEC2024 near maturity;
+    ///      Symbiotic pufETH vault live. FORK_BLOCK bumped to 21_200_000 because
+    ///      the Pendle pufETH-26DEC2024 market (0x58612beB...) only has code
+    ///      from that block onward.
+    uint256 constant FORK_BLOCK = 21_200_000;
 
     // ---- Pendle market (PT/YT/SY-pufETH-26DEC2024) ----
     /// @dev Pendle Market for PT/YT/SY-pufETH - maturity 26-DEC-2024.

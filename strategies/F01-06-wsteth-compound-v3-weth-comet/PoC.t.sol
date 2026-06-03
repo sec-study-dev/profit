@@ -75,18 +75,18 @@ contract F01_06_WstethCompoundV3CometTest is StrategyBase {
             uint128 collat = comet.collateralBalanceOf(address(this), Mainnet.WSTETH);
             if (collat == 0) break;
             // Use Comet's own price feeds for accuracy (1e8 scale).
+            // NOTE: in the WETH Comet, getPrice(wstETH_feed) returns wstETH/ETH
+            // rate (1e8 scale), NOT USD. So the "collateralUsdE8" below is
+            // actually collateral value in ETH (1e8 scale).
             uint256 wstPriceE8 = cometExt.getPrice(ai.priceFeed);
-            // Comet base scale is 1e18 (WETH); collateral scale is ai.scale (1e18).
-            // Collateral USD value (1e8) = collat * wstPriceE8 / 1e18.
-            uint256 collateralUsdE8 = (uint256(collat) * wstPriceE8) / 1e18;
+            // Collateral ETH value (1e8) = collat * wstPriceE8 / 1e18.
+            uint256 collateralEthE8 = (uint256(collat) * wstPriceE8) / 1e18;
             // Apply borrowCollateralFactor (1e18 scale) and our LOOP_LTV envelope.
-            uint256 borrowableUsdE8 =
-                (collateralUsdE8 * uint256(ai.borrowCollateralFactor) * LOOP_LTV_BPS) /
+            uint256 borrowableEthE8 =
+                (collateralEthE8 * uint256(ai.borrowCollateralFactor) * LOOP_LTV_BPS) /
                     (1e18 * 10_000);
-            // Convert USD value back to WETH using ETH/USD oracle (1e8).
-            uint256 ethPriceE8 = _ethUsdE8();
-            if (ethPriceE8 == 0) break;
-            uint256 totalBorrowable = (borrowableUsdE8 * 1e18) / ethPriceE8;
+            // Convert 1e8-scale ETH to 1e18-scale WETH.
+            uint256 totalBorrowable = borrowableEthE8 * 1e10;
 
             uint256 currentDebt = comet.borrowBalanceOf(address(this));
             if (totalBorrowable <= currentDebt) break;

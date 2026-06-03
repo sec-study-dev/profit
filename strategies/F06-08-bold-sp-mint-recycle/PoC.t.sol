@@ -70,7 +70,8 @@ contract F06_08_BoldSpMintRecycleTest is StrategyBase {
     address constant LOCAL_ACTIVE_POOL_WSTETH        = 0x531a8f99c70D6A56A7CEe02d6B4281650d7919a0;
 
     // ---- Tunables ----
-    /// @dev Post-redeployment block.
+    /// @dev Post-redeployment block. 22_500_000 predates BOLD deployment;
+    ///      22_800_000 is confirmed live (bytecode-checked).
     uint256 constant FORK_BLOCK = 22_800_000;
 
     /// @dev Equity (wstETH).

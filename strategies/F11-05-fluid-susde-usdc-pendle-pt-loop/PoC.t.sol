@@ -18,14 +18,12 @@ contract F11_05_FluidSusdeUsdcPendlePtLoopTest is StrategyBase {
     // markets (Mar 2025 maturity) trade with a positive carry.
     uint256 internal constant FORK_BLOCK = 21_700_000;
 
-    // ---- Fluid sUSDe / USDC smart-collateral vault ----
-    // Inline LOCAL_ constant per family constraint (Mainnet.sol is shared).
-    // verified at
-    // https://etherscan.io/address/0x025C1494b7d15aa931E011f6740E0b46b2136cb9
-    // (Fluid Vault T4 sUSDe/USDC smart-collateral & smart-debt vault, deployed
-    // by Fluid VaultFactory in late 2024).
+    // ---- Fluid sUSDe / USDC T1 vault ----
+    // Vault 17 in VaultFactoryT1 (0x324c5Dc1...): col=sUSDe, debt=USDC.
+    // Verified via VaultFactory.getVaultAddress(17) and constantsView() at this block.
+    // Previous address 0x025C1494 was wrong (col=rsETH, debt=wstETH).
     address internal constant LOCAL_FLUID_SUSDE_USDC_VAULT =
-        0x025C1494b7d15aa931E011f6740E0b46b2136cb9;
+        0x3996464c0fCCa8183e13ea5E5e74375e2c8744Dd;
 
     // ---- Pendle PT-sUSDe Mar 2025 ----
     // verified at
@@ -105,9 +103,7 @@ contract F11_05_FluidSusdeUsdcPendlePtLoopTest is StrategyBase {
         // NAV of sUSDe at the snapshot - captures the Ethena yield since deposit.
         uint256 navUsde = IERC4626(Mainnet.SUSDE).convertToAssets(finalSusde);
         emit log_named_uint("susde_nav_in_usde_1e18", navUsde);
-        uint256 vaultStateWord = vault.getVaultVariables();
-        emit log_named_uint("fluid_vault_state", vaultStateWord);
-
+        // Note: getVaultVariables() not available on this vault type (FluidVaultError 31013).
         // Sanity: position is non-trivial (we held sUSDe + PT through 30 days).
         assertGt(finalSusde + finalPt, 0, "lost all yield collateral");
 

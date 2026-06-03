@@ -60,7 +60,7 @@ contract F16_02_GhoVsCrvUsdRateArb is StrategyBase {
     address constant CRVUSD_WSTETH_CONTROLLER = 0x100dAa78fC509Db39Ef7D04DE0c1ABD299f4C6CE;
     address constant CRVUSD_WSTETH_AMM = 0x37417B2238AA52D0DD2D6252d989E728e8f706e4;
 
-    /// @dev Curve crvUSD/USDC stableswap-NG (index 0=crvUSD, 1=USDC).
+    /// @dev Curve crvUSD/USDC stableswap-NG (ACTUAL: coins[0]=USDC, coins[1]=crvUSD).
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
 
     // ---- Aave V3 Pool ----
@@ -150,9 +150,10 @@ contract F16_02_GhoVsCrvUsdRateArb is StrategyBase {
         require(crvUsdBal >= CRVUSD_DRAW, "draw shortfall");
 
         // ---- 5) Swap crvUSD -> USDC on the NG pool ----
+        // ACTUAL pool ordering: coins[0]=USDC, coins[1]=crvUSD → crvUSD->USDC is idx 1->0.
         IERC20(Mainnet.CRVUSD).approve(CURVE_CRVUSD_USDC, crvUsdBal);
         uint256 usdcOut = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
-            int128(0) /*crvUSD*/, int128(1) /*USDC*/, crvUsdBal, 0
+            int128(1) /*crvUSD*/, int128(0) /*USDC*/, crvUsdBal, 0
         );
         emit log_named_uint("usdc_from_swap", usdcOut);
 

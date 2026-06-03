@@ -18,8 +18,11 @@ import {IConvexBooster, IConvexBaseRewardPool} from "src/interfaces/bribe/IConve
 ///           - extraRewards[0] is FXS (Frax incentive stream)
 contract F12_01_PoC is StrategyBase {
     // ---- Curve / Convex addresses ----
-    // frxETH/ETH plain pool & LP (LP == pool address).
-    address constant FRXETH_ETH_POOL = 0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577;
+    // frxETH/ETH LP token. NOTE: for this pool the LP token address
+    // (0xf43211935C781D5ca1a41d2041F397B8A7366C7A) differs from the pool
+    // contract (0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577).
+    // Convex Booster.poolInfo(128).lptoken == LP token, not pool contract.
+    address constant FRXETH_ETH_POOL = 0xf43211935C781D5ca1a41d2041F397B8A7366C7A;
     // Convex BaseRewardPool for PID 128 (frxETH/ETH).
     address constant CVX_FRXETH_REWARDS = 0xbD5445402B0a287cbC77cb67B2a52e2FC635dce4;
     // Reward tokens streamed by this pool's BaseRewardPool.

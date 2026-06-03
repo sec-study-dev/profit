@@ -17,7 +17,7 @@ import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.so
 contract F04_04_DssFlashPsmAaveSupplyArb is StrategyBase, IERC3156FlashBorrower {
     bytes32 internal constant CALLBACK_SUCCESS = keccak256("ERC3156FlashBorrower.onFlashLoan");
 
-    uint256 internal constant FORK_BLOCK = 20_900_000;
+    uint256 internal constant FORK_BLOCK = 20_499_000;
     uint256 internal constant NOTIONAL_DAI = 20_000_000e18;
     // 60 s of simulated hold (5 mainnet blocks at 12 s/block).
     uint256 internal constant HOLD_SECONDS = 60;
@@ -36,7 +36,7 @@ contract F04_04_DssFlashPsmAaveSupplyArb is StrategyBase, IERC3156FlashBorrower 
         IDssPsm psm = IDssPsm(Mainnet.DSS_PSM_USDC);
 
         // Sanity: all fees zero.
-        assertEq(flash.toll(), 0, "flash toll non-zero");
+        assertEq(flash.flashFee(Mainnet.DAI, 1e18), 0, "flash toll non-zero");
         assertEq(psm.tin(), 0, "psm tin non-zero");
         assertEq(psm.tout(), 0, "psm tout non-zero");
 

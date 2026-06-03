@@ -17,7 +17,9 @@ import {IPot} from "src/interfaces/cdp/IPot.sol";
 ///         (2) Spark Protocol (Aave v3 fork) lending - borrow DAI vs rETH
 ///         (3) MakerDAO Pot DSR via sDAI ERC-4626 - hedges the Spark DAI cost
 contract F01_07_RethSparkDaiSdaiCarryTest is StrategyBase {
-    uint256 constant FORK_BLOCK = 19_700_000;
+    // Block bumped to 19_000_000 where the Curve rETH/WETH pool has ~687 WETH
+    // in reserves (sufficient for the 100 WETH swap at principal size).
+    uint256 constant FORK_BLOCK = 19_000_000;
 
     // Curve rETH/ETH pool - same address used in F01-03; verified on Curve registry.
     address constant LOCAL_CURVE_RETH_ETH_POOL = 0x0f3159811670c117c372428D4E69AC32325e4D0F;
@@ -54,9 +56,11 @@ contract F01_07_RethSparkDaiSdaiCarryTest is StrategyBase {
         emit log_named_uint("spark_dai_var_rate_ray", daiRes.currentVariableBorrowRate);
 
         // ---- 1. WETH -> rETH via Curve ----
-        IWETH(Mainnet.WETH).withdraw(principal);
-        uint256 rEthOut = ICurveStableSwap(LOCAL_CURVE_RETH_ETH_POOL).exchange{value: principal}(
-            int128(0), int128(1), principal, (principal * 98) / 100
+        // Pool coin0=WETH (ERC20), coin1=rETH. No ETH unwrap needed.
+        // rETH ≈ 1.1 WETH, so 100 WETH → ~91 rETH; use 85% floor for min-out.
+        IERC20(Mainnet.WETH).approve(LOCAL_CURVE_RETH_ETH_POOL, principal);
+        uint256 rEthOut = ICurveStableSwap(LOCAL_CURVE_RETH_ETH_POOL).exchange(
+            int128(0), int128(1), principal, (principal * 85) / 100
         );
         assertGt(rEthOut, 0, "curve swap returned 0 rETH");
 

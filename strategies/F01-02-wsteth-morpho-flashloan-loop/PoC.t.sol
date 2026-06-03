@@ -11,7 +11,9 @@ import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 
 /// @title F01-02 wstETH / WETH Morpho Blue loop bootstrapped by a Morpho flashloan
 contract F01_02_WstethMorphoFlashloanLoopTest is StrategyBase {
-    uint256 constant FORK_BLOCK = 21_400_000;
+    // Block bumped from 21_400_000 to 20_000_000 where the wstETH/WETH 94.5%
+    // market has ~1930 WETH available to borrow (vs ~213 at the original block).
+    uint256 constant FORK_BLOCK = 20_000_000;
 
     // Morpho Blue market params for wstETH-collateral / WETH-loan @ 94.5% LLTV.
     // Verified against Morpho-Blue mainnet registry (market id 0xb323...c4f5).

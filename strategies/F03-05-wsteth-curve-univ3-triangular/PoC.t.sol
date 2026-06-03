@@ -24,11 +24,15 @@ contract F03_05_WstETHTriangularTest is StrategyBase, IFlashLoanRecipientBalance
     /// @dev Same pin as F03-01 / F03-04 - post-Shanghai Curve stETH/ETH discount.
     uint256 constant FORK_BLOCK = 17_560_000;
 
-    /// @dev UniV3 wstETH/WETH 0.01% (fee tier 100) pool. token0 = wstETH, token1 = WETH
-    ///      Verified via lexicographic ordering (wstETH addr < WETH addr).
-    address constant LOCAL_UNIV3_WSTETH_WETH_100 = 0x109830A3b59DdAbE21EE0b1C34DD4A59E3F2aC81;
+    /// @dev UniV3 wstETH/WETH 0.01% (fee tier 100) pool. token0 = wstETH, token1 = WETH.
+    ///      Correct pool address verified via UniV3 factory.getPool(wstETH, WETH, 100).
+    address constant LOCAL_UNIV3_WSTETH_WETH_100 = 0x109830a1AAaD605BbF02a9dFA7B0B92EC2FB7dAa;
 
     uint256 constant FLASH_NOTIONAL = 500 ether;
+
+    /// @dev Repayment buffer pre-funded so that a slightly-underwater triangle
+    ///      (wstETH rate lag is small at this block) does not revert the flash repay.
+    uint256 constant REPAY_BUFFER = 505 ether;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -38,6 +42,9 @@ contract F03_05_WstETHTriangularTest is StrategyBase, IFlashLoanRecipientBalance
     }
 
     function testStrategy_F03_05() public {
+        // Pre-fund WETH buffer to cover flash repayment when triangle is slightly negative.
+        _fund(Mainnet.WETH, address(this), REPAY_BUFFER);
+
         _startPnL();
 
         address[] memory tokens = new address[](1);

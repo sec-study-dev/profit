@@ -4,32 +4,40 @@ pragma solidity 0.8.26;
 import {StrategyBase} from "test/utils/StrategyBase.t.sol";
 import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {IBalancerVault} from "src/interfaces/amm/IBalancerVault.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
-import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanReceiver.sol";
+import {IUniswapV3Pool} from "src/interfaces/amm/IUniswapV3Pool.sol";
+import {IUniswapV3FlashCallback} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
 /// @title F03-02 ezETH/WETH depeg arb - Balancer vs Curve, Renzo April 2024
-contract F03_02_EzETHDepegTest is StrategyBase, IFlashLoanRecipientBalancer {
+/// @notice Flash WETH from UniV3 wstETH/WETH 1bp pool (avoids Balancer vault reentrancy),
+///         buy ezETH cheap on Balancer CSP, sell on Curve ezETH/WETH NG pool, repay flash.
+contract F03_02_EzETHDepegTest is StrategyBase, IUniswapV3FlashCallback {
     /// @dev April 24 2024 - ezETH depeg event on Balancer.
     uint256 constant FORK_BLOCK = 19_690_000;
 
-    /// @dev Balancer ComposableStable ezETH/wETH/wstETH 80/20-style pool.
-    ///      Pool id (Balancer mainnet, ezETH/wETH/wstETH ComposableStable).
+    /// @dev Balancer ComposableStable ezETH/wETH/wstETH pool.
     bytes32 constant BAL_EZETH_POOL_ID =
         0x596192bb6e41802428ac943d2f1476c1af25cc0e000000000000000000000659;
 
-    /// @dev Curve ezETH/WETH ng pool (Curve factory NG, two-coin, plain).
-    ///      Address: 0x85dE3ADd465a219EE25E04d22c39aB027cF5C12E.
-    ///      Verified on Etherscan as "Curve.fi Factory Plain Pool: ezETH/WETH".
+    /// @dev Curve ezETH/WETH ng pool. coins[0] = ezETH, coins[1] = WETH.
     address constant CURVE_EZETH_WETH = 0x85dE3ADd465a219EE25E04d22c39aB027cF5C12E;
 
-    uint256 constant FLASH_NOTIONAL = 200 ether;
+    /// @dev UniV3 wstETH/WETH 0.01% (fee tier 100) pool used as WETH flash source.
+    ///      token0 = wstETH, token1 = WETH. Borrow token1 only.
+    ///      Correct address verified via factory.getPool(wstETH, WETH, 100).
+    address constant UNIV3_WSTETH_WETH_100 = 0x109830a1AAaD605BbF02a9dFA7B0B92EC2FB7dAa;
 
-    /// @dev Curve coin ordering for ezETH/WETH ng pool:
-    ///      coins[0] = ezETH, coins[1] = WETH.
+    uint256 constant FLASH_NOTIONAL = 200 ether;
+    /// @dev Small WETH buffer to cover any shortfall in the flash repayment
+    ///      (trade may be slightly underwater at this exact block; negative PnL is OK).
+    uint256 constant REPAY_BUFFER = 2 ether;
+
+    /// @dev Curve coin ordering: coins[0] = ezETH, coins[1] = WETH.
     int128 constant CURVE_I_EZETH = 0;
     int128 constant CURVE_I_WETH = 1;
+
+    bool internal _flashActive;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -38,28 +46,27 @@ contract F03_02_EzETHDepegTest is StrategyBase, IFlashLoanRecipientBalancer {
     }
 
     function testStrategy_F03_02() public {
+        // Pre-fund WETH buffer to cover any repayment shortfall (negative PnL is OK).
+        _fund(Mainnet.WETH, address(this), REPAY_BUFFER);
         _startPnL();
 
-        address[] memory tokens = new address[](1);
-        tokens[0] = Mainnet.WETH;
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = FLASH_NOTIONAL;
-
-        IBalancerVault(Mainnet.BAL_VAULT).flashLoan(address(this), tokens, amounts, "");
+        _flashActive = true;
+        // Borrow token1 (WETH) from the 1bp UniV3 pool. amount0=0, amount1=N.
+        IUniswapV3Pool(UNIV3_WSTETH_WETH_100).flash(address(this), 0, FLASH_NOTIONAL, "");
+        _flashActive = false;
 
         _endPnL("F03-02: ezETH Balancer/Curve depeg arb (Renzo Apr 2024)");
     }
 
-    function receiveFlashLoan(
-        address[] memory tokens,
-        uint256[] memory amounts,
-        uint256[] memory feeAmounts,
-        bytes memory /* userData */
+    function uniswapV3FlashCallback(
+        uint256 /* fee0 */,
+        uint256 fee1,
+        bytes calldata /* data */
     ) external override {
-        require(msg.sender == Mainnet.BAL_VAULT, "callback: not balancer vault");
-        require(feeAmounts[0] == 0, "callback: expected 0 fee");
+        require(_flashActive, "callback: not active");
+        require(msg.sender == UNIV3_WSTETH_WETH_100, "callback: wrong pool");
 
-        // ---- 1. Balancer single-swap WETH -> ezETH (the cheap side) ----
+        // ---- 1. Balancer single-swap WETH -> ezETH (the cheap side during depeg) ----
         IERC20(Mainnet.WETH).approve(Mainnet.BAL_VAULT, type(uint256).max);
 
         IBalancerVault.SingleSwap memory s1 = IBalancerVault.SingleSwap({
@@ -67,7 +74,7 @@ contract F03_02_EzETHDepegTest is StrategyBase, IFlashLoanRecipientBalancer {
             kind: IBalancerVault.SwapKind.GIVEN_IN,
             assetIn: Mainnet.WETH,
             assetOut: Mainnet.EZETH,
-            amount: amounts[0],
+            amount: FLASH_NOTIONAL,
             userData: ""
         });
         IBalancerVault.FundManagement memory fm = IBalancerVault.FundManagement({
@@ -88,13 +95,9 @@ contract F03_02_EzETHDepegTest is StrategyBase, IFlashLoanRecipientBalancer {
         uint256 wethBack = ICurveStableSwap(CURVE_EZETH_WETH).exchange(
             CURVE_I_EZETH, CURVE_I_WETH, ezOut, minOut
         );
-
-        // We expect wethBack > amounts[0] (the spread). If not, the trade
-        // would revert here in a real bot; for the PoC we keep the trade
-        // and let _endPnL print the realised (possibly negative) PnL.
         require(wethBack >= minOut, "curve: slipped");
 
-        // ---- 3. Repay flashloan ----
-        IERC20(Mainnet.WETH).transfer(Mainnet.BAL_VAULT, amounts[0] + feeAmounts[0]);
+        // ---- 3. Repay UniV3 flash (fee1 = fee on token1=WETH) ----
+        IERC20(Mainnet.WETH).transfer(UNIV3_WSTETH_WETH_100, FLASH_NOTIONAL + fee1);
     }
 }

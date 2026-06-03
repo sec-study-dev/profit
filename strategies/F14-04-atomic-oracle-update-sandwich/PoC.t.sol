@@ -6,6 +6,7 @@ import {console2} from "forge-std/console2.sol";
 
 import {Mainnet} from "src/constants/Mainnet.sol";
 import {Chainlink} from "src/constants/Chainlink.sol";
+import {Whales} from "test/utils/Whales.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
@@ -75,7 +76,8 @@ contract F14_04_OracleUpdateSandwich is StrategyBase {
     // Chainlink ETH/USD update blocks for a higher-edge entry.
     uint256 constant FORK_BLOCK = 16_900_000;
 
-    uint256 constant PROBE_SUSD = 200_000e18;
+    // Reduced to fit within the available sUSD whale balance (~81k at block 16_900_000).
+    uint256 constant PROBE_SUSD = 75_000e18;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -116,7 +118,12 @@ contract F14_04_OracleUpdateSandwich is StrategyBase {
             } catch {}
         }
 
-        _fund(Mainnet.SUSD, address(this), PROBE_SUSD);
+        // sUSD is a Synthetix proxy token; deal() cannot write its balance
+        // via storage slot manipulation. Use a known whale prank instead.
+        address susdWhale = Whales.whaleOf(Mainnet.SUSD);
+        require(susdWhale != address(0), "no sUSD whale registered");
+        vm.prank(susdWhale);
+        IERC20(Mainnet.SUSD).transfer(address(this), PROBE_SUSD);
 
         _startPnL();
         vm.txGasPrice(20 gwei);
@@ -157,8 +164,17 @@ contract F14_04_OracleUpdateSandwich is StrategyBase {
         emit log_named_uint("step3_usdc_received", usdcOut);
 
         // 4) USDC -> sUSD via Curve 4pool (close the loop).
+        // Actual 4pool coin ordering: 0=DAI, 1=USDC, 2=USDT, 3=sUSD.
+        // NOTE: The sUSD 4pool was deployed with old Vyper that returns no data on
+        // `exchange()`. Use a low-level call and measure balance delta to avoid
+        // ABI-decoder revert on empty returndata.
         IERC20(Mainnet.USDC).approve(CURVE_SUSD_4POOL, usdcOut);
-        uint256 susdBack = ICurveStableSwap(CURVE_SUSD_4POOL).exchange(2, 0, usdcOut, 0);
+        uint256 susdBefore4 = IERC20(Mainnet.SUSD).balanceOf(address(this));
+        (bool ok4,) = CURVE_SUSD_4POOL.call(
+            abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(1), int128(3), usdcOut, uint256(0))
+        );
+        require(ok4, "F14-04: 4pool USDC->sUSD failed");
+        uint256 susdBack = IERC20(Mainnet.SUSD).balanceOf(address(this)) - susdBefore4;
         emit log_named_uint("step4_susd_received", susdBack);
 
         int256 delta = int256(susdBack) - int256(PROBE_SUSD);

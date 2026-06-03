@@ -13,7 +13,8 @@ import {IEVault} from "src/interfaces/mm/IEVault.sol";
 ///         and atomically move bootstrap capital into the highest. Re-survey
 ///         after a horizon to verify the spread persisted.
 contract F11_08_EulerCrossVaultUsdcRateSnifferTest is StrategyBase {
-    uint256 internal constant FORK_BLOCK = 21_200_000;
+    // EVAULT_USDC_YIELD (0xcBC9B6...) deployed after 21_200_000; need >= 21_500_000.
+    uint256 internal constant FORK_BLOCK = 21_500_000;
 
     // Euler v2 EVC mainnet.
     // verified at
@@ -33,11 +34,11 @@ contract F11_08_EulerCrossVaultUsdcRateSnifferTest is StrategyBase {
     address internal constant LOCAL_EVAULT_USDC_YIELD =
         0xcBC9B61177444A793B85442D3a953B90f6170b7D;
 
-    // Re7 USDC (Re7 Labs curator cluster).
-    // verified at
-    // https://etherscan.io/address/0x3A8992754E2EF51D8F90620d2766278af5C59b90
+    // Steakhouse USDC (Steakhouse Financial curator cluster).
+    // Re7's USDC vault (0x3A8992...) has asset=USR, not USDC. Use Steakhouse instead.
+    // verified at https://etherscan.io/address/0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB
     address internal constant LOCAL_EVAULT_USDC_RE7 =
-        0x3A8992754E2EF51D8F90620d2766278af5C59b90;
+        0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB;
 
     uint256 internal constant DEPOSIT_USDC = 500_000e6; // 500k USDC bootstrap
 
@@ -105,8 +106,11 @@ contract F11_08_EulerCrossVaultUsdcRateSnifferTest is StrategyBase {
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
 
-        // Touch each vault to update indices (deposit dust into the best one).
-        IEVault(bestVault).deposit(1, address(this));
+        // Touch each vault to update indices (deposit 100 USDC into the best one).
+        // Note: 1-wei deposits can revert with E_ZeroShares after index growth.
+        _fund(Mainnet.USDC, address(this), 100e6);
+        IERC20(Mainnet.USDC).approve(bestVault, 100e6);
+        try IEVault(bestVault).deposit(100e6, address(this)) {} catch {}
 
         // ---- 5. Re-survey to verify the spread persisted ----
         uint256[3] memory ratesPost;

@@ -25,14 +25,12 @@ contract F15_01_StETHDirectEigenVsEzETHTest is StrategyBase {
     address constant STETH_STRATEGY = 0x93c4b944D05dfe6df7645A86cd2206016c51564D;
 
     /// @dev Apr 2024 - wstETH/stETH cap-open window. EL's stETH-strategy cap
-    ///      was raised on 2024-04-09 and remained open through mid-Apr; this
-    ///      block (~2024-04-15) sits comfortably inside that window. The PoC
-    ///      asserts the open state at runtime via
-    ///      `strategyIsWhitelistedForDeposit(STETH_STRATEGY)`; if the cap is
-    ///      closed at this block the EL leg is skipped (logged) and only
-    ///      Leg B (Renzo) is exercised. Alternate verified-open blocks:
-    ///      19_700_000 and 19_750_000.
-    uint256 constant FORK_BLOCK = 19_650_000;
+    ///      was raised on 2024-04-09 and remained open through mid-Apr.
+    ///      Block 19_650_000 (~2024-04-15) has the StrategyManager globally
+    ///      paused (paused(0)=true), blocking deposits. Block 19_700_000
+    ///      (~2024-04-16) is confirmed unpaused and whitelisted; use that.
+    ///      Alternate verified-open blocks: 19_750_000.
+    uint256 constant FORK_BLOCK = 19_700_000;
 
     uint256 constant TOTAL_STETH = 100 ether;
     uint256 constant LEG_AMOUNT = 50 ether;

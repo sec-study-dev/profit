@@ -45,7 +45,7 @@ contract F04_01_DssFlashPsmCurveDepeg is StrategyBase, IERC3156FlashBorrower {
         ICurveStableSwap pool = ICurveStableSwap(Mainnet.CURVE_3POOL);
 
         // Sanity check: zero toll, sufficient line.
-        assertEq(flash.toll(), 0, "DssFlash toll non-zero");
+        assertEq(flash.flashFee(Mainnet.DAI, 1e18), 0, "DssFlash toll non-zero");
         assertGe(flash.max(), PROBE_NOTIONAL, "DssFlash max too small");
 
         // ---- Discovery: pick direction with positive edge ----

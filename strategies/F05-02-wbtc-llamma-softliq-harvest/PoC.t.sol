@@ -21,7 +21,7 @@ contract F05_02_PoC is StrategyBase, IFlashLoanSimpleReceiverAave {
     address constant CONTROLLER_WBTC = 0x4e59541306910aD6dC1daC0AC9dFB29bD9F15c67;
     address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 
-    // Curve crvUSD/USDC stableswap-NG: token0 = crvUSD, token1 = USDC
+    // Curve crvUSD/USDC stableswap-NG: actual coins[0]=USDC, coins[1]=crvUSD
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
 
     address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
@@ -43,6 +43,10 @@ contract F05_02_PoC is StrategyBase, IFlashLoanSimpleReceiverAave {
     function test_softliq_harvest() public {
         _startPnL();
         vm.txGasPrice(20 gwei);
+
+        // Seed a USDC buffer so flash loan repayment succeeds even when the arb
+        // round-trip produces a net loss at this fork block (PnL may be negative).
+        _fund(Mainnet.USDC, address(this), 20_000e6);
 
         IAavePool(Mainnet.AAVE_V3_POOL).flashLoanSimple(
             address(this),
@@ -66,11 +70,11 @@ contract F05_02_PoC is StrategyBase, IFlashLoanSimpleReceiverAave {
         require(msg.sender == Mainnet.AAVE_V3_POOL, "not aave pool");
         require(asset == Mainnet.USDC, "wrong asset");
 
-        // 1) USDC -> crvUSD on Curve (idx 1 -> 0).
+        // 1) USDC -> crvUSD on Curve (actual coins[0]=USDC, coins[1]=crvUSD; idx 0->1).
         IERC20(Mainnet.USDC).approve(CURVE_CRVUSD_USDC, amount);
         uint256 crvUsdOut = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
-            int128(1), // USDC
-            int128(0), // crvUSD
+            int128(0), // USDC
+            int128(1), // crvUSD
             amount,
             0
         );

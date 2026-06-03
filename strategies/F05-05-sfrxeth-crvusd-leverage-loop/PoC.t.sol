@@ -38,15 +38,17 @@ contract F05_05_PoC is StrategyBase {
     /// @dev sfrxETH LLAMMA (Curve crvUSD per-collateral LLAMMA AMM).
     address constant LLAMMA_SFRXETH = 0x136e783846ef68C8Bd00a3369F787dF8d683a696;
 
-    // Curve crvUSD/USDC stableswap-NG: 0=crvUSD, 1=USDC.
+    // Curve crvUSD/USDC stableswap-NG: actual coins[0]=USDC, coins[1]=crvUSD.
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
 
     // Uni v3 router for USDC <-> WETH.
     address constant UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
     uint24 constant UNIV3_FEE_USDC_WETH = 500; // 0.05% - deepest pool
 
-    // Block where sfrxETH market crvUSD borrow rate was depressed (~3%).
-    uint256 constant FORK_BLOCK = 20_650_000;
+    // Block where sfrxETH market crvUSD borrow rate was depressed and
+    // controller had sufficient crvUSD liquidity (block 20_650_000 has 0
+    // crvUSD in the sfrxETH controller).
+    uint256 constant FORK_BLOCK = 19_643_500;
 
     uint256 constant PRINCIPAL_SFRXETH = 100 ether;
     uint256 constant N_BANDS = 10;
@@ -55,7 +57,7 @@ contract F05_05_PoC is StrategyBase {
 
     function setUp() public {
         _fork(FORK_BLOCK);
-        _setEthUsdFallback(2_550e8); // ~$2,550/ETH at block 20_650_000
+        _setEthUsdFallback(3_300e8); // ~$3,300/ETH at block 19_643_500 (Apr 13 2024)
 
         _trackToken(Mainnet.SFRXETH);
         _trackToken(Mainnet.FRXETH);
@@ -89,10 +91,10 @@ contract F05_05_PoC is StrategyBase {
             uint256 crvUsdBal = IERC20(Mainnet.CRVUSD).balanceOf(address(this));
             if (crvUsdBal == 0) break;
 
-            // crvUSD -> USDC (Curve idx 0 -> 1).
+            // crvUSD -> USDC (actual coins[0]=USDC, coins[1]=crvUSD; crvUSD->USDC is 1->0).
             IERC20(Mainnet.CRVUSD).approve(CURVE_CRVUSD_USDC, crvUsdBal);
             uint256 usdcOut = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
-                int128(0), int128(1), crvUsdBal, 0
+                int128(1), int128(0), crvUsdBal, 0
             );
 
             // USDC -> WETH on Uni v3 0.05%.

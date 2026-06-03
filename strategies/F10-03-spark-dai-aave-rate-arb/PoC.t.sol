@@ -13,6 +13,9 @@ import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 ///         position to capture whichever leg is profitable. Designed as an
 ///         observational PoC - emits rate snapshots even when the carry is
 ///         negative.
+///
+///         Note: at block 19_500_000, USDC has LTV=0 on Spark. WETH has LTV=82%,
+///         so we use WETH as collateral to borrow DAI.
 contract F10_03_SparkDaiAaveRateArb is StrategyBase {
     uint256 constant FORK_BLOCK = 19_500_000;
 
@@ -20,14 +23,16 @@ contract F10_03_SparkDaiAaveRateArb is StrategyBase {
 
     function setUp() public {
         _fork(FORK_BLOCK);
-        _trackToken(Mainnet.USDC);
+        _trackToken(Mainnet.WETH);
         _trackToken(Mainnet.DAI);
         _trackToken(Mainnet.SDAI);
     }
 
     function testStrategy_F10_03() public {
-        uint256 principalUsdc = 1_000_000e6;
-        _fund(Mainnet.USDC, address(this), principalUsdc);
+        // Use WETH as collateral - USDC has LTV=0 on Spark at this block.
+        // 1000 ETH at ~$3500 = ~$3.5M collateral, borrow ~$1.4M DAI at 40% LTV.
+        uint256 principalWeth = 1_000 ether;
+        _fund(Mainnet.WETH, address(this), principalWeth);
 
         _startPnL();
 
@@ -40,11 +45,11 @@ contract F10_03_SparkDaiAaveRateArb is StrategyBase {
         // per-year RAY). Log raw - interpretation is annual APR scaled by 1e27.
         IAavePool.ReserveDataLegacy memory sparkDai = spark.getReserveData(Mainnet.DAI);
         IAavePool.ReserveDataLegacy memory aaveDai = aave.getReserveData(Mainnet.DAI);
-        IAavePool.ReserveDataLegacy memory sparkUsdc = spark.getReserveData(Mainnet.USDC);
+        IAavePool.ReserveDataLegacy memory sparkWeth = spark.getReserveData(Mainnet.WETH);
 
         emit log_named_uint("spark_dai_borrow_apr_ray", sparkDai.currentVariableBorrowRate);
         emit log_named_uint("aave_dai_supply_apr_ray", aaveDai.currentLiquidityRate);
-        emit log_named_uint("spark_usdc_supply_apr_ray", sparkUsdc.currentLiquidityRate);
+        emit log_named_uint("spark_weth_supply_apr_ray", sparkWeth.currentLiquidityRate);
 
         // sDAI: probe drift over a single warp window to surface effective DSR.
         uint256 oneDaiInShares = sdai.convertToShares(1e18);
@@ -58,16 +63,23 @@ contract F10_03_SparkDaiAaveRateArb is StrategyBase {
             aaveLegProfitable ? uint256(1) : uint256(0)
         );
 
-        // ---- 2. Supply USDC to Spark (keep 1 wei behind for the touch tx). ----
-        IERC20(Mainnet.USDC).approve(address(spark), type(uint256).max);
-        spark.supply(Mainnet.USDC, principalUsdc - 1, address(this), 0);
+        // ---- 2. Supply WETH to Spark (LTV=82% at this block). ----
+        IERC20(Mainnet.WETH).approve(address(spark), type(uint256).max);
+        spark.supply(Mainnet.WETH, principalWeth, address(this), 0);
 
-        // ---- 3. Borrow DAI at conservative 50% LTV ----
-        // 50% of 1M USDC ~ 500k DAI; cap by actual `availableBorrowsBase`.
+        // ---- 3. Borrow DAI at conservative 40% LTV ----
+        // 40% of ~$3.5M WETH collateral ~ $1.4M DAI; cap by actual `availableBorrowsBase`.
         (, , uint256 availableBase, , , ) = spark.getUserAccountData(address(this));
-        uint256 capDai = (availableBase * 1e10 * 5000) / 10_000; // 50% of headroom
+        // availableBase is 1e8 USD; DAI is 18-dec, 1 DAI ~ 1 USD.
+        // Cap borrow at 40% of available headroom.
+        uint256 capDai = (availableBase * 1e10 * 4000) / 10_000;
         uint256 borrowDai = 500_000e18;
         if (borrowDai > capDai) borrowDai = capDai;
+        if (borrowDai == 0) {
+            emit log("borrow_cap_zero: insufficient collateral value");
+            _endPnL("F10-03: Spark borrow + sDAI/aDAI three-way arb (skipped)");
+            return;
+        }
 
         spark.borrow(Mainnet.DAI, borrowDai, RATE_MODE_VARIABLE, 0, address(this));
         uint256 daiOnHand = IERC20(Mainnet.DAI).balanceOf(address(this));
@@ -92,8 +104,9 @@ contract F10_03_SparkDaiAaveRateArb is StrategyBase {
         vm.roll(block.number + (30 days / 12));
 
         // Touch each reserve to crystallise indices.
-        deal(Mainnet.USDC, address(this), 1);
-        spark.supply(Mainnet.USDC, 1, address(this), 0);
+        deal(Mainnet.WETH, address(this), 1);
+        IERC20(Mainnet.WETH).approve(address(spark), 1);
+        spark.supply(Mainnet.WETH, 1, address(this), 0);
         deal(Mainnet.DAI, address(this), 1);
         aave.supply(Mainnet.DAI, 1, address(this), 0);
 

@@ -7,66 +7,50 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {IKelpDepositPool} from "src/interfaces/lrt/IRsETH.sol";
 import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
-import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
-import {IMorphoFlashLoanCallback} from "src/interfaces/common/IFlashLoanReceiver.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// Minimal Karak v0 Vault interface - ERC-4626-like with whitelist gating.
+/// Minimal Karak v0 Vault interface.
 interface IKarakVault {
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
-    function asset() external view returns (address);
-    function totalAssets() external view returns (uint256);
 }
 
-/// @notice F02-05 - rsETH triple-points stack via Karak + Pendle YT + Morpho flashloan.
+/// @notice F02-05 - rsETH triple-points stack: Kelp DAO + Karak + Pendle YT.
 ///
-/// Combines THREE distinct mechanisms on rsETH notional:
-///   1. Kelp DAO Miles + EigenLayer rs-pts (held on raw rsETH).
-///   2. Karak XP (Karak vault deposit).
-///   3. Pendle YT-rsETH point-decoupling (high points-per-$).
+/// Mechanism:
+///   1. Convert WETH -> ETH -> rsETH via Kelp DepositPool (earn Kelp Miles + EL pts).
+///   2. Stake 70% of rsETH in Karak vault for Karak XP (guarded; vault may be absent).
+///   3. Use 30% of rsETH to buy YT-rsETH-27JUN24 via Pendle Router V4 for
+///      leveraged point exposure (holding YT gives 1 rsETH worth of pts for ~3% cost).
 ///
-/// Two execution paths are implemented; both use Morpho's free flashloan as the
-/// transient capital source:
-///   - Bulk leg: flashloan WETH -> mint rsETH (Kelp) -> Karak-stake the bulk
-///     -> unwind via PT-rsETH (sell SY-position via Pendle Router) -> repay flash.
-///   - Spike leg: spend a small slice of post-equity WETH on YT-rsETH directly
-///     via `swapExactTokenForYt` for the points-leverage tranche.
-contract F02_05_RsethKarakPendleYtMorphoTest is StrategyBase, IMorphoFlashLoanCallback {
+/// SY-rsETH (0x730A5E...) accepts: [rsETH, ETH, stETH, sfrxETH, frxETH, address(0xEEEE)].
+/// For the YT purchase we use rsETH directly as tokenMintSy.
+contract F02_05_RsethKarakPendleYtMorphoTest is StrategyBase {
     // ---- Pinned constants ----
 
-    /// @dev Block 19,750,000 - mid-Apr 2024. Karak live; Pendle rsETH-27JUN24
-    /// market active; Kelp deposit pool open.
-    uint256 constant FORK_BLOCK = 19_750_000;
+    /// @dev Block 19,800,000 - late Apr 2024. Pendle Router V4 live (deployed ~block
+    /// 19,760,000); Pendle rsETH-27JUN24 market active; Kelp deposit pool open.
+    uint256 constant FORK_BLOCK = 19_800_000;
 
-    /// @dev Kelp DAO LRTDepositPool - ETH/asset -> rsETH minting.
-    /// Verified: https://etherscan.io/address/0x036676389e48133B63a802f8635AD39E752D375D
+    /// @dev Kelp DAO LRTDepositPool - ETH -> rsETH minting.
     address constant LOCAL_KELP_DEPOSIT_POOL = 0x036676389e48133B63a802f8635AD39E752D375D;
 
-    /// @dev Karak VaultSupervisor (per-asset vault registry).
-    /// https://etherscan.io/address/0x54e44DbB92dBA848ACe27F44c0CB4268981eF1CC
-    address constant LOCAL_KARAK_VAULT_SUPERVISOR = 0x54e44DbB92dBA848ACe27F44c0CB4268981eF1CC;
-
-    /// @dev Karak rsETH vault - deployed by VaultSupervisor for Kelp rsETH.
-    /// Reachable from app.karak.network/pool/ethereum/rsETH. The Karak v0 per-
-    /// asset vault is a beacon-proxy created by `VaultSupervisor.deployVault()`;
-    /// at FORK_BLOCK 19,750,000 it exists for rsETH but its address is not
-    /// trivially derivable off-chain (depends on init nonce). We wrap the
-    /// deposit in try/catch and, on failure, leave the rsETH idle (still
-    /// earns Kelp+EL pts; only Karak XP is missed).
-    /// NOTE: documented placeholder; if Karak publishes a registry getter, replace.
+    /// @dev Karak rsETH vault. At FORK_BLOCK 19,800,000 it has no bytecode; guarded
+    /// via extcodesize so no Foundry "call to non-contract" failure.
     address constant LOCAL_KARAK_RSETH_VAULT = 0xa791f506cD16e5dc7e64BB9eB6F2BC4d99B1e9a1;
 
-    /// @dev Pendle market token (LP) for PT-rsETH-27JUN24 / SY-rsETH.
-    /// https://etherscan.io/address/0x4f43c77872Db6BA177c270986CD30c3381AF37Ee
+    /// @dev Pendle rsETH-27JUN24 market + YT token.
+    /// Verified via readTokens() on the market contract.
+    /// SY: 0x730A5E2AcEbccAA5e9095723B3CB862739DA793c
+    /// PT: 0xB05cABCd99cf9a73b19805edefC5f67CA5d1895E
+    /// YT: 0x0ED3A1D45DfdCf85BCc6C7BAFDC0170A357B974C
     address constant LOCAL_PENDLE_RSETH_MARKET_27JUN24 = 0x4f43c77872Db6BA177c270986CD30c3381AF37Ee;
-    /// @dev YT-rsETH-27JUN2024 - https://etherscan.io/token/0x0ED3A1D45DfdCf85BCc6C7BAFDC0170A357B974C
     address constant LOCAL_PENDLE_YT_RSETH_27JUN24 = 0x0ED3A1D45DfdCf85BCc6C7BAFDC0170A357B974C;
 
     uint256 constant EQUITY = 100 ether;
-    /// @dev Spike-leg: % of equity spent on YT-rsETH for points leverage.
-    uint256 constant YT_BUDGET_BPS = 1500;
-    /// @dev Flashloan amount for the Karak-bulk leg. Repaid in callback via PT sale.
-    uint256 constant FLASH_AMOUNT = 100 ether;
+    /// @dev 30% of rsETH goes to Pendle YT for points leverage.
+    uint256 constant YT_SLICE_BPS = 3000;
+    /// @dev 70% of rsETH goes to Karak (if live) or stays raw.
+    uint256 constant KARAK_SLICE_BPS = 7000;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -79,118 +63,37 @@ contract F02_05_RsethKarakPendleYtMorphoTest is StrategyBase, IMorphoFlashLoanCa
         _fund(Mainnet.WETH, address(this), EQUITY);
         _startPnL();
 
-        // ---- Spike leg: spend a small budget on YT-rsETH (point-leverage tranche) ----
-        uint256 ytBudget = (EQUITY * YT_BUDGET_BPS) / 10_000;
-        IERC20(Mainnet.WETH).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
-        _buyYtRsETH(ytBudget);
+        // ---- 1. WETH -> ETH -> rsETH via Kelp ----
+        IWETH(Mainnet.WETH).withdraw(EQUITY);
+        IKelpDepositPool(LOCAL_KELP_DEPOSIT_POOL).depositETH{value: EQUITY}(0, "F02-05");
+        uint256 rsethBal = IERC20(Mainnet.RSETH).balanceOf(address(this));
+        require(rsethBal > 0, "Kelp depositETH returned 0 rsETH");
+        console2.log("rsETH minted from Kelp:", rsethBal);
 
-        // ---- Bulk leg: flashloan-bootstrapped rsETH mint + Karak stake ----
-        // Approve Morpho to pull the WETH we'll need to repay the flash. We will
-        // repay using PT-rsETH sale proceeds inside the callback.
-        IERC20(Mainnet.WETH).approve(Mainnet.MORPHO, type(uint256).max);
+        // ---- 2. Karak stake (70%) ----
+        uint256 karakSlice = (rsethBal * KARAK_SLICE_BPS) / 10_000;
+        uint256 karakCodeSize;
+        assembly { karakCodeSize := extcodesize(LOCAL_KARAK_RSETH_VAULT) }
+        if (karakCodeSize > 0) {
+            IERC20(Mainnet.RSETH).approve(LOCAL_KARAK_RSETH_VAULT, karakSlice);
+            try IKarakVault(LOCAL_KARAK_RSETH_VAULT).deposit(karakSlice, address(this)) returns (uint256 shares) {
+                console2.log("Karak rsETH shares minted:", shares);
+            } catch {
+                console2.log("Karak deposit failed; rsETH stays raw");
+            }
+        } else {
+            console2.log("Karak rsETH vault not live at this block; rsETH stays raw");
+        }
 
-        IMorpho(Mainnet.MORPHO).flashLoan(Mainnet.WETH, FLASH_AMOUNT, abi.encode("bulk"));
-
-        // After callback: Karak-staked rsETH (if vault accepted) + residual rsETH/WETH dust + YT.
-        _endPnL("F02-05: rsETH-karak-pendle-yt-morpho");
-    }
-
-    function onMorphoFlashLoan(uint256 assets, bytes calldata) external {
-        require(msg.sender == Mainnet.MORPHO, "only morpho");
-
-        // ---- 1. Convert ALL the flashed WETH into rsETH ----
-        IWETH(Mainnet.WETH).withdraw(assets);
-        IKelpDepositPool(LOCAL_KELP_DEPOSIT_POOL).depositETH{value: assets}(0, "F02-05");
-        uint256 rsethMinted = IERC20(Mainnet.RSETH).balanceOf(address(this));
-        console2.log("rsETH minted in callback:", rsethMinted);
-
-        // ---- 2. Atomically mint PT+YT via Pendle from the rsETH ----
-        // Sell the resulting PT for WETH to repay the flash; keep the YT (extra
-        // point exposure stacked on top of the spike-leg YT bought from equity).
+        // ---- 3. Pendle YT-rsETH purchase (30%) ----
+        // SY-rsETH accepts rsETH as tokenMintSy (verified via getTokensIn()).
+        uint256 ytSlice = rsethBal - karakSlice; // remaining after Karak
         IERC20(Mainnet.RSETH).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
 
         IPendleRouter.TokenInput memory tin = IPendleRouter.TokenInput({
             tokenIn: Mainnet.RSETH,
-            netTokenIn: rsethMinted,
+            netTokenIn: ytSlice,
             tokenMintSy: Mainnet.RSETH,
-            pendleSwap: address(0),
-            swapData: IPendleRouter.SwapData({
-                swapType: 0,
-                extRouter: address(0),
-                extCalldata: "",
-                needScale: false
-            })
-        });
-
-        try IPendleRouter(Mainnet.PENDLE_ROUTER_V4).mintPyFromToken(
-            address(this),
-            LOCAL_PENDLE_YT_RSETH_27JUN24,
-            0,
-            tin
-        ) returns (uint256 pyOut, uint256) {
-            console2.log("PT+YT (rsETH) minted in callback:", pyOut);
-        } catch {
-            console2.log("mintPyFromToken failed; cannot continue bulk leg");
-            revert("pendle mint failed");
-        }
-
-        // Sell ALL PT for WETH to repay flash.
-        address ptToken = _ptFromYt(LOCAL_PENDLE_YT_RSETH_27JUN24);
-        uint256 ptBal = IERC20(ptToken).balanceOf(address(this));
-        IERC20(ptToken).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
-
-        IPendleRouter.TokenOutput memory tout = IPendleRouter.TokenOutput({
-            tokenOut: Mainnet.WETH,
-            minTokenOut: 0,
-            tokenRedeemSy: Mainnet.WETH,
-            pendleSwap: address(0),
-            swapData: IPendleRouter.SwapData({
-                swapType: 0,
-                extRouter: address(0),
-                extCalldata: "",
-                needScale: false
-            })
-        });
-        IPendleRouter.LimitOrderData memory lim;
-
-        try IPendleRouter(Mainnet.PENDLE_ROUTER_V4).swapExactPtForToken(
-            address(this),
-            LOCAL_PENDLE_RSETH_MARKET_27JUN24,
-            ptBal,
-            tout,
-            lim
-        ) returns (uint256 wethOut, uint256, uint256) {
-            console2.log("WETH recovered from PT sale:", wethOut);
-        } catch {
-            revert("PT sale failed; cannot repay flash");
-        }
-
-        // ---- 3. Also Karak-stake the YT-side? No - YT is an ERC20 but Karak
-        // accepts rsETH only. We hold the YT directly (extra point exposure).
-        // If any residual raw rsETH is on hand (shouldn't be - all went into PT/YT),
-        // deposit it to Karak.
-        uint256 rsethRes = IERC20(Mainnet.RSETH).balanceOf(address(this));
-        if (rsethRes > 0) {
-            IERC20(Mainnet.RSETH).approve(LOCAL_KARAK_RSETH_VAULT, rsethRes);
-            try IKarakVault(LOCAL_KARAK_RSETH_VAULT).deposit(rsethRes, address(this)) returns (uint256 shares) {
-                console2.log("Karak rsETH vault shares minted:", shares);
-            } catch {
-                console2.log("Karak rsETH deposit failed; rsETH stays raw");
-            }
-        }
-
-        // Verify repay-ability.
-        uint256 wethEnd = IERC20(Mainnet.WETH).balanceOf(address(this));
-        require(wethEnd >= assets, "insufficient WETH for flash repay");
-    }
-
-    // ---- Internal helpers ----
-
-    function _buyYtRsETH(uint256 wethIn) internal {
-        IPendleRouter.TokenInput memory tin = IPendleRouter.TokenInput({
-            tokenIn: Mainnet.WETH,
-            netTokenIn: wethIn,
-            tokenMintSy: Mainnet.WETH,
             pendleSwap: address(0),
             swapData: IPendleRouter.SwapData({
                 swapType: 0,
@@ -211,28 +114,16 @@ contract F02_05_RsethKarakPendleYtMorphoTest is StrategyBase, IMorphoFlashLoanCa
         try IPendleRouter(Mainnet.PENDLE_ROUTER_V4).swapExactTokenForYt(
             address(this),
             LOCAL_PENDLE_RSETH_MARKET_27JUN24,
-            0,
+            0, // minYtOut - PoC skips slippage
             guess,
             tin,
             lim
         ) returns (uint256 ytOut, uint256, uint256) {
-            console2.log("YT-rsETH (spike leg) bought:", ytOut);
+            console2.log("YT-rsETH bought:", ytOut);
         } catch {
-            console2.log("Pendle YT swap failed; spike leg skipped");
+            console2.log("Pendle YT swap failed; rsETH slice stays raw");
         }
-    }
 
-    /// @dev Resolve PT token from YT via Pendle's YT.PT() getter (the YT contract
-    /// exposes its paired PT). We declare a minimal interface inline to avoid
-    /// adding a dependency outside our F02 directory.
-    function _ptFromYt(address yt) internal view returns (address) {
-        (bool ok, bytes memory ret) = yt.staticcall(abi.encodeWithSignature("PT()"));
-        if (ok && ret.length >= 32) return abi.decode(ret, (address));
-        // Fallback: empirically resolved PT-rsETH-27JUN2024 (must verify on-fork).
-        // The Pendle YT contract always exposes `PT()` - the static call above
-        // should not fail in practice; this fallback is for defensive parsing only.
-        // If used, the caller is responsible for verifying via Pendle SDK / Etherscan
-        // event logs (look for `MarketCreated` from MarketFactoryV3 0x1A6fCc85...).
-        return address(0);
+        _endPnL("F02-05: rsETH-karak-pendle-yt");
     }
 }

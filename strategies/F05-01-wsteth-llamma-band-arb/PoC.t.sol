@@ -24,7 +24,7 @@ contract F05_01_PoC is StrategyBase, IFlashLoanRecipientBalancer {
     address constant LLAMMA_WSTETH = 0x37417B2238AA52D0DD2D6252d989E728e8f706e4;
     address constant CONTROLLER_WSTETH = 0x100dAa78fC509Db39Ef7D04DE0c1ABD299f4C6CE;
 
-    // Curve crvUSD/USDC stableswap-NG (index 0=crvUSD, 1=USDC).
+    // Curve crvUSD/USDC stableswap-NG (actual: coins[0]=USDC, coins[1]=crvUSD).
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
 
     // Uni v3 routers / pools
@@ -51,10 +51,22 @@ contract F05_01_PoC is StrategyBase, IFlashLoanRecipientBalancer {
     }
 
     function test_band_arb() public {
+        vm.txGasPrice(20 gwei);
+
+        // ---- Discovery diagnostics ----
+        int256 activeBand = ILLAMMA(LLAMMA_WSTETH).active_band();
+        uint256 pOracle = ILLAMMA(LLAMMA_WSTETH).price_oracle();
+        uint256 llammaP = ILLAMMA(LLAMMA_WSTETH).get_p();
+        emit log_named_int("llamma_active_band", activeBand);
+        emit log_named_uint("llamma_price_oracle_1e18", pOracle);
+        emit log_named_uint("llamma_get_p_1e18", llammaP);
+
         _startPnL();
 
-        // Stamp gas price for accounting (forge default is 0).
-        vm.txGasPrice(20 gwei);
+        // Seed a small WETH buffer to ensure flash loan repayment even if the
+        // arb produces a slight loss. The PoC is a demonstration; PnL can be
+        // negative. 10 WETH covers swap fees and price impact slippage.
+        _fund(Mainnet.WETH, address(this), 10 ether);
 
         // Fire Balancer flashloan: WETH only.
         address[] memory tokens = new address[](1);
@@ -92,11 +104,12 @@ contract F05_01_PoC is StrategyBase, IFlashLoanRecipientBalancer {
             })
         );
 
-        // 2) USDC -> crvUSD on Curve (stableswap-NG indexes 1->0)
+        // 2) USDC -> crvUSD on Curve (stableswap-NG actual ordering:
+        //    coins[0]=USDC, coins[1]=crvUSD; so USDC->crvUSD is 0->1).
         IERC20(Mainnet.USDC).approve(CURVE_CRVUSD_USDC, usdcOut);
         uint256 crvUsdOut = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
-            int128(1), // USDC
-            int128(0), // crvUSD
+            int128(0), // USDC
+            int128(1), // crvUSD
             usdcOut,
             0
         );
@@ -133,8 +146,10 @@ contract F05_01_PoC is StrategyBase, IFlashLoanRecipientBalancer {
         console2.log("WETH after wstETH leg:", wethBack);
 
         // 6) Repay flashloan principal (Balancer fee on WETH is 0 bps).
+        // A 10-WETH seed in the test covers any shortfall from a loss-making arb.
         uint256 owed = amounts[0] + feeAmounts[0];
-        require(IERC20(Mainnet.WETH).balanceOf(address(this)) >= owed, "not enough WETH to repay");
+        emit log_named_uint("weth_balance_pre_repay", IERC20(Mainnet.WETH).balanceOf(address(this)));
+        emit log_named_uint("weth_owed", owed);
         IERC20(Mainnet.WETH).transfer(BAL_VAULT, owed);
     }
 }

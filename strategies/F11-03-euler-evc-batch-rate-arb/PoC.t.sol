@@ -12,8 +12,9 @@ import {IEVault} from "src/interfaces/mm/IEVault.sol";
 /// @notice Atomic batch: borrow USDC from vault B, supply to vault A. Free
 ///         flashloan via EVC deferred health checks.
 contract F11_03_EulerEvcBatchRateArbTest is StrategyBase {
-    // Block where Euler v2 ecosystem has multiple USDC vaults live.
-    uint256 internal constant FORK_BLOCK = 21_200_000;
+    // Block where all three Euler v2 USDC vaults (Prime, Yield, Re7) are live.
+    // EVAULT_USDC_YIELD (0xcBC9B6...) was deployed after 21_200_000 but before 21_500_000.
+    uint256 internal constant FORK_BLOCK = 21_500_000;
 
     // Euler v2 EVC mainnet.
     // verified at https://etherscan.io/address/0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383

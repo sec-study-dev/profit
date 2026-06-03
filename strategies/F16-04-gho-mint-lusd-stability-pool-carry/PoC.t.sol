@@ -85,8 +85,8 @@ contract F16_04_GhoMintLusdStabilityPoolCarry is StrategyBase {
     ///      `[crvUSD]: GHO Pegkeeper Review` (gov.curve.finance/t/.../11003).
     ///      Pool index ordering: 0=GHO, 1=crvUSD.
     address constant CURVE_GHO_CRVUSD = 0x635EF0056A597D13863B73825CcA297236578595;
-    /// @dev Curve crvUSD/USDC StableNG (idx 0=crvUSD, 1=USDC). Used to bridge
-    ///      GHO -> crvUSD -> USDC since no deep GHO/3CRV metapool exists.
+    /// @dev Curve crvUSD/USDC StableNG (ACTUAL: coins[0]=USDC, coins[1]=crvUSD).
+    ///      Used to bridge GHO -> crvUSD -> USDC since no deep GHO/3CRV metapool exists.
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
     /// @dev Curve LUSD/3pool meta-pool (underlying coins [LUSD, DAI, USDC, USDT]).
     address constant CURVE_LUSD_3POOL = 0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA;
@@ -147,9 +147,10 @@ contract F16_04_GhoMintLusdStabilityPoolCarry is StrategyBase {
         }
         emit log_named_uint("crvusd_intermediate", crvUsdMid);
 
+        // ACTUAL pool ordering: coins[0]=USDC, coins[1]=crvUSD → crvUSD->USDC is idx 1->0.
         IERC20(Mainnet.CRVUSD).approve(CURVE_CRVUSD_USDC, crvUsdMid);
         uint256 usdcMid = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
-            int128(0), int128(1), crvUsdMid, 0
+            int128(1), int128(0), crvUsdMid, 0
         );
         emit log_named_uint("usdc_intermediate", usdcMid);
 

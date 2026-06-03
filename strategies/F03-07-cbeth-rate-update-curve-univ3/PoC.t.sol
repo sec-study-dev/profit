@@ -4,7 +4,6 @@ pragma solidity 0.8.26;
 import {StrategyBase} from "test/utils/StrategyBase.t.sol";
 import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {ICbETH} from "src/interfaces/lst/ICbETH.sol";
 import {ICurveCryptoSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IBalancerVault} from "src/interfaces/amm/IBalancerVault.sol";
@@ -22,8 +21,9 @@ contract F03_07_CbETHRateUpdateTest is StrategyBase, IFlashLoanRecipientBalancer
     ///      from previous block AND Curve spot does not yet reflect full delta.
     uint256 constant FORK_BLOCK = 20_390_100;
 
-    /// @dev Curve cbETH/ETH crypto pool (V2 crypto).
-    ///      coins[0] = ETH (native sentinel), coins[1] = cbETH.
+    /// @dev Curve cbETH/WETH crypto pool (V2 crypto).
+    ///      coins[0] = WETH (0xC02a...), coins[1] = cbETH.
+    ///      NOTE: This pool uses wrapped ETH (WETH), NOT native ETH.
     address constant LOCAL_CURVE_CBETH_ETH = 0x5FAE7E604FC3e24fd43A72867ceBaC94c65b404A;
 
     /// @dev UniV3 cbETH/WETH 0.05% (fee tier 500) pool.
@@ -78,13 +78,12 @@ contract F03_07_CbETHRateUpdateTest is StrategyBase, IFlashLoanRecipientBalancer
         uint256 curveAmt = (amounts[0] * CURVE_FRACTION_BPS) / 10_000;
         uint256 uniAmt = amounts[0] - curveAmt;
 
-        // ---- 1. Unwrap WETH -> ETH for Curve native leg ----
-        IWETH(Mainnet.WETH).withdraw(curveAmt);
-
-        // ---- 2. Curve cbETH/ETH: ETH (i=0) -> cbETH (j=1) ----
+        // ---- 1. Curve cbETH/WETH: WETH (i=0) -> cbETH (j=1) ----
+        // Pool coins[0] = WETH (not native ETH). Approve WETH and exchange without msg.value.
+        IERC20(Mainnet.WETH).approve(LOCAL_CURVE_CBETH_ETH, curveAmt);
         uint256 expectedCbEth = ICurveCryptoSwap(LOCAL_CURVE_CBETH_ETH).get_dy(0, 1, curveAmt);
         uint256 minCbEth = (expectedCbEth * 995) / 1000; // 50 bps tolerance
-        uint256 cbEthOut1 = ICurveCryptoSwap(LOCAL_CURVE_CBETH_ETH).exchange{value: curveAmt}(
+        uint256 cbEthOut1 = ICurveCryptoSwap(LOCAL_CURVE_CBETH_ETH).exchange(
             0, 1, curveAmt, minCbEth
         );
         require(cbEthOut1 > 0, "curve: zero cbETH");

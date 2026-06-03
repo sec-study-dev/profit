@@ -27,10 +27,19 @@ interface IFraxlendPair {
     function userCollateralBalance(address user) external view returns (uint256);
     function userBorrowShares(address user) external view returns (uint256);
     function totalBorrow() external view returns (uint128 amount, uint128 shares);
+    /// @dev Fraxlend v2 ExchangeRateInfo struct fields:
+    ///      oracle, maxOracleDeviation, lastTimestamp, lowExchangeRate, highExchangeRate.
+    ///      lowExchangeRate / highExchangeRate = collateral units per 1e18 asset units.
     function exchangeRateInfo()
         external
         view
-        returns (uint32 lastTimestamp, uint224 exchangeRate);
+        returns (
+            address oracle,
+            uint256 maxOracleDeviation,
+            uint256 lastTimestamp,
+            uint256 lowExchangeRate,
+            uint256 highExchangeRate
+        );
     function addInterest() external returns (uint256, uint256, uint256, uint64, uint64);
     function currentRateInfo()
         external
@@ -52,10 +61,12 @@ contract F01_05_SfrxethFraxlendLoopTest is StrategyBase {
     // Pre-Sep-2024 Fraxlend sfrxETH/FRAX pair active; pricePerShare > 1.08.
     uint256 constant FORK_BLOCK = 20_650_000;
 
-    // Fraxlend sfrxETH/FRAX pair address - verified against Frax docs deployments
-    // page (https://docs.frax.finance/fraxlend/fraxlend-overview).
+    // Fraxlend sfrxETH/FRAX pair address - verified on-chain:
+    // collateralContract() == 0xac3E018457B222d93114458476f3E3416Abbe38F (sfrxETH)
+    // asset()              == 0x853d955aCEf822Db058eb8505911ED77F175b99e (FRAX)
+    // (0x32467a... is actually WBTC/FRAX, not sfrxETH/FRAX)
     address constant LOCAL_FRAXLEND_SFRXETH_FRAX_PAIR =
-        0x32467a5fc2d72D21E8DCe990906547A2b012f382;
+        0x78bB3aEC3d855431bd9289fD98dA13F9ebB7ef15;
 
     // FRAX stablecoin - verified Etherscan (Frax Finance: FRAX Token).
     address constant LOCAL_FRAX = 0x853d955aCEf822Db058eb8505911ED77F175b99e;
@@ -105,10 +116,10 @@ contract F01_05_SfrxethFraxlendLoopTest is StrategyBase {
             // Headroom estimation: collateral_value_in_FRAX = sfrx * pricePerShare * frxETH/ETH * ETH/FRAX
             // We use the pair's own exchangeRate which expresses (collateral->asset)
             // i.e. how much FRAX 1 sfrxETH is worth (1e18 scale convention).
-            (, uint224 exchangeRate) = pair.exchangeRateInfo();
-            // Fraxlend convention: exchangeRate = collateral_per_asset (i.e. sfrxETH per FRAX),
-            // so 1 FRAX of debt requires `exchangeRate` units of sfrxETH-collateral / 1e18.
-            // Maximum borrowable FRAX = collateral / exchangeRate * 1e18 * maxLTV.
+            (,,,uint256 exchangeRate,) = pair.exchangeRateInfo();
+            // Fraxlend v2 convention: lowExchangeRate = collateral per 1e18 asset
+            // (i.e. sfrxETH units per 1 FRAX). Maximum borrowable FRAX:
+            // = collat_sfrxETH * 1e18 / exchangeRate.
             uint256 collat = pair.userCollateralBalance(address(this));
             if (exchangeRate == 0) break;
             uint256 maxBorrowFrax = (collat * 1e18) / uint256(exchangeRate);

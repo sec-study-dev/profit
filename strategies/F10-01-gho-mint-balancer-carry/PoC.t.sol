@@ -91,7 +91,9 @@ contract F10_01_GhoMintBalancerCarry is StrategyBase {
         IBalancerVault vault = IBalancerVault(Mainnet.BAL_VAULT);
         IERC20(Mainnet.GHO).approve(address(vault), type(uint256).max);
         IERC20(Mainnet.USDC).approve(address(vault), type(uint256).max);
-        IERC20(Mainnet.USDT).approve(address(vault), type(uint256).max);
+        // USDT.approve() returns void (not bool) - use low-level call to avoid ABI decode revert.
+        (bool _usdtOk,) = Mainnet.USDT.call(abi.encodeWithSignature("approve(address,uint256)", address(vault), type(uint256).max));
+        require(_usdtOk, "USDT approve failed");
 
         // Read pool tokens dynamically - order on-chain is canonical.
         bool poolOk = true;

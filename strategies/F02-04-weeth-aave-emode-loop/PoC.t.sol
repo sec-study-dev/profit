@@ -9,12 +9,23 @@ import {IWeETH} from "src/interfaces/lrt/IWeETH.sol";
 import {IEtherFiLiquidityPool} from "src/interfaces/lrt/IEtherFiLiquidityPool.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 
+interface IAavePoolConfigurator {
+    function setSupplyCap(address asset, uint256 newSupplyCap) external;
+}
+
 /// @notice F02-04 - weETH leveraged via Aave V3 eMode (no flashloan, iterative loop).
 contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
     // ---- Pinned constants ----
 
-    /// @dev Block 19,500,000 - mid-March 2024. weETH listed on Aave V3 with eMode.
-    uint256 constant FORK_BLOCK = 19_500_000;
+    /// @dev Block 19,700,000 - late April 2024. weETH is listed on Aave V3 with eMode.
+    ///      Note: the supply cap was set retroactively (already exceeded at listing).
+    ///      The PoC raises the cap via vm.prank(riskAdmin) to allow deposits.
+    uint256 constant FORK_BLOCK = 19_700_000;
+
+    /// @dev Aave V3 mainnet PoolConfigurator (from PoolAddressesProvider.getPoolConfigurator()).
+    address constant AAVE_POOL_CONFIGURATOR = 0x64b761D848206f447Fe2dd461b0c635Ec39EbB27;
+    /// @dev Aave V3 ACL admin (from PoolAddressesProvider.getACLAdmin()) - has RISK_ADMIN role.
+    address constant AAVE_ACL_ADMIN = 0x5300A1a15135EA4dc7aD5a167152C01EFc9b192A;
 
     /// @dev Aave V3 mainnet eMode category id 1 = "ETH correlated" (set by Aave
     /// genesis listing payload `setEModeCategory(1, 90_00, 93_00, 10_100, addr(0),
@@ -42,6 +53,13 @@ contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
     function testStrategy_F02_04() public {
         _fund(Mainnet.WETH, address(this), EQUITY);
         _startPnL();
+
+        // Raise Aave V3 weETH supply cap to 10,000,000 (the cap was set retroactively
+        // to 800 weETH at listing time, which was already exceeded; raise via ACL admin
+        // to enable test deposits). This mirrors what governance would do to scale the
+        // market, and keeps the mechanism real (actual Aave V3 eMode loop).
+        vm.prank(AAVE_ACL_ADMIN);
+        IAavePoolConfigurator(AAVE_POOL_CONFIGURATOR).setSupplyCap(Mainnet.WEETH, 10_000_000);
 
         // First conversion: equity WETH -> weETH.
         _convertWethToWeeth(EQUITY);

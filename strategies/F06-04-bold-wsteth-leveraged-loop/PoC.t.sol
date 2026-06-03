@@ -80,7 +80,8 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
     // ---- Tunables ----
 
     /// @dev Post-redeployment block (Liquity v2 re-live on 2025-05-19).
-    ///      ~22,500,000 ~= mid-June 2025; first month with v2 trove activity.
+    ///      22_500_000 precedes deployment of BOLD contracts (confirmed live
+    ///      at 22_800_000 per bytecode check).
     uint256 constant FORK_BLOCK = 22_800_000;
 
     /// @dev wstETH equity tranche.
