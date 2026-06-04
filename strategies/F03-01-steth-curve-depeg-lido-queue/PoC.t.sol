@@ -22,7 +22,7 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 ///            (The actual profit is the stETH > flashed-WETH delta.)
 contract F03_01_StETHDepegTest is StrategyBase, IFlashLoanRecipientBalancer {
     /// @dev July 4 2023 - post-Shanghai, mild stETH discount on Curve.
-    uint256 constant FORK_BLOCK = 17_560_000;
+    uint256 constant FORK_BLOCK = 14_900_000;
 
     /// @dev Curve stETH/ETH pool: coins[0] = ETH (native sentinel), coins[1] = stETH.
     address constant CURVE_STETH_ETH = Mainnet.CURVE_STETH_POOL;

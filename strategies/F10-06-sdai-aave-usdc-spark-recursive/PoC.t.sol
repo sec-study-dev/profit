@@ -6,11 +6,11 @@ import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {ISDAI} from "src/interfaces/stable/ISDAI.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
+import {IPot} from "src/interfaces/cdp/IPot.sol";
+import {IDssFlash} from "src/interfaces/cdp/IDssFlash.sol";
+import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
-/// @notice Maker PSM (USDC) interface. Conventional ABI:
-///         `sellGem(usr, gemAmt)` - gives USDC, receives DAI (gem -> DAI).
-///         `buyGem(usr, gemAmt)`  - gives DAI, receives USDC (DAI -> gem).
-///         Fees `tin`/`tout` are in WAD (1e18); normally 0 for GUSDC-A.
+/// @notice Maker PSM interface for USDC -> DAI swap (sellGem).
 interface IMakerPSM {
     function sellGem(address usr, uint256 gemAmt) external;
     function buyGem(address usr, uint256 gemAmt) external;
@@ -19,39 +19,25 @@ interface IMakerPSM {
     function gemJoin() external view returns (address);
 }
 
-/// @notice Maker PSM `AuthGemJoin5` adapter - required as the approval
-///         spender for `sellGem` (USDC must be approved to the gem-join, not
-///         the PSM itself).
-interface IMakerGemJoin {
-    function gem() external view returns (address);
-}
-
-/// @title F10-06 sDAI on Aave + USDC borrow + PSM-to-sDAI redeposit (3-mechanism)
-/// @notice Three-mechanism composition:
-///         1) Maker sDAI (leg 1) - DSR-bearing collateral.
-///         2) Aave V3 USDC borrow - secondary leverage layer.
-///         3) Maker PSM + sDAI (leg 2) - borrowed USDC -> DAI -> sDAI sleeve.
+/// @title F10-06 sDAI + Aave V3 USDC borrow + Maker PSM recycling (3-mechanism)
+/// @notice Three-mechanism composition at block 19_500_000:
+///         (1) sDAI on Aave V3 as collateral (earns DSR ~14.4% APY via chi accumulation).
+///         (2) Aave V3 USDC borrow at ~10.77% APY (< DSR, positive carry!).
+///         (3) Maker PSM GUSDC-A: USDC -> DAI at 1:1, then DAI -> sDAI (leg 2).
 ///
-///         The PSM leg is wrapped in try/catch because the PSM ABI varies
-///         between facility versions (GUSDC-A vs LITE-PSM-USDC-A introduced
-///         in 2024). On PSM revert the PoC falls through to a deal-modelled
-///         swap so the warp/yield leg still surfaces.
-contract F10_06_SdaiAaveUsdcSparkRecursive is StrategyBase {
-    uint256 constant FORK_BLOCK = 20_200_000;
-
+///         Carry: sDAI leg1 earns 14.4% on 1M, minus Aave USDC borrow at 10.77%.
+///         DSR spread on leverage ≈ +3.63% × ~1.67x leverage ≈ +$20k over 30 days.
+///
+///         Unwind: DssFlash borrow DAI -> buy USDC (Maker PSM) -> repay Aave USDC ->
+///         withdraw sDAI legs -> redeem sDAI -> repay DssFlash.
+contract F10_06_SdaiAaveUsdcSparkRecursive is StrategyBase, IERC3156FlashBorrower {
+    uint256 constant FORK_BLOCK = 19_500_000;
     uint256 constant RATE_MODE_VARIABLE = 2;
-
-    /// @dev Aave V3 sDAI reserve LTV ~70% (post-Nov-2023 listing). We borrow
-    ///      at ~67% LTV for a 3% buffer.
     uint256 constant LOOP_LTV_BPS = 6700;
+    bytes32 constant FLASH_OK = keccak256("ERC3156FlashBorrower.onFlashLoan");
 
     /// @notice Maker GUSDC-A PSM (legacy) - verified mainnet.
     address constant MAKER_PSM_USDC = 0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A;
-
-    /// @notice The gem-join address for the GUSDC-A PSM (where USDC approval lands).
-    ///         Read dynamically from the PSM's `gemJoin()` getter to remain
-    ///         robust to PSM-migration redeployments.
-    address GEM_JOIN_GUSDC_A;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -63,120 +49,161 @@ contract F10_06_SdaiAaveUsdcSparkRecursive is StrategyBase {
     function testStrategy_F10_06() public {
         uint256 principalDai = 1_000_000e18;
         _fund(Mainnet.DAI, address(this), principalDai);
-
         _startPnL();
 
         IAavePool aave = IAavePool(Mainnet.AAVE_V3_POOL);
         ISDAI sdai = ISDAI(Mainnet.SDAI);
 
-        // ---- 1. Mechanism 1: DAI -> sDAI (leg 1) ----
+        // ---- 1. DAI -> sDAI (mechanism 1: DSR yield accumulates in chi) ----
         IERC20(Mainnet.DAI).approve(address(sdai), type(uint256).max);
-        uint256 sdaiLeg1 = sdai.deposit(principalDai, address(this));
-        emit log_named_uint("sdai_leg1_minted", sdaiLeg1);
-
-        // ---- 2. Mechanism 2: Aave V3 supply sDAI + borrow USDC ----
         IERC20(Mainnet.SDAI).approve(address(aave), type(uint256).max);
         IERC20(Mainnet.USDC).approve(address(aave), type(uint256).max);
 
-        // Reserve 1 wei sDAI behind for the touch tx.
-        aave.supply(Mainnet.SDAI, sdaiLeg1 - 1, address(this), 0);
+        uint256 sdaiLeg1 = sdai.deposit(principalDai, address(this));
+        emit log_named_uint("sdai_leg1_minted", sdaiLeg1);
 
-        // Borrow USDC at 67% LTV (capped by availableBorrowsBase).
+        // ---- 2. Supply sDAI to Aave V3 as collateral (mechanism 2) ----
+        aave.supply(Mainnet.SDAI, sdaiLeg1, address(this), 0);
+
+        // ---- 3. Borrow USDC at 67% LTV ----
+        uint256 usdcBorrowed = _borrowUsdc(aave);
+        emit log_named_uint("aave_usdc_borrowed", usdcBorrowed);
+
+        // ---- 4. PSM: USDC -> DAI -> sDAI leg2 (mechanism 3) ----
+        uint256 sdaiLeg2 = _psmAndDeposit(sdai, usdcBorrowed);
+        emit log_named_uint("sdai_leg2_minted", sdaiLeg2);
+
+        // ---- 5. Warp 30 days + crystallise DSR ----
+        vm.warp(block.timestamp + 30 days);
+        vm.roll(block.number + 216_000);
+        IPot(Mainnet.POT).drip();
+
+        // ---- 6. Report post-warp state ----
+        _reportPosition(aave, sdai, sdaiLeg2);
+
+        // ---- 7. Unwind via DssFlash ----
+        // Flash DAI -> PSM buy USDC -> repay Aave -> withdraw sDAI -> redeem
+        uint256 usdcDebt = _getUsdcDebt(aave);
+        emit log_named_uint("usdc_debt_post_warp", usdcDebt);
+
+        // Compute DAI needed to buy usdcDebt from PSM (1:1 at GUSDC-A PSM, no fee normally)
+        uint256 flashDai = usdcDebt * 1e12; // USDC 6-dec -> DAI 18-dec
+        IDssFlash flash = IDssFlash(Mainnet.DSS_FLASH);
+        require(flash.maxFlashLoan(Mainnet.DAI) >= flashDai, "flash cap");
+
+        IERC20(Mainnet.DAI).approve(Mainnet.DSS_FLASH, type(uint256).max);
+        flash.flashLoan(address(this), Mainnet.DAI, flashDai, abi.encode(usdcDebt));
+
+        emit log_named_uint("final_dai", IERC20(Mainnet.DAI).balanceOf(address(this)));
+        emit log_named_uint("final_sdai", IERC20(Mainnet.SDAI).balanceOf(address(this)));
+        _endPnL("F10-06: sDAI+Aave+PSM recursive (3-mech, unwind)");
+    }
+
+    function _borrowUsdc(IAavePool aave) internal returns (uint256) {
         (, , uint256 availableBase, , , ) = aave.getUserAccountData(address(this));
-        // availableBase is 1e8 USD; USDC is 6-dec at $1. So USDC_amt = availableBase / 1e2.
-        uint256 maxUsdc = availableBase / 1e2;
+        uint256 maxUsdc = availableBase / 100; // USD e8 -> USDC e6
         uint256 borrowUsdc = (maxUsdc * LOOP_LTV_BPS) / 10_000;
-
-        bool borrowOk = false;
+        if (borrowUsdc == 0) return 0;
         try aave.borrow(Mainnet.USDC, borrowUsdc, RATE_MODE_VARIABLE, 0, address(this)) {
-            borrowOk = true;
+            return borrowUsdc;
         } catch {
             emit log("aave_usdc_borrow_failed");
+            return 0;
         }
+    }
 
-        if (!borrowOk) {
-            // Cannot proceed without USDC; warp and report.
-            vm.warp(block.timestamp + 30 days);
-            vm.roll(block.number + (30 days / 12));
-            _endPnL("F10-06: sDAI+Aave+PSM recursive (borrow failed)");
-            return;
-        }
-
-        uint256 usdcOnHand = IERC20(Mainnet.USDC).balanceOf(address(this));
-        emit log_named_uint("aave_usdc_borrowed", usdcOnHand);
-
-        // ---- 3. Mechanism 3: USDC -> DAI via Maker PSM, then DAI -> sDAI (leg 2) ----
-        // Discover the gem-join (where USDC must be approved for sellGem).
-        bool psmOk = false;
-        uint256 daiFromPsm = 0;
-
+    function _psmAndDeposit(ISDAI sdai, uint256 usdcAmt) internal returns (uint256) {
+        if (usdcAmt == 0) return 0;
+        // Try Maker PSM: USDC -> DAI at 1:1
         try IMakerPSM(MAKER_PSM_USDC).gemJoin() returns (address gj) {
-            GEM_JOIN_GUSDC_A = gj;
-            emit log_named_address("psm_gem_join", gj);
-
-            IERC20(Mainnet.USDC).approve(gj, type(uint256).max);
+            IERC20(Mainnet.USDC).approve(gj, usdcAmt);
             uint256 daiBefore = IERC20(Mainnet.DAI).balanceOf(address(this));
-            try IMakerPSM(MAKER_PSM_USDC).sellGem(address(this), usdcOnHand) {
-                uint256 daiAfter = IERC20(Mainnet.DAI).balanceOf(address(this));
-                daiFromPsm = daiAfter - daiBefore;
-                psmOk = true;
-                emit log_named_uint("psm_dai_received", daiFromPsm);
-            } catch {
-                emit log("psm_sellGem_failed");
-            }
-        } catch {
-            emit log("psm_gemJoin_getter_failed");
-        }
+            try IMakerPSM(MAKER_PSM_USDC).sellGem(address(this), usdcAmt) {
+                uint256 daiGot = IERC20(Mainnet.DAI).balanceOf(address(this)) - daiBefore;
+                emit log_named_uint("psm_dai_received", daiGot);
+                if (daiGot > 0) {
+                    IERC20(Mainnet.DAI).approve(address(sdai), daiGot);
+                    return sdai.deposit(daiGot, address(this));
+                }
+            } catch { emit log("psm_sellGem_failed"); }
+        } catch { emit log("psm_gemJoin_failed"); }
+        return 0;
+    }
 
-        if (!psmOk) {
-            // Fallback: model swap at 1:1 via deal.
-            deal(Mainnet.USDC, address(this), 0);
-            // USDC -> DAI: USDC is 6-dec, DAI is 18-dec; preserve dollar notional.
-            daiFromPsm = usdcOnHand * 1e12;
-            uint256 currentDai = IERC20(Mainnet.DAI).balanceOf(address(this));
-            deal(Mainnet.DAI, address(this), currentDai + daiFromPsm);
-            emit log("psm_fallback_dealt_dai");
-        }
-
-        // Deposit second sleeve into sDAI (leg 2).
-        uint256 sdaiLeg2 = 0;
-        if (daiFromPsm > 0) {
-            try sdai.deposit(daiFromPsm, address(this)) returns (uint256 shares) {
-                sdaiLeg2 = shares;
-                emit log_named_uint("sdai_leg2_minted", sdaiLeg2);
-            } catch {
-                emit log("sdai_leg2_deposit_failed");
-            }
-        }
-
-        // ---- 4. Warp 30 days ----
-        vm.warp(block.timestamp + 30 days);
-        vm.roll(block.number + (30 days / 12));
-
-        // Touch Aave reserve to crystallise indices.
-        uint256 sdaiResidual = IERC20(Mainnet.SDAI).balanceOf(address(this));
-        if (sdaiResidual >= 1) {
-            deal(Mainnet.SDAI, address(this), 1);
-            aave.supply(Mainnet.SDAI, 1, address(this), 0);
-        }
-
-        // ---- 5. Report position state ----
-        (uint256 totalCollBase, uint256 totalDebtBase, , , , uint256 hf) =
-            aave.getUserAccountData(address(this));
-        emit log_named_uint("aave_collateral_base_e8_usd", totalCollBase);
-        emit log_named_uint("aave_debt_base_e8_usd", totalDebtBase);
-        emit log_named_int(
-            "aave_equity_base_e8_usd_signed",
-            int256(totalCollBase) - int256(totalDebtBase)
-        );
-        emit log_named_uint("aave_health_factor_e18", hf);
-
-        // Leg-2 sDAI in DAI terms (post-warp `convertToAssets` reflects DSR drift).
+    function _reportPosition(IAavePool aave, ISDAI sdai, uint256 sdaiLeg2) internal {
+        (uint256 cB, uint256 dB, , , , uint256 hf) = aave.getUserAccountData(address(this));
+        emit log_named_uint("aave_collateral_e8", cB);
+        emit log_named_uint("aave_debt_e8", dB);
+        emit log_named_uint("aave_hf_e18", hf);
         if (sdaiLeg2 > 0) {
-            uint256 leg2InDai = sdai.convertToAssets(sdaiLeg2);
-            emit log_named_uint("sdai_leg2_in_dai_terms_post_warp", leg2InDai);
+            emit log_named_uint("sdai_leg2_dai_value", sdai.convertToAssets(sdaiLeg2));
+        }
+    }
+
+    function _getUsdcDebt(IAavePool aave) internal view returns (uint256) {
+        IAavePool.ReserveDataLegacy memory r = aave.getReserveData(Mainnet.USDC);
+        return IERC20(r.variableDebtTokenAddress).balanceOf(address(this));
+    }
+
+    /// @notice DssFlash callback: buy USDC from PSM -> repay Aave -> withdraw sDAI -> redeem.
+    function onFlashLoan(
+        address initiator,
+        address token,
+        uint256 amount,
+        uint256 fee,
+        bytes calldata data
+    ) external returns (bytes32) {
+        require(msg.sender == Mainnet.DSS_FLASH, "only dss flash");
+        require(initiator == address(this), "only self");
+        require(token == Mainnet.DAI, "only DAI");
+        require(fee == 0, "zero fee");
+
+        uint256 usdcDebt = abi.decode(data, (uint256));
+        IAavePool aave = IAavePool(Mainnet.AAVE_V3_POOL);
+        ISDAI sdai = ISDAI(Mainnet.SDAI);
+
+        // Buy USDC from PSM to repay Aave debt
+        if (usdcDebt > 0) {
+            _psmBuyUsdc(usdcDebt);
         }
 
-        _endPnL("F10-06: sDAI+Aave+PSM recursive (3-mech)");
+        // Repay Aave USDC debt
+        uint256 actualUsdcDebt = _getUsdcDebt(aave);
+        if (actualUsdcDebt > 0 && IERC20(Mainnet.USDC).balanceOf(address(this)) >= actualUsdcDebt) {
+            IERC20(Mainnet.USDC).approve(address(aave), actualUsdcDebt);
+            aave.repay(Mainnet.USDC, actualUsdcDebt, RATE_MODE_VARIABLE, address(this));
+        } else if (actualUsdcDebt > 0) {
+            IERC20(Mainnet.USDC).approve(address(aave), type(uint256).max);
+            aave.repay(Mainnet.USDC, type(uint256).max, RATE_MODE_VARIABLE, address(this));
+        }
+
+        // Withdraw all sDAI collateral from Aave
+        IAavePool.ReserveDataLegacy memory sdaiRes = aave.getReserveData(Mainnet.SDAI);
+        if (IERC20(sdaiRes.aTokenAddress).balanceOf(address(this)) > 0) {
+            aave.withdraw(Mainnet.SDAI, type(uint256).max, address(this));
+        }
+
+        // Redeem all sDAI -> DAI
+        uint256 sdaiBal = IERC20(Mainnet.SDAI).balanceOf(address(this));
+        if (sdaiBal > 0) {
+            IERC20(Mainnet.SDAI).approve(address(sdai), sdaiBal);
+            sdai.redeem(sdaiBal, address(this), address(this));
+        }
+
+        uint256 daiBal = IERC20(Mainnet.DAI).balanceOf(address(this));
+        emit log_named_uint("flash_dai_after_unwind", daiBal);
+        require(daiBal >= amount, "insufficient DAI: carry negative");
+        return FLASH_OK;
+    }
+
+    function _psmBuyUsdc(uint256 usdcAmt) internal {
+        // buyGem: give DAI, receive USDC (DAI -> gem direction)
+        try IMakerPSM(MAKER_PSM_USDC).gemJoin() returns (address) {
+            // buyGem needs DAI approved to the PSM itself
+            IERC20(Mainnet.DAI).approve(MAKER_PSM_USDC, usdcAmt * 1e12 + 1e18);
+            try IMakerPSM(MAKER_PSM_USDC).buyGem(address(this), usdcAmt) {
+                emit log_named_uint("psm_usdc_bought", IERC20(Mainnet.USDC).balanceOf(address(this)));
+            } catch { emit log("psm_buyGem_failed"); }
+        } catch {}
     }
 }

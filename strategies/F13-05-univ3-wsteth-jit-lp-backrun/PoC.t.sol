@@ -55,6 +55,7 @@ contract F13_05_UniV3WstETHJITLPBackrunTest is StrategyBase, IUniswapV3MintCallb
 
     /// @dev UniV3 wstETH/WETH 0.01% (fee tier 100, tickSpacing = 1).
     ///      token0 = wstETH (0x7f...), token1 = WETH (0xC0...).
+    ///      Verified via UniV3 factory getPool(wstETH, WETH, 100).
     address constant UNIV3_WSTETH_WETH_100 = 0x109830a1AAaD605BbF02a9dFA7B0B92EC2FB7dAa;
     uint24 constant FEE_TIER = 100;
 

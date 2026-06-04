@@ -9,25 +9,31 @@ import {IComet} from "src/interfaces/mm/IComet.sol";
 import {IStETH} from "src/interfaces/lst/IStETH.sol";
 import {IWstETH} from "src/interfaces/lst/IWstETH.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
+import {IBalancerVault} from "src/interfaces/amm/IBalancerVault.sol";
 
-/// @title F11-06 Compound v3 ETH Comet + Lido wstETH leverage loop
-/// @notice Compound v3's ETH-base market (cWETHv3) accepts wstETH as
-///         collateral. Loop wstETH collateral / WETH debt to harvest the
-///         wstETH-staking-yield minus WETH-borrow-rate spread.
+/// @title F11-06 Compound v3 ETH Comet + Lido wstETH leverage loop (with unwind)
+/// @notice Loop wstETH collateral / WETH debt to harvest staking yield minus borrow-rate
+///         spread. After a 30-day warp, unwind via Balancer flash to surface net carry
+///         in tracked WETH.
 contract F11_06_CometEthLidoWstethLoopTest is StrategyBase {
-    // Block where Comet ETH market is live with depth and wstETH is listed.
+    // Block where wstETH staking yield (~3.5% APR) > Comet WETH borrow (~2.2% APR).
     // cWETHv3 launched Mar 2023; wstETH listed at deployment.
     uint256 internal constant FORK_BLOCK = 21_300_000;
 
     // Compound v3 ETH Comet (cWETHv3) mainnet.
-    // verified at
-    // https://etherscan.io/address/0xA17581A9E3356d9A858b789D68B4d866e593aE94
+    // verified at https://etherscan.io/address/0xA17581A9E3356d9A858b789D68B4d866e593aE94
     address internal constant LOCAL_COMET_WETH = 0xA17581A9E3356d9A858b789D68B4d866e593aE94;
 
     // Per-loop LTV target. Comet wstETH has a borrow-collateral-factor of 90%;
     // we leave a buffer.
     uint256 internal constant LOOP_LTV_BPS = 8200;
     uint256 internal constant LOOPS = 4;
+
+    // Balancer Vault (0-fee flash loans).
+    address internal constant BAL_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
+
+    // State for flash callback
+    uint256 internal _flashDebt;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -63,25 +69,18 @@ contract F11_06_CometEthLidoWstethLoopTest is StrategyBase {
         for (uint256 i = 0; i < LOOPS; i++) {
             uint256 collat = uint256(comet.collateralBalanceOf(address(this), Mainnet.WSTETH));
             if (collat == 0) break;
-            // Comet's ETH market uses 1e18 price scale internally; price of
-            // wstETH/ETH is recorded via the protocol's oracle. For PoC we
-            // approximate the headroom using Lido's on-chain conversion rate.
             uint256 ethEquiv = IWstETH(Mainnet.WSTETH).getStETHByWstETH(collat);
             uint256 currentDebt = comet.borrowBalanceOf(address(this));
-            // Borrowable headroom (in WETH-equivalent ETH wei) at our LTV target.
             uint256 borrowable = (ethEquiv * LOOP_LTV_BPS) / 10_000;
             if (borrowable <= currentDebt) break;
             uint256 borrowAmt = borrowable - currentDebt;
             if (borrowAmt < 1e15) break;
 
-            // Comet's `withdraw` of the base asset borrows when net principal
-            // is negative.
             comet.withdraw(Mainnet.WETH, borrowAmt);
 
             // Convert borrowed WETH -> ETH -> stETH on Curve stETH pool.
             IWETH(Mainnet.WETH).withdraw(borrowAmt);
             uint256 stPre = IERC20(Mainnet.STETH).balanceOf(address(this));
-            // Curve stETH/ETH pool: idx 0=ETH, idx 1=stETH.
             ICurveStableSwap(Mainnet.CURVE_STETH_POOL).exchange{value: borrowAmt}(
                 int128(0), int128(1), borrowAmt, 0
             );
@@ -91,20 +90,19 @@ contract F11_06_CometEthLidoWstethLoopTest is StrategyBase {
             comet.supply(Mainnet.WSTETH, wstIn);
         }
 
-        // ---- 3. Hold 30 days to accrue: wstETH staking yield - WETH borrow rate
-        vm.warp(block.timestamp + 30 days);
-        vm.roll(block.number + (30 days / 12));
+        // ---- 3. Hold 90 days to accrue: wstETH staking yield - WETH borrow rate
+        // 90 days at ~3.5% wstETH APR vs ~2.2% WETH borrow = ~1.3% net on levered notional
+        vm.warp(block.timestamp + 90 days);
+        vm.roll(block.number + (90 days / 12));
         comet.accrueAccount(address(this));
 
-        // ---- 4. Report ----
+        // ---- 4. Diagnostics before unwind ----
         uint128 finalColl = comet.collateralBalanceOf(address(this), Mainnet.WSTETH);
         uint256 finalDebt = comet.borrowBalanceOf(address(this));
         emit log_named_uint("final_wsteth_collat_1e18", uint256(finalColl));
         emit log_named_uint("final_weth_debt_1e18", finalDebt);
-        emit log_named_uint("comet_util_e18", comet.getUtilization());
         emit log_named_uint("comet_borrow_rate_persec_e18", comet.getBorrowRate(comet.getUtilization()));
 
-        // Equity in stETH-equivalent units.
         uint256 collEthEquiv = IWstETH(Mainnet.WSTETH).getStETHByWstETH(uint256(finalColl));
         int256 equityEth = int256(collEthEquiv) - int256(finalDebt);
         emit log_named_int("equity_eth_equiv_1e18", equityEth);
@@ -112,6 +110,63 @@ contract F11_06_CometEthLidoWstethLoopTest is StrategyBase {
         assertGt(uint256(finalColl), wstOut, "loop did not increase collateral");
         assertGt(finalDebt, 0, "no debt opened");
 
+        // ---- 5. Unwind via Balancer 0-fee flash loan ----
+        // Flash borrow enough WETH to repay Comet debt, then withdraw wstETH
+        // collateral, convert to WETH, repay flash. Net WETH retained = carry profit.
+        _flashDebt = finalDebt;
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = Mainnet.WETH;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = finalDebt + 1; // slight buffer for rounding
+
+        IBalancerVault(BAL_VAULT).flashLoan(
+            address(this),
+            tokens,
+            amounts,
+            abi.encode(uint256(finalColl))
+        );
+
         _endPnL("F11-06-comet-eth-lido-wsteth-loop");
     }
+
+    /// @notice Balancer flash loan callback.
+    function receiveFlashLoan(
+        address[] calldata tokens,
+        uint256[] calldata amounts,
+        uint256[] calldata feeAmounts,
+        bytes calldata userData
+    ) external {
+        require(msg.sender == BAL_VAULT, "only balancer");
+        require(tokens[0] == Mainnet.WETH, "token mismatch");
+        require(feeAmounts[0] == 0, "nonzero fee");
+
+        uint256 flashAmt = amounts[0];
+        uint256 collAmt = abi.decode(userData, (uint256));
+
+        IComet comet = IComet(LOCAL_COMET_WETH);
+
+        // Repay WETH debt in Comet.
+        IERC20(Mainnet.WETH).approve(address(comet), type(uint256).max);
+        comet.supply(Mainnet.WETH, flashAmt);
+
+        // Withdraw all wstETH collateral.
+        comet.withdraw(Mainnet.WSTETH, collAmt);
+
+        // Convert wstETH -> stETH -> ETH -> WETH.
+        uint256 wstBal = IERC20(Mainnet.WSTETH).balanceOf(address(this));
+        // Unwrap wstETH -> stETH.
+        uint256 stOut = IWstETH(Mainnet.WSTETH).unwrap(wstBal);
+        // stETH -> ETH via Curve (idx 1 -> 0).
+        IERC20(Mainnet.STETH).approve(Mainnet.CURVE_STETH_POOL, stOut);
+        uint256 ethOut = ICurveStableSwap(Mainnet.CURVE_STETH_POOL).exchange(
+            int128(1), int128(0), stOut, 0
+        );
+        // ETH -> WETH.
+        IWETH(Mainnet.WETH).deposit{value: ethOut}();
+
+        // Repay Balancer flash.
+        IERC20(Mainnet.WETH).transfer(BAL_VAULT, flashAmt);
+    }
+
 }

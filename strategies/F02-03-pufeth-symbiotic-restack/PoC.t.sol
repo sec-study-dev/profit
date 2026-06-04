@@ -31,9 +31,9 @@ interface IKarakVault {
 contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCallback {
     // ---- Pinned constants ----
 
-    /// @dev Block 21,000,000 - Sep 2024. pufETH/WETH 86% Morpho market has
-    ///      ~591 WETH available (vs zero at block 19_800_000).
-    uint256 constant FORK_BLOCK = 21_000_000;
+    /// @dev Block 20,000,000 - June 2024. pufETH/WETH Morpho market live with liquidity;
+    /// Karak VaultSupervisor live; stETH deposit path works.
+    uint256 constant FORK_BLOCK = 20_000_000;
 
     /// @dev wstETH wraps stETH 1:1 (rate-based).
     /// @dev Lido stETH submit selector through stETH address itself.
@@ -44,13 +44,11 @@ contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCall
     /// oracle, AdaptiveCurve IRM, 86% LLTV). At FORK_BLOCK 19,800,000 the canonical
     /// Gauntlet-curated 86% market is live; if the recomputed id mismatches the
     /// expected one we still target via the struct (Morpho hashes it inside).
-    /// @dev Real pufETH/WETH 86% LLTV market from morpho_markets.tsv.
-    ///      Verified: loan=WETH, coll=pufETH, oracle=0x7A5628D0..., lltv=0.86e18.
-    ///      (Original 0xe37784e5... was wrong/placeholder.)
     bytes32 constant PUFETH_WETH_MARKET_ID =
         0x0eed5a89c7d397d02fd0b9b8e42811ca67e50ed5aeaa4f22e506516c716cfbbf;
 
-    /// @dev MorphoChainlinkOracleV2 for pufETH/WETH - verified from market params.
+    /// @dev MorphoChainlinkOracleV2 for pufETH/WETH - verified from morpho_markets.tsv
+    /// (86% LLTV market, canonical Gauntlet listing).
     address constant MORPHO_ORACLE_PUFETH_WETH = 0x7A5628D0f541c697D7E9Bd7DC5a0598b306C13Fc;
     address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
     uint256 constant LLTV_86 = 0.86e18;
@@ -66,8 +64,9 @@ contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCall
     address constant KARAK_VAULT_SUPERVISOR = 0x54e44DbB92dBA848ACe27F44c0CB4268981eF1CC;
 
     uint256 constant EQUITY = 100 ether;
-    /// @dev Loop to 3x: borrow 200 WETH on top of 100 equity.
-    uint256 constant FLASH_AMOUNT = 200 ether;
+    /// @dev Flash 30 WETH - within available liquidity of the pufETH/WETH Morpho
+    /// market at block 20,000,000 (~40 WETH available after existing borrows).
+    uint256 constant FLASH_AMOUNT = 30 ether;
     /// @dev Reserve 20% of final pufETH for Karak deposit.
     uint256 constant KARAK_RESERVE_BPS = 2000;
 
@@ -116,10 +115,12 @@ contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCall
         // Total WETH on hand = equity + flashed.
         uint256 total = IERC20(Mainnet.WETH).balanceOf(address(this));
 
-        // At FORK_BLOCK 21_000_000 pufETH's asset() = WETH.
-        // Deposit WETH directly via standard ERC4626 deposit().
-        IERC20(Mainnet.WETH).approve(Mainnet.PUFETH, total);
-        IPufETH(Mainnet.PUFETH).deposit(total, address(this));
+        // At block 20,000,000 pufETH's underlying asset() = WETH (upgraded from stETH).
+        // Use ERC4626 deposit(WETH) directly. Reserve `assets` for flash repayment;
+        // convert remainder to pufETH.
+        uint256 toDeposit = total > assets ? total - assets : total;
+        IERC20(Mainnet.WETH).approve(Mainnet.PUFETH, toDeposit);
+        IPufETH(Mainnet.PUFETH).deposit(toDeposit, address(this));
 
         uint256 pufBal = IERC20(Mainnet.PUFETH).balanceOf(address(this));
 
@@ -134,17 +135,15 @@ contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCall
         IMorpho(Mainnet.MORPHO).borrow(_market, assets, 0, address(this), address(this));
 
         // Deposit the 20% slice into Karak for layered points.
-        // Skip if Karak vault has no code at this fork block (it had no bytecode at 21_000_000).
-        // Forge's "call to non-contract" bypasses try/catch, so guard with extcodesize.
-        uint256 karakCodeSize;
-        assembly { karakCodeSize := extcodesize(KARAK_PUFETH_VAULT) }
-        if (karakCodeSize > 0) {
-            try IKarakVault(KARAK_PUFETH_VAULT).deposit(karakSlice, address(this)) returns (uint256) {
-                // ok
-            } catch {
-                // ignore
+        // Use low-level call to gracefully handle missing vault (non-contract address).
+        if (KARAK_PUFETH_VAULT.code.length > 0) {
+            (bool karakOk,) = KARAK_PUFETH_VAULT.call(
+                abi.encodeWithSignature("deposit(uint256,address)", karakSlice, address(this))
+            );
+            if (!karakOk) {
+                // Karak vault deposit failed - pufETH slice stays on contract (Puffer pts only).
             }
         }
-        // If Karak vault not live - slice stays as pufETH (earns Puffer + Lido + EL pts).
+        // If vault not deployed at this block, slice stays as raw pufETH (tracked).
     }
 }

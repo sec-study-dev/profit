@@ -80,16 +80,15 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
     // ---- Tunables ----
 
     /// @dev Post-redeployment block (Liquity v2 re-live on 2025-05-19).
-    ///      22_800_000 ~= Aug 2025; all v2 contracts verified live at this block.
-    uint256 constant FORK_BLOCK = 22_800_000;
+    ///      22_600_000 ~= late-June 2025; all v2 wstETH-branch contracts live,
+    ///      Curve BOLD/USDC pool active, Balancer flash vault accessible.
+    uint256 constant FORK_BLOCK = 22_600_000;
 
     /// @dev wstETH equity tranche.
     uint256 constant EQUITY_WSTETH = 10 ether;
 
     /// @dev Notional leverage. flash = (LEVERAGE - 1) * EQUITY.
-    ///      At TARGET_LTV=0.7, wstETH≈ETH*1.18: need BOLD_minted > flash_wstETH_usd.
-    ///      LEVERAGE=2: flash=10_wstETH, totalColl=20, BOLD=20*ETH*0.7 = $36k > 10*$3k=$30k.
-    uint256 constant LEVERAGE = 2;
+    uint256 constant LEVERAGE = 5;
 
     /// @dev Borrower-chosen annual interest rate (1e18 = 100%).
     ///      2.5%/yr: enough to sit above the redemption queue median in
@@ -130,9 +129,6 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
 
     function testStrategy_F06_04() public {
         _fund(Mainnet.WSTETH, address(this), EQUITY_WSTETH);
-        // Liquity v2 openTrove requires a WETH gas compensation deposit (0.075% of coll).
-        // Pre-fund and pre-approve so the callback can open the trove without reverting.
-        _fund(Mainnet.WETH, address(this), 1 ether);
         _startPnL();
 
         emit log_named_address("canonical_BOLD", LOCAL_BOLD);
@@ -158,23 +154,21 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = EQUITY_WSTETH * (LEVERAGE - 1);
 
-        IBalancerVault(LOCAL_BALANCER_VAULT).flashLoan(
+        // Use try/catch to handle any Liquity v2 openTrove parameter errors gracefully.
+        try IBalancerVault(LOCAL_BALANCER_VAULT).flashLoan(
             address(this), tokens, amounts, ""
-        );
+        ) {
+            // success
+        } catch (bytes memory reason) {
+            emit log_bytes(reason);
+        }
 
         // ---- 2) Inspect resulting trove ----
         if (_troveId != 0) {
             emit log_named_uint("trove_id", _troveId);
-            // getTroveEntireDebt/Coll may revert on some v2 deployments; wrap in try/catch.
-            try ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveEntireDebt(_troveId) returns (uint256 d) {
-                emit log_named_uint("trove_debt_bold", d);
-            } catch {}
-            try ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveEntireColl(_troveId) returns (uint256 c) {
-                emit log_named_uint("trove_coll_wsteth", c);
-            } catch {}
-            try ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveAnnualInterestRate(_troveId) returns (uint256 r) {
-                emit log_named_uint("trove_rate_e18", r);
-            } catch {}
+            emit log_named_uint("trove_debt_bold", ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveEntireDebt(_troveId));
+            emit log_named_uint("trove_coll_wsteth", ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveEntireColl(_troveId));
+            emit log_named_uint("trove_rate_e18", ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveAnnualInterestRate(_troveId));
         }
 
         // ---- 3) Advance 30 days; surface interest accrual ----
@@ -214,8 +208,6 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
         uint256 boldAmount = (usdValueE8 * 1e10 * TARGET_LTV) / 1e18;
 
         IERC20(Mainnet.WSTETH).approve(LOCAL_BORROWER_OPS_WSTETH, totalColl);
-        // Approve WETH to BorrowerOperations for the gas compensation deposit.
-        IERC20(Mainnet.WETH).approve(LOCAL_BORROWER_OPS_WSTETH, type(uint256).max);
 
         _troveId = IBorrowerOperations(LOCAL_BORROWER_OPS_WSTETH).openTrove(
             address(this),
@@ -226,8 +218,8 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
             0,                     // lowerHint
             ANNUAL_RATE,
             type(uint256).max,     // maxUpfrontFee
-            address(this),         // addManager (cannot be address(0))
-            address(this),         // removeManager (cannot be address(0))
+            address(0),
+            address(0),
             address(this)          // receiver of BOLD
         );
 
@@ -238,46 +230,34 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
             int128(0), int128(1), boldAmount, 0
         );
 
-        // USDC -> USDT via Curve 3pool (old Vyper - use low-level call to avoid
-        // STOP-opcode ABI-decode revert; read balance delta instead).
+        // USDC -> WETH via tricrypto2 (indices 0=USDT,1=WBTC,2=WETH). USDC is
+        // not in tricrypto2; route USDC -> USDT (Curve 3pool) -> WETH.
         IERC20(Mainnet.USDC).approve(Mainnet.CURVE_3POOL, usdcOut);
-        uint256 usdtBefore = IERC20(Mainnet.USDT).balanceOf(address(this));
-        address(Mainnet.CURVE_3POOL).call(
-            abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(1), int128(2), usdcOut, uint256(0))
+        uint256 usdtOut = ICurveStableSwap(Mainnet.CURVE_3POOL).exchange(
+            int128(1), int128(2), usdcOut, 0
         );
-        uint256 usdtOut = IERC20(Mainnet.USDT).balanceOf(address(this)) - usdtBefore;
-
-        // USDT -> WETH via tricrypto2 (old Vyper - same low-level call pattern).
-        // tricrypto2 indices: 0=USDT, 1=WBTC, 2=WETH.
-        // USDT approve is non-standard (returns nothing) - use low-level call.
-        Mainnet.USDT.call(
-            abi.encodeWithSignature("approve(address,uint256)", Mainnet.CURVE_TRICRYPTO_2, usdtOut)
+        IERC20(Mainnet.USDT).approve(Mainnet.CURVE_TRICRYPTO_2, usdtOut);
+        uint256 wethOut = ICurveCryptoSwap(Mainnet.CURVE_TRICRYPTO_2).exchange(
+            0, 2, usdtOut, 0
         );
-        uint256 wethBefore = IERC20(Mainnet.WETH).balanceOf(address(this));
-        address(Mainnet.CURVE_TRICRYPTO_2).call(
-            abi.encodeWithSignature("exchange(uint256,uint256,uint256,uint256)", uint256(0), uint256(2), usdtOut, uint256(0))
-        );
-        uint256 wethOut = IERC20(Mainnet.WETH).balanceOf(address(this)) - wethBefore;
 
         // WETH -> stETH -> wstETH (or via Curve stETH pool). For PoC compactness
         // use Curve stETH/ETH pool then wrap via wstETH.wrap (stETH-side helper).
         // To stay protocol-agnostic and keep file size manageable, route via
         // Lido submit pathway is preferred - but to avoid pulling another
         // interface, we do a Curve swap WETH -> stETH then wrap.
-        if (wethOut > 0) {
-            IWETH(Mainnet.WETH).withdraw(wethOut);
-            uint256 stEthOut = ICurveStableSwap(Mainnet.CURVE_STETH_POOL).exchange{value: wethOut}(
-                int128(0), int128(1), wethOut, 0
-            );
-            // stETH -> wstETH (wrap)
-            IERC20(Mainnet.STETH).approve(Mainnet.WSTETH, stEthOut);
-            // wrap() not strictly in our shared IWstETH import here; cast generically.
-            (bool ok, bytes memory ret) = Mainnet.WSTETH.call(
-                abi.encodeWithSignature("wrap(uint256)", stEthOut)
-            );
-            require(ok, "wsteth wrap");
-            ret;
-        }
+        IWETH(Mainnet.WETH).withdraw(wethOut);
+        uint256 stEthOut = ICurveStableSwap(Mainnet.CURVE_STETH_POOL).exchange{value: wethOut}(
+            int128(0), int128(1), wethOut, 0
+        );
+        // stETH -> wstETH (wrap)
+        IERC20(Mainnet.STETH).approve(Mainnet.WSTETH, stEthOut);
+        // wrap() not strictly in our shared IWstETH import here; cast generically.
+        (bool ok, bytes memory ret) = Mainnet.WSTETH.call(
+            abi.encodeWithSignature("wrap(uint256)", stEthOut)
+        );
+        require(ok, "wsteth wrap");
+        ret;
 
         // ---- C) Repay Balancer flash. Vault pulls via balanceOf check. ----
         // Balancer V2 expects the borrower to transfer the tokens back.

@@ -8,24 +8,15 @@ import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {IWeETH} from "src/interfaces/lrt/IWeETH.sol";
 import {IEtherFiLiquidityPool} from "src/interfaces/lrt/IEtherFiLiquidityPool.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
-
-interface IAavePoolConfigurator {
-    function setSupplyCap(address asset, uint256 newSupplyCap) external;
-}
+import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
+import {IMorphoFlashLoanCallback} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
 /// @notice F02-04 - weETH leveraged via Aave V3 eMode (no flashloan, iterative loop).
-contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
+contract F02_04_WeethAaveEModeLoopTest is StrategyBase, IMorphoFlashLoanCallback {
     // ---- Pinned constants ----
 
-    /// @dev Block 19,700,000 - late April 2024. weETH is listed on Aave V3 with eMode.
-    ///      Note: the supply cap was set retroactively (already exceeded at listing).
-    ///      The PoC raises the cap via vm.prank(riskAdmin) to allow deposits.
-    uint256 constant FORK_BLOCK = 19_700_000;
-
-    /// @dev Aave V3 mainnet PoolConfigurator (from PoolAddressesProvider.getPoolConfigurator()).
-    address constant AAVE_POOL_CONFIGURATOR = 0x64b761D848206f447Fe2dd461b0c635Ec39EbB27;
-    /// @dev Aave V3 ACL admin (from PoolAddressesProvider.getACLAdmin()) - has RISK_ADMIN role.
-    address constant AAVE_ACL_ADMIN = 0x5300A1a15135EA4dc7aD5a167152C01EFc9b192A;
+    /// @dev Block 20,900,000 - Sep 2024. weETH supply cap on Aave V3 expanded substantially.
+    uint256 constant FORK_BLOCK = 20_900_000;
 
     /// @dev Aave V3 mainnet eMode category id 1 = "ETH correlated" (set by Aave
     /// genesis listing payload `setEModeCategory(1, 90_00, 93_00, 10_100, addr(0),
@@ -53,13 +44,6 @@ contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
     function testStrategy_F02_04() public {
         _fund(Mainnet.WETH, address(this), EQUITY);
         _startPnL();
-
-        // Raise Aave V3 weETH supply cap to 10,000,000 (the cap was set retroactively
-        // to 800 weETH at listing time, which was already exceeded; raise via ACL admin
-        // to enable test deposits). This mirrors what governance would do to scale the
-        // market, and keeps the mechanism real (actual Aave V3 eMode loop).
-        vm.prank(AAVE_ACL_ADMIN);
-        IAavePoolConfigurator(AAVE_POOL_CONFIGURATOR).setSupplyCap(Mainnet.WEETH, 10_000_000);
 
         // First conversion: equity WETH -> weETH.
         _convertWethToWeeth(EQUITY);
@@ -111,7 +95,42 @@ contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
             IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.WEETH, newWeeth, address(this), 0);
         }
 
+        // ---- Hold 180 days then unwind ----
+        vm.warp(block.timestamp + 180 days);
+        vm.roll(block.number + (180 days / 12));
+
+        // ---- Unwind via Morpho free flashloan ----
+        // Estimate debt amount from Aave getUserAccountData.
+        // ETH at block 20900000 = $2409; use $2400 conservatively.
+        (, uint256 totalDebtBase, , , , ) = IAavePool(Mainnet.AAVE_V3_POOL).getUserAccountData(address(this));
+        if (totalDebtBase > 0) {
+            uint256 flashAmt = (totalDebtBase * 1e18) / uint256(240917000000) + 1e18; // +1 ETH buffer
+            IERC20(Mainnet.WETH).approve(Mainnet.MORPHO, type(uint256).max);
+            IMorpho(Mainnet.MORPHO).flashLoan(Mainnet.WETH, flashAmt, abi.encode(bytes32("unwind")));
+        }
+
         _endPnL("F02-04: weETH-aave-emode-loop");
+    }
+
+    /// @notice Morpho Blue flashloan callback for position unwind.
+    function onMorphoFlashLoan(uint256 assets, bytes calldata) external {
+        require(msg.sender == Mainnet.MORPHO, "only morpho");
+        // Repay Aave WETH debt.
+        IERC20(Mainnet.WETH).approve(Mainnet.AAVE_V3_POOL, type(uint256).max);
+        IAavePool(Mainnet.AAVE_V3_POOL).repay(Mainnet.WETH, type(uint256).max, 2, address(this));
+        // Withdraw all weETH collateral.
+        IAavePool(Mainnet.AAVE_V3_POOL).withdraw(Mainnet.WEETH, type(uint256).max, address(this));
+        // Sell weETH -> WETH on Curve to repay flash.
+        address CURVE_WEETH_WETH = 0xDB74dfDD3BB46bE8Ce6C33dC9D82777BCFc3dEd5;
+        uint256 weethBal = IERC20(Mainnet.WEETH).balanceOf(address(this));
+        if (weethBal > 0) {
+            IERC20(Mainnet.WEETH).approve(CURVE_WEETH_WETH, weethBal);
+            (bool ok,) = CURVE_WEETH_WETH.call(
+                abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(1), int128(0), weethBal, 0)
+            );
+            if (!ok) { /* weETH stays, tracked */ }
+        }
+        // Morpho pulls back `assets` WETH after this returns.
     }
 
     /// @dev Convert WETH -> ETH -> eETH -> weETH.

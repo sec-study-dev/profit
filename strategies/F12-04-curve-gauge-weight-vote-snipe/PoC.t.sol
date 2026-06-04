@@ -38,9 +38,9 @@ contract F12_04_PoC is StrategyBase {
     address constant VECRV = 0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2;
     // GaugeController (same as Mainnet.CURVE_GAUGE_CONTROLLER).
     address constant GAUGE_CONTROLLER = 0x2F50D538606Fa9EDD2B11E2446BEb18C9D5846bB;
-    // Target gauge: frxETH/ETH Curve mainnet gauge registered in GaugeController
-    // at block 19_643_500.  The original address 0x0caD1700... was a sidechain
-    // gauge that is not registered on mainnet; the correct mainnet gauge is:
+    // Target gauge: frxETH/ETH. Resolved from Convex Booster.poolInfo(128).gauge
+    // at block 19643500 -> 0x2932a86df44Fe8D2A706d8e9c5d51c24883423F5.
+    // gauge_types() on GaugeController confirms registration (returns 0, no revert).
     address constant FRXETH_GAUGE = 0x2932a86df44Fe8D2A706d8e9c5d51c24883423F5;
 
     uint256 constant FORK_BLOCK = 19_643_500;
@@ -65,60 +65,59 @@ contract F12_04_PoC is StrategyBase {
         // Sanity: veCRV's token() == CRV.
         require(IVotingEscrowCRV(VECRV).token() == CRV, "veCRV token mismatch");
 
-        // veCRV (VotingEscrow.vy) enforces `assert msg.sender == tx.origin`,
-        // which blocks smart-contract callers. In Foundry fork tests the test
-        // contract IS a smart contract so direct calls revert with "Smart
-        // contract depositors not allowed". Work-around: prank as a well-known
-        // EOA using vm.startPrank(addr, addr) so both msg.sender AND tx.origin
-        // equal the EOA address. Any unused address works - we pick address(0xcafe).
-        address eoa = address(0xcafe);
+        // 1) Fund CRV to EOA voter (the test contract cannot call create_lock because
+        //    VotingEscrow.vy checks msg.sender == tx.origin). Use an EOA as the voter.
+        //    WHALE_VOTER is an address with no existing veCRV position at FORK_BLOCK
+        //    so we can create_lock fresh; we impersonate it as an EOA via vm.prank.
+        address EOA_VOTER = address(0xD3ADB33F); // deterministic dummy EOA
 
-        // 1) Fund the EOA with 100k CRV via deal().
-        deal(CRV, eoa, CRV_LOCK_AMOUNT);
-
-        // Snapshot the gauge weight BEFORE prank (read-only, no tx.origin check).
-        uint256 absBefore = ICurveGaugeController(GAUGE_CONTROLLER)
-            .get_gauge_weight(FRXETH_GAUGE);
-        uint256 weightBefore = ICurveGaugeController(GAUGE_CONTROLLER)
-            .gauge_relative_weight(FRXETH_GAUGE);
-        console2.log("gauge_relative_weight BEFORE (1e18):", weightBefore);
-        console2.log("get_gauge_weight       BEFORE (raw):", absBefore);
+        _fund(CRV, EOA_VOTER, CRV_LOCK_AMOUNT);
 
         _startPnL();
         vm.txGasPrice(20 gwei);
 
-        // 2) All state-mutating veCRV calls must be from the EOA (tx.origin == msg.sender).
-        vm.startPrank(eoa, eoa);
-
-        // 2a) Approve & lock for 4 years (max).
+        // 2) Lock for 4 years (max) as EOA. vm.prank makes msg.sender == tx.origin.
+        uint256 unlockTime = block.timestamp + FOUR_YEARS;
+        vm.startPrank(EOA_VOTER, EOA_VOTER); // 2nd arg sets tx.origin = EOA_VOTER
         IERC20(CRV).approve(VECRV, CRV_LOCK_AMOUNT);
-        uint256 unlockTime = ((block.timestamp + FOUR_YEARS) / WEEK) * WEEK; // round to week boundary
         IVotingEscrowCRV(VECRV).create_lock(CRV_LOCK_AMOUNT, unlockTime);
-
-        uint256 veBal = IVotingEscrowCRV(VECRV).balanceOf(eoa);
-        console2.log("veCRV balanceOf EOA (raw):", veBal);
-        require(veBal > (CRV_LOCK_AMOUNT * 95) / 100, "veCRV balance too low");
-
-        // 2b) Cast 100% of voting power for the gauge.
-        ICurveGaugeController(GAUGE_CONTROLLER).vote_for_gauge_weights(FRXETH_GAUGE, 10000);
-
         vm.stopPrank();
 
-        // 3) Confirm vote_user_slopes registered for the EOA.
+        uint256 veBal = IVotingEscrowCRV(VECRV).balanceOf(EOA_VOTER);
+        console2.log("veCRV balanceOf (raw):", veBal);
+        // At a 4-year lock, veBal should be very close to CRV_LOCK_AMOUNT
+        // (within a few % of rounding). Sanity: > 95% of the lock amount.
+        require(veBal > (CRV_LOCK_AMOUNT * 95) / 100, "veCRV balance too low");
+
+        // 3) Snapshot pre-vote gauge weight.
+        uint256 weightBefore = ICurveGaugeController(GAUGE_CONTROLLER)
+            .gauge_relative_weight(FRXETH_GAUGE);
+        uint256 absBefore = ICurveGaugeController(GAUGE_CONTROLLER)
+            .get_gauge_weight(FRXETH_GAUGE);
+        console2.log("gauge_relative_weight BEFORE (1e18):", weightBefore);
+        console2.log("get_gauge_weight       BEFORE (raw):", absBefore);
+
+        // 4) Cast 100% of voting power for this gauge as EOA_VOTER.
+        vm.startPrank(EOA_VOTER, EOA_VOTER);
+        ICurveGaugeController(GAUGE_CONTROLLER).vote_for_gauge_weights(FRXETH_GAUGE, 10000);
+        vm.stopPrank();
+
+        // 5) Confirm vote_user_slopes registered.
         (uint256 slope, uint256 power, uint256 endTs) =
-            ICurveGaugeController(GAUGE_CONTROLLER).vote_user_slopes(eoa, FRXETH_GAUGE);
+            ICurveGaugeController(GAUGE_CONTROLLER).vote_user_slopes(EOA_VOTER, FRXETH_GAUGE);
         console2.log("vote slope:", slope);
         console2.log("vote power:", power);
         console2.log("vote end  :", endTs);
         require(power == 10000, "vote power not 10000");
         require(slope > 0, "vote slope zero");
 
-        // 4) Warp 8 days. GaugeController snapshots weights at Thursday-midnight
+        // 6) Warp 8 days. GaugeController snapshots weights at Thursday-midnight
         //    epochs (WEEK = 604800 s). Warping > 1 WEEK guarantees a new epoch.
         vm.warp(block.timestamp + 8 days);
         vm.roll(block.number + 8 days / 12);
 
-        // 5) Snapshot post-vote weight.
+        // 7) Snapshot post-vote weight. `gauge_relative_weight(g, t)` recomputes
+        //    on demand if checkpoint is behind; pass the current timestamp.
         uint256 weightAfter = ICurveGaugeController(GAUGE_CONTROLLER)
             .gauge_relative_weight(FRXETH_GAUGE, block.timestamp);
         uint256 absAfter = ICurveGaugeController(GAUGE_CONTROLLER)
@@ -126,7 +125,10 @@ contract F12_04_PoC is StrategyBase {
         console2.log("gauge_relative_weight AFTER  (1e18):", weightAfter);
         console2.log("get_gauge_weight       AFTER  (raw):", absAfter);
 
-        // 6) Assert vote-snipe direction.
+        // 8) Assert vote-snipe direction. We expect a strict increase since we
+        //    added net slope (no offsetting voters in the same block).
+        //    Use absolute weight (always strictly increasing); relative may not
+        //    change if every gauge added similar slope.
         require(absAfter > absBefore, "gauge absolute weight did not move");
         if (weightAfter <= weightBefore) {
             console2.log("WARN: relative weight did not strictly increase; other gauges may have also voted.");

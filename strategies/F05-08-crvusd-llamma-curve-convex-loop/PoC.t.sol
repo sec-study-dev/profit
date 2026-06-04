@@ -38,7 +38,7 @@ contract F05_08_PoC is StrategyBase {
     address constant CONTROLLER_WETH = 0xA920De414eA4Ab66b97dA1bFE9e6EcA7d4219635;
     address constant LLAMMA_WETH = 0x1681195C176239ac5E72d9aeBaCf5b2492E0C4ee;
 
-    // Curve crvUSD/USDC stableswap-NG. actual coins[0]=USDC, coins[1]=crvUSD.
+    // Curve crvUSD/USDC stableswap-NG. coins[0]=USDC, coins[1]=crvUSD.
     // The LP is the pool itself (stableswap-NG pattern).
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
 
@@ -97,11 +97,10 @@ contract F05_08_PoC is StrategyBase {
         require(crvUsdBal == borrowCrvUsd, "borrow not received");
 
         // ---- Mechanism 2: add single-sided liquidity to Curve crvUSD/USDC ----
-        // Actual coins[0]=USDC, coins[1]=crvUSD; use amounts[1] for crvUSD.
         IERC20(Mainnet.CRVUSD).approve(CURVE_CRVUSD_USDC, crvUsdBal);
         uint256[2] memory amounts;
-        amounts[0] = 0;         // no USDC
-        amounts[1] = crvUsdBal; // crvUSD index
+        amounts[0] = 0;         // no USDC (coins[0]=USDC)
+        amounts[1] = crvUsdBal; // crvUSD at index 1 (coins[1]=crvUSD)
         uint256 minLP = (ICurveStableSwap(CURVE_CRVUSD_USDC).calc_token_amount(amounts, true) * 9_950) / 10_000;
         uint256 lpMinted = ICurveStableSwap(CURVE_CRVUSD_USDC).add_liquidity(amounts, minLP);
         console2.log("Curve LP minted:", lpMinted);

@@ -21,18 +21,20 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 ///           -> WETH via UniV3 wstETH/WETH 1bp pool
 ///         repay flash
 contract F03_05_WstETHTriangularTest is StrategyBase, IFlashLoanRecipientBalancer {
-    /// @dev Same pin as F03-01 / F03-04 - post-Shanghai Curve stETH/ETH discount.
+    /// @dev Post-Shanghai, stETH near parity. UniV3 wstETH/WETH pool active.
     uint256 constant FORK_BLOCK = 17_560_000;
 
-    /// @dev UniV3 wstETH/WETH 0.01% (fee tier 100) pool. token0 = wstETH, token1 = WETH.
-    ///      Correct pool address verified via UniV3 factory.getPool(wstETH, WETH, 100).
+    /// @dev UniV3 wstETH/WETH 0.01% (fee tier 100) pool. token0 = wstETH, token1 = WETH
+    ///      Verified via UniV3 factory: wstETH < WETH lexicographically.
     address constant LOCAL_UNIV3_WSTETH_WETH_100 = 0x109830a1AAaD605BbF02a9dFA7B0B92EC2FB7dAa;
 
     uint256 constant FLASH_NOTIONAL = 500 ether;
 
-    /// @dev Repayment buffer pre-funded so that a slightly-underwater triangle
-    ///      (wstETH rate lag is small at this block) does not revert the flash repay.
-    uint256 constant REPAY_BUFFER = 505 ether;
+    /// @dev Small WETH buffer pre-funded to cover flash repayment.
+    ///      The triangular path (Curve + wrap + UniV3) loses ~0.32 WETH at parity;
+    ///      this buffer ensures the callback repays cleanly and net_usd records
+    ///      the true loss rather than reverting.
+    uint256 constant REPAY_BUFFER = 1 ether;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -42,7 +44,8 @@ contract F03_05_WstETHTriangularTest is StrategyBase, IFlashLoanRecipientBalance
     }
 
     function testStrategy_F03_05() public {
-        // Pre-fund WETH buffer to cover flash repayment when triangle is slightly negative.
+        // Fund a small WETH buffer to ensure flash repayment succeeds.
+        // At near-parity, the triangular path loses ~0.32 WETH; buffer covers it.
         _fund(Mainnet.WETH, address(this), REPAY_BUFFER);
 
         _startPnL();

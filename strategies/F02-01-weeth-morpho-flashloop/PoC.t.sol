@@ -19,20 +19,18 @@ import {console2} from "forge-std/console2.sol";
 contract F02_01_WeethMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCallback {
     // ---- Constants ----
 
-    /// @dev Pinned block: 19,500,000 (~Mar 2024). weETH/WETH 86% LLTV Morpho market
-    ///      has ~1168 WETH available to borrow (vs ~51 at block 19_200_000).
-    uint256 constant FORK_BLOCK = 19_500_000;
+    /// @dev Pinned block: 20,200,000 (~Jul 2024). Morpho weETH/WETH has >1700 WETH available
+    /// at 75% util AND Curve weETH/WETH pool has >1400 WETH for close-side swap.
+    uint256 constant FORK_BLOCK = 20_200_000;
 
     /// @dev Morpho weETH/WETH market (Gauntlet-curated, 86% LLTV).
-    /// Verified canonical market id via app.morpho.org/ethereum/market/0x37e7484d...:
+    /// Verified canonical market id from morpho_markets.tsv:
     /// MarketParams(loanToken=WETH, collateralToken=weETH, oracle=0x3fa58b74...,
     ///              irm=AdaptiveCurve, lltv=0.86e18).
-    /// Source: https://app.morpho.org/ethereum/market/0x37e7484d642d90f14451f1910ba4b7b8e4c3ccdd0ec28f8b2bdb35479e472ba7/weeth-weth
-    /// At PoC runtime we recompute this from the MarketParams struct (so a re-org
-    /// or off-by-one in our copy doesn't silently target the wrong market) and
-    /// `console2.log` it for cross-check.
+    /// Computed: keccak256(abi.encode(WETH, weETH, oracle, irm, lltv))
+    ///         = 0x698fe98247a40c5771537b5786b2f3f9d78eb487b4ce4d75533cd0e94d88a115
     bytes32 constant WEETH_WETH_MARKET_ID =
-        0x37e7484d642d90f14451f1910ba4b7b8e4c3ccdd0ec28f8b2bdb35479e472ba7;
+        0x698fe98247a40c5771537b5786b2f3f9d78eb487b4ce4d75533cd0e94d88a115;
 
     /// @dev MorphoChainlinkOracleV2 for weETH/WETH - wraps EtherFi's getRate().
     /// Verified from the Morpho weETH/WETH market parameters at FORK_BLOCK.
@@ -41,9 +39,13 @@ contract F02_01_WeethMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCallba
     address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
     uint256 constant LLTV_86 = 0.86e18;
 
+    /// @dev Curve weETH/WETH 2-coin pool (coin0=WETH, coin1=weETH).
+    /// Verified at block 19800000: coins(0)=WETH, coins(1)=weETH.
+    address constant CURVE_WEETH_WETH_POOL = 0xDB74dfDD3BB46bE8Ce6C33dC9D82777BCFc3dEd5;
+
     uint256 constant EQUITY = 100 ether;
-    /// @dev 4x leverage on equity -> 5x total notional.
-    uint256 constant FLASH_AMOUNT = 400 ether;
+    /// @dev 3x leverage on equity -> 4x total notional. Reduced to limit Curve slippage on close.
+    uint256 constant FLASH_AMOUNT = 300 ether;
 
     IMorpho.MarketParams internal _market;
 
@@ -79,40 +81,75 @@ contract F02_01_WeethMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCallba
         IERC20(Mainnet.WEETH).approve(Mainnet.MORPHO, type(uint256).max);
 
         // Trigger the loop via flashloan. The callback (onMorphoFlashLoan) does the heavy lifting.
-        IMorpho(Mainnet.MORPHO).flashLoan(Mainnet.WETH, FLASH_AMOUNT, abi.encode("loop"));
+        // Pass mode as bytes32 directly (not ABI-encoded string) for clean decoding.
+        IMorpho(Mainnet.MORPHO).flashLoan(Mainnet.WETH, FLASH_AMOUNT, abi.encode(bytes32("loop")));
 
-        // After flash callback returns: we hold ~491 weETH as collateral on Morpho,
-        // and a 400 WETH variable-rate debt. Equity = ~100 ETH worth of weETH net.
-        // Cash yield/borrow accrual happens over time; the points yield is off-chain.
-        // For PoC we just report immediate balances + on-chain position state.
+        // After flash callback: ~491 weETH collateral, ~400 WETH debt.
+
+        // ---- Simulate 180 days of yield accrual ----
+        vm.warp(block.timestamp + 180 days);
+        vm.roll(block.number + (180 days / 12));
+        IMorpho(Mainnet.MORPHO).accrueInterest(_market);
+
+        // ---- Unwind: flash-repay the debt, withdraw collateral, convert to WETH ----
+        bytes32 mktId = keccak256(abi.encode(_market));
+        IMorpho.Position memory pos = IMorpho(Mainnet.MORPHO).position(mktId, address(this));
+        IMorpho.Market memory mkt = IMorpho(Mainnet.MORPHO).market(mktId);
+        uint256 debtWeth = mkt.totalBorrowShares > 0
+            ? (uint256(pos.borrowShares) * uint256(mkt.totalBorrowAssets)) / uint256(mkt.totalBorrowShares)
+            : 0;
+        if (debtWeth > 0) {
+            uint256 repayFlash = debtWeth + 1;
+            IERC20(Mainnet.WETH).approve(Mainnet.MORPHO, type(uint256).max);
+            IMorpho(Mainnet.MORPHO).flashLoan(Mainnet.WETH, repayFlash, abi.encode(bytes32("close")));
+        }
 
         _endPnL("F02-01: weETH-Morpho-flashloop");
     }
 
-    /// @notice Morpho Blue flashloan callback. Receives `assets` WETH, must approve Morpho to pull it back by end.
-    function onMorphoFlashLoan(uint256 assets, bytes calldata) external {
+    /// @notice Morpho Blue flashloan callback (handles open "loop" and close modes).
+    function onMorphoFlashLoan(uint256 assets, bytes calldata data) external {
         require(msg.sender == Mainnet.MORPHO, "only morpho");
+        IERC20(Mainnet.WETH).approve(Mainnet.MORPHO, type(uint256).max);
+        IERC20(Mainnet.WEETH).approve(Mainnet.MORPHO, type(uint256).max);
 
-        // We now hold EQUITY (already on contract) + assets (flashed WETH) = 500 WETH.
-        // Unwrap to ETH.
-        uint256 total = IERC20(Mainnet.WETH).balanceOf(address(this));
-        IWETH(Mainnet.WETH).withdraw(total);
+        bytes32 mode = abi.decode(data, (bytes32));
 
-        // Deposit ETH into EtherFi liquidity pool to mint eETH 1:1.
-        IEtherFiLiquidityPool(Mainnet.ETHERFI_LIQUIDITY_POOL).deposit{value: total}();
-        uint256 eethBal = IERC20(Mainnet.EETH).balanceOf(address(this));
+        if (mode == bytes32("close")) {
+            // ---- Close mode: repay debt → withdraw collateral → swap weETH→WETH on Curve ----
+            bytes32 mktId = keccak256(abi.encode(_market));
+            IMorpho.Position memory pos = IMorpho(Mainnet.MORPHO).position(mktId, address(this));
+            // Repay all borrow shares using the flashed WETH.
+            IMorpho(Mainnet.MORPHO).repay(_market, 0, pos.borrowShares, address(this), "");
+            // Withdraw all collateral (weETH).
+            uint256 collat = IMorpho(Mainnet.MORPHO).position(mktId, address(this)).collateral;
+            IMorpho(Mainnet.MORPHO).withdrawCollateral(_market, collat, address(this), address(this));
+            // Convert weETH → WETH via Curve weETH/WETH pool (coin0=WETH, coin1=weETH).
+            // Pool: 0xDB74dfDD3BB46bE8Ce6C33dC9D82777BCFc3dEd5 (verified at block 19800000).
+            uint256 weethBal = IERC20(Mainnet.WEETH).balanceOf(address(this));
+            IERC20(Mainnet.WEETH).approve(CURVE_WEETH_WETH_POOL, weethBal);
+            // exchange(i=1[weETH], j=0[WETH], dx=weethBal, min_dy=0)
+            (bool ok,) = CURVE_WEETH_WETH_POOL.call(
+                abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(1), int128(0), weethBal, 0)
+            );
+            if (!ok) {
+                // Fallback: if pool exchange fails, just hold weETH (tracked).
+                // Flash repayment will fail if insufficient WETH - but weETH is tracked.
+            }
+            // Morpho pulls back `assets` WETH from our allowance after this returns.
+        } else {
+            // ---- Open mode: WETH -> eETH -> weETH -> supply collateral -> borrow to repay flash ----
+            uint256 total = IERC20(Mainnet.WETH).balanceOf(address(this));
+            IWETH(Mainnet.WETH).withdraw(total);
 
-        // Wrap eETH -> weETH.
-        IERC20(Mainnet.EETH).approve(Mainnet.WEETH, eethBal);
-        uint256 weethOut = IWeETH(Mainnet.WEETH).wrap(eethBal);
+            IEtherFiLiquidityPool(Mainnet.ETHERFI_LIQUIDITY_POOL).deposit{value: total}();
+            uint256 eethBal = IERC20(Mainnet.EETH).balanceOf(address(this));
 
-        // Supply weETH as collateral to the weETH/WETH market.
-        IMorpho(Mainnet.MORPHO).supplyCollateral(_market, weethOut, address(this), "");
+            IERC20(Mainnet.EETH).approve(Mainnet.WEETH, eethBal);
+            uint256 weethOut = IWeETH(Mainnet.WEETH).wrap(eethBal);
 
-        // Borrow exactly the flashloan principal so we can return it. (Free flashloan: no fee.)
-        IMorpho(Mainnet.MORPHO).borrow(_market, assets, 0, address(this), address(this));
-
-        // Approval already set at outer scope. Morpho pulls back `assets` after this returns.
-        // (No-op: the flashLoan() function does `safeTransferFrom(initiator, ...)` after callback.)
+            IMorpho(Mainnet.MORPHO).supplyCollateral(_market, weethOut, address(this), "");
+            IMorpho(Mainnet.MORPHO).borrow(_market, assets, 0, address(this), address(this));
+        }
     }
 }

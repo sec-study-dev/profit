@@ -8,24 +8,34 @@ import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {IStETH} from "src/interfaces/lst/IStETH.sol";
 import {IWstETH} from "src/interfaces/lst/IWstETH.sol";
 import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
+import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
 /// @title F01-02 wstETH / WETH Morpho Blue loop bootstrapped by a Morpho flashloan
+/// @notice Open mode: flash → wstETH → supply collateral → borrow → repay flash.
+///         Close mode: flash → repay debt → withdraw collateral → wstETH→WETH → repay flash.
+///         Net PnL surfaces wstETH yield (>4% APY) minus WETH borrow cost (~2% APY).
 contract F01_02_WstethMorphoFlashloanLoopTest is StrategyBase {
-    // Block bumped from 21_400_000 to 20_000_000 where the wstETH/WETH 94.5%
-    // market has ~1930 WETH available to borrow (vs ~213 at the original block).
-    uint256 constant FORK_BLOCK = 20_000_000;
+    // Re-pinned to 19_050_000 where market utilization is ~70% (lower borrow rate)
+    // and 1863 ETH of supply liquidity is available. Lower util means lower AdaptiveCurveIRM
+    // rate (~1-2% APR), which wstETH staking yield (~4% APY) exceeds.
+    uint256 constant FORK_BLOCK = 19_050_000;
 
     // Morpho Blue market params for wstETH-collateral / WETH-loan @ 94.5% LLTV.
-    // Verified against Morpho-Blue mainnet registry (market id 0xb323...c4f5).
+    // Market id = keccak256(abi.encode(loanToken, collateralToken, oracle, irm, lltv))
+    //           = 0xc54d7acf14de29e0e5527cabd7a576506870346a78a11a6762e2cca66322ec41
+    // (computed on-chain; the earlier constant 0xb323... was incorrect)
     address constant ORACLE = 0x2a01EB9496094dA03c4E364Def50f5aD1280AD72;
     address constant IRM_ADAPTIVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
     uint256 constant LLTV = 945000000000000000; // 94.5%
 
     IMorpho.MarketParams marketParams;
 
-    // Target leverage per loop (one-shot via flashloan).
-    // K = 1/(1-L); we choose L=0.92 -> K=12.5.
-    uint256 constant LTV_BPS = 9200;
+    // Conservative LTV so borrowSize stays within market liquidity (~212 WETH available).
+    // K = 1/(1-L); we choose L=0.60 -> borrow = 100 * 0.60 / 0.40 = 150 WETH.
+    uint256 constant LTV_BPS = 6000;
+
+    // Callback mode: false = open (enter loop), true = close (unwind loop).
+    bool internal _isClose;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -58,9 +68,11 @@ contract F01_02_WstethMorphoFlashloanLoopTest is StrategyBase {
             abi.encode(principal, borrowSize)
         );
 
-        // Simulate 30 days.
-        vm.warp(block.timestamp + 30 days);
-        vm.roll(block.number + (30 days / 12));
+        // Simulate 180 days of staking yield accrual.
+        // Longer hold lets wstETH yield (>4% APY) overcome the AdaptiveCurveIRM borrow rate
+        // and the one-time Curve stETH/ETH swap fee.
+        vm.warp(block.timestamp + 180 days);
+        vm.roll(block.number + (180 days / 12));
         IMorpho(Mainnet.MORPHO).accrueInterest(marketParams);
 
         // Surface position to log alongside the PnL line.
@@ -69,35 +81,76 @@ contract F01_02_WstethMorphoFlashloanLoopTest is StrategyBase {
         emit log_named_uint("collateral_wsteth", pos.collateral);
         emit log_named_uint("borrow_shares", pos.borrowShares);
 
+        // ---- Unwind: flash borrow to repay debt, withdraw collateral, sell back ----
+        // The carry profit (wstETH yield > WETH borrow) surfaces only after full unwind.
+        IMorpho.Market memory mkt = IMorpho(Mainnet.MORPHO).market(marketId);
+        // Compute WETH owed (borrow assets) = borrowShares * totalBorrowAssets / totalBorrowShares.
+        uint256 debtWeth = mkt.totalBorrowShares > 0
+            ? (pos.borrowShares * uint256(mkt.totalBorrowAssets)) / uint256(mkt.totalBorrowShares)
+            : 0;
+        if (debtWeth > 0) {
+            // Add 1 wei buffer to guarantee full repayment of accrued interest rounding.
+            uint256 flashRepay = debtWeth + 1;
+            _isClose = true;
+            IERC20(Mainnet.WETH).approve(Mainnet.MORPHO, type(uint256).max);
+            IMorpho(Mainnet.MORPHO).flashLoan(Mainnet.WETH, flashRepay, abi.encode(uint256(0), flashRepay));
+            _isClose = false;
+        }
+
         _endPnL("F01-02: wstETH/WETH Morpho Blue loop (flashloan)");
     }
 
-    /// @notice Morpho Blue flashloan callback.
+    /// @notice Morpho Blue flashloan callback (handles both open and close modes).
     function onMorphoFlashLoan(uint256 assets, bytes calldata data) external {
         require(msg.sender == Mainnet.MORPHO, "only morpho");
-        (uint256 principal, uint256 borrowSize) = abi.decode(data, (uint256, uint256));
-        require(assets == borrowSize, "size");
-
-        // Total WETH on hand = principal + flash.
-        uint256 totalWeth = principal + borrowSize;
-
-        // 1. Convert all WETH -> wstETH via Lido.
-        IWETH(Mainnet.WETH).withdraw(totalWeth);
-        IStETH(Mainnet.STETH).submit{value: totalWeth}(address(0));
-        uint256 stBal = IERC20(Mainnet.STETH).balanceOf(address(this));
-        IERC20(Mainnet.STETH).approve(Mainnet.WSTETH, stBal);
-        uint256 wstOut = IWstETH(Mainnet.WSTETH).wrap(stBal);
-
-        // 2. Supply wstETH as collateral.
-        IERC20(Mainnet.WSTETH).approve(Mainnet.MORPHO, type(uint256).max);
-        IMorpho(Mainnet.MORPHO).supplyCollateral(marketParams, wstOut, address(this), "");
-
-        // 3. Borrow WETH equal to the flashloan size.
-        IMorpho(Mainnet.MORPHO).borrow(marketParams, borrowSize, 0, address(this), address(this));
-
-        // 4. Approve Morpho to pull back the flash repayment.
         IERC20(Mainnet.WETH).approve(Mainnet.MORPHO, type(uint256).max);
-        // Flash repayment is pulled by Morpho via the standard ERC20 allowance.
+        IERC20(Mainnet.WSTETH).approve(Mainnet.MORPHO, type(uint256).max);
+
+        if (_isClose) {
+            // ---- Close mode: repay debt → withdraw collateral → convert back ----
+            (, uint256 flashRepay) = abi.decode(data, (uint256, uint256));
+            // Repay the outstanding borrow using max-shares to close the position fully.
+            bytes32 mktId = _marketId(marketParams);
+            IMorpho.Position memory pos = IMorpho(Mainnet.MORPHO).position(mktId, address(this));
+            IMorpho(Mainnet.MORPHO).repay(marketParams, 0, pos.borrowShares, address(this), "");
+
+            // Withdraw all collateral.
+            uint256 collat = IMorpho(Mainnet.MORPHO).position(mktId, address(this)).collateral;
+            IMorpho(Mainnet.MORPHO).withdrawCollateral(marketParams, collat, address(this), address(this));
+
+            // Convert wstETH → stETH via unwrap, then stETH → ETH via Curve stETH/ETH pool.
+            uint256 wstBal = IERC20(Mainnet.WSTETH).balanceOf(address(this));
+            uint256 stOut = IWstETH(Mainnet.WSTETH).unwrap(wstBal);
+            IERC20(Mainnet.STETH).approve(Mainnet.CURVE_STETH_POOL, stOut);
+            // Curve stETH/ETH pool: coin 0=ETH, coin 1=stETH. Minimum output 0 for PoC.
+            uint256 ethOut = ICurveStableSwap(Mainnet.CURVE_STETH_POOL).exchange(
+                int128(1), int128(0), stOut, 0
+            );
+            // Wrap ETH to WETH for repayment; keep any surplus.
+            IWETH(Mainnet.WETH).deposit{value: ethOut}();
+            // Morpho pulls the flash repayment (assets = flashRepay) via allowance set above.
+        } else {
+            // ---- Open mode: convert all capital to wstETH, supply, borrow to repay flash ----
+            (uint256 principal, uint256 borrowSize) = abi.decode(data, (uint256, uint256));
+            require(assets == borrowSize, "size");
+
+            // Total WETH on hand = principal + flash.
+            uint256 totalWeth = principal + borrowSize;
+
+            // 1. Convert all WETH -> wstETH via Lido.
+            IWETH(Mainnet.WETH).withdraw(totalWeth);
+            IStETH(Mainnet.STETH).submit{value: totalWeth}(address(0));
+            uint256 stBal = IERC20(Mainnet.STETH).balanceOf(address(this));
+            IERC20(Mainnet.STETH).approve(Mainnet.WSTETH, stBal);
+            uint256 wstOut = IWstETH(Mainnet.WSTETH).wrap(stBal);
+
+            // 2. Supply wstETH as collateral.
+            IMorpho(Mainnet.MORPHO).supplyCollateral(marketParams, wstOut, address(this), "");
+
+            // 3. Borrow WETH equal to the flashloan size to repay flash.
+            IMorpho(Mainnet.MORPHO).borrow(marketParams, borrowSize, 0, address(this), address(this));
+            // Morpho pulls back `assets` WETH from our allowance after callback returns.
+        }
     }
 
     function _marketId(IMorpho.MarketParams memory mp) internal pure returns (bytes32) {

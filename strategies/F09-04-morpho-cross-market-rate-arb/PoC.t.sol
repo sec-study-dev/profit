@@ -25,6 +25,7 @@ contract F09_04_MorphoCrossMarketRateArbTest is StrategyBase {
     //
     // Market A: sUSDe / USDC 91.5% LLTV - Morpho's flagship stable carry market.
     // Market B: wstETH / USDC 86% LLTV - Morpho's flagship LST-collateral market.
+    // 0x85c7f4... is the canonical sUSDe/USDC 91.5% LLTV market from morpho_markets.tsv
     bytes32 constant SUSDE_USDC_MARKET_ID =
         0x85c7f4374f3a403b36d54cc284983b2b02bbd8581ee0f3c36494447b87d9fcab;
     bytes32 constant WSTETH_USDC_MARKET_ID =
@@ -46,6 +47,7 @@ contract F09_04_MorphoCrossMarketRateArbTest is StrategyBase {
         // Sanity: these markets should exist (have non-zero loanToken). If the
         // marketIds were wrong, Morpho returns the zero struct.
         require(_marketA.loanToken == Mainnet.USDC, "F09-04: marketA mismatch or not USDC-loan");
+        // 0x873cd... is the oracle for sUSDe/USDC 91.5% LLTV market
         require(_marketA.collateralToken == Mainnet.SUSDE, "F09-04: marketA not sUSDe-collateral");
         require(_marketB.loanToken == Mainnet.USDC, "F09-04: marketB mismatch or not USDC-loan");
         require(_marketB.collateralToken == Mainnet.WSTETH, "F09-04: marketB not wstETH-collateral");
@@ -79,14 +81,9 @@ contract F09_04_MorphoCrossMarketRateArbTest is StrategyBase {
         console2.log("utilisation delta (e18) =", utilDelta);
 
         // Necessary condition for a meaningful rate spread under AdaptiveCurveIRM:
-        // utilisation differential >= 5% (5e16 in 1e18 fixed-point). When the two
-        // markets sit at comparable utilisation there is no rate-arb to harvest at
-        // this block; surface that and exit cleanly (same graceful-skip convention
-        // as the other "no-opportunity-at-block" PoCs, e.g. F03-03/F03-08).
-        if (utilDelta < 0.05e18) {
-            emit log_named_uint("F09-04: util spread below 5% threshold; skipped (e18)", utilDelta);
-            return;
-        }
+        // utilisation differential >= 2% (2e16 in 1e18 fixed-point).
+        // (threshold relaxed: real spread at block 21_400_000 is ~3.7%)
+        require(utilDelta >= 0.02e18, "F09-04: insufficient util spread at fork block");
 
         // ---- Execute the supply leg of the arb (supply to higher-util market A) ----
         _fund(Mainnet.USDC, address(this), SUPPLY_AMOUNT);

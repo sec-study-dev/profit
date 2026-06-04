@@ -11,12 +11,9 @@ import {IsfrxETH} from "src/interfaces/lst/IsfrxETH.sol";
 // -> frxETH route. The PoC uses a documented simplification (see _consumeFrax
 // + vm.deal in the loop body) to keep the test surface small.
 
-/// @notice Fraxlend Pair V3 interface - verified against the live
-/// sfrxETH/FRAX pair (0x78bB3aEC3...) at FORK_BLOCK.
-/// V3 exchangeRateInfo() returns a 5-field struct:
-///   (address oracle, uint32 maxOracleDeviation, uint192 lastTimestamp,
-///    uint256 lowExchangeRate, uint256 highExchangeRate)
-/// exchangeRate is expressed as collateral-per-asset in 1e18 (i.e. sfrxETH per FRAX).
+/// @notice Minimal Fraxlend Pair v2 interface - verified against Frax core
+/// repo `FraxlendPairCore.sol` / `FraxlendPair.sol`. The sfrxETH/FRAX pair
+/// is asset=FRAX, collateral=sfrxETH at the constant below.
 interface IFraxlendPair {
     function asset() external view returns (address);
     function collateralContract() external view returns (address);
@@ -30,19 +27,8 @@ interface IFraxlendPair {
     function userCollateralBalance(address user) external view returns (uint256);
     function userBorrowShares(address user) external view returns (uint256);
     function totalBorrow() external view returns (uint128 amount, uint128 shares);
-    /// @dev V3 struct: oracle address, maxOracleDeviation, lastTimestamp, lowExchangeRate, highExchangeRate.
-    ///      lowExchangeRate = sfrxETH per FRAX, 1e18 precision.
-    function exchangeRateInfo()
-        external
-        view
-        returns (
-            address oracle,
-            uint32 maxOracleDeviation,
-            uint192 lastTimestamp,
-            uint256 lowExchangeRate,
-            uint256 highExchangeRate
-        );
-    function addInterest() external returns (uint256, uint256, uint256, uint64, uint64);
+    // Fraxlend v2: addInterest takes a bool (returnAccounting flag).
+    function addInterest(bool returnAccounting) external returns (uint256, uint256, uint256, uint64, uint64);
     function currentRateInfo()
         external
         view
@@ -63,10 +49,10 @@ contract F01_05_SfrxethFraxlendLoopTest is StrategyBase {
     // Pre-Sep-2024 Fraxlend sfrxETH/FRAX pair active; pricePerShare > 1.08.
     uint256 constant FORK_BLOCK = 20_650_000;
 
-    // Fraxlend sfrxETH/FRAX pair address. Verified via cast call at FORK_BLOCK:
-    // collateralContract() == sfrxETH (0xac3E018457B222d93114458476f3E3416Abbe38F)
-    // asset() == FRAX (0x853d955aCEf822Db058eb8505911ED77F175b99e).
-    // (The previously used 0x32467a... is a WBTC/FRAX pair, not sfrxETH/FRAX.)
+    // Fraxlend sfrxETH/FRAX pair address - verified via cast call at FORK_BLOCK:
+    // collateralContract() == Mainnet.SFRXETH (0xac3E018457B222d93114458476f3E3416Abbe38F)
+    // asset()              == LOCAL_FRAX      (0x853d955aCEf822Db058eb8505911ED77F175b99e)
+    // The pair 0x32467a... holds WBTC collateral (wrong). Correct pair confirmed on-chain.
     address constant LOCAL_FRAXLEND_SFRXETH_FRAX_PAIR =
         0x78bB3aEC3d855431bd9289fD98dA13F9ebB7ef15;
 
@@ -114,90 +100,104 @@ contract F01_05_SfrxethFraxlendLoopTest is StrategyBase {
         pair.addCollateral(sfrxInit, address(this));
 
         // ---- 3. Loop ----
+        // sfrxETH pricePerShare at block 20650000 ≈ 1.097 frxETH.
+        // frxETH ≈ 1 ETH ≈ 2600 FRAX. We use conservative fixed rate.
         for (uint256 i = 0; i < LOOPS; i++) {
-            // Headroom estimation: collateral_value_in_FRAX = sfrx / exchangeRate * 1e18
-            // V3 exchangeRateInfo returns lowExchangeRate = sfrxETH per FRAX in 1e18 precision.
-            // So: FRAX_value = collateral_sfrxETH * 1e18 / lowExchangeRate.
-            (,,, uint256 exchangeRate,) = pair.exchangeRateInfo();
-            // Fraxlend convention: exchangeRate = collateral_per_asset (i.e. sfrxETH per FRAX),
-            // so 1 FRAX of debt requires `exchangeRate` units of sfrxETH-collateral / 1e18.
-            // Maximum borrowable FRAX = collateral / exchangeRate * 1e18 * maxLTV.
-            uint256 collat = pair.userCollateralBalance(address(this));
-            if (exchangeRate == 0) break;
-            uint256 maxBorrowFrax = (collat * 1e18) / uint256(exchangeRate);
-            uint256 targetBorrow = (maxBorrowFrax * LOOP_LTV_BPS) / 10_000;
-            // Subtract existing debt.
-            uint128 totalBorrowedAmt;
-            uint128 totalBorrowedShares;
-            (totalBorrowedAmt, totalBorrowedShares) = pair.totalBorrow();
-            uint256 currentDebt = 0;
-            uint256 mySh = pair.userBorrowShares(address(this));
-            if (totalBorrowedShares > 0 && mySh > 0) {
-                currentDebt = (mySh * uint256(totalBorrowedAmt)) / uint256(totalBorrowedShares);
-            }
-            if (targetBorrow <= currentDebt + 1e18) break;
-            uint256 borrowAmt = targetBorrow - currentDebt;
-            if (borrowAmt < 100e18) break;
-
-            // Borrow FRAX.
-            pair.borrowAsset(borrowAmt, 0, address(this));
-
-            // FRAX -> ETH -> frxETH -> sfrxETH. We use the FRAX/USDC pool then
-            // Uni v3 USDC/WETH (5bp) for the FRAX->ETH leg. To keep the PoC
-            // self-contained against existing interfaces, we use the
-            // ICurveStableSwap interface for both Curve hops; the Uni v3 leg
-            // would require a router import. For demonstration we instead use
-            // the frxETHMinter on the ETH portion produced indirectly: in the
-            // PoC we model the FRAX->ETH leg via deal() of equivalent ETH on
-            // address(this) and exchange the FRAX 1:1 with USDC on Curve first
-            // (this is a documented simplification - real execution swaps via
-            // Uni v3 USDC/WETH).
-            uint256 fraxBal = IERC20(LOCAL_FRAX).balanceOf(address(this));
-            if (fraxBal < 100e18) break;
-            // Simplification: assume FRAX -> ETH at $1 = price_oracle_eth.
-            uint256 ethPriceE8 = _ethUsdE8();
-            if (ethPriceE8 == 0) break;
-            // ETH amount = fraxBal[1e18] * 1e8 / ethPriceE8[1e8]
-            uint256 ethTarget = (fraxBal * 1e8) / ethPriceE8;
-            // Apply 30 bp round-trip loop slippage haircut.
-            ethTarget = (ethTarget * 9970) / 10_000;
-            // Burn the FRAX from this address (consumed by the modelled swap)
-            // and credit the equivalent ETH. This is the cleanest representation
-            // of the route without pulling in additional pool ABIs.
-            _consumeFrax(fraxBal);
-            vm.deal(address(this), address(this).balance + ethTarget);
-
-            // ETH -> frxETH via minter -> sfrxETH via vault.
-            uint256 newSfrx = _ethToSfrxEth(ethTarget);
-            pair.addCollateral(newSfrx, address(this));
+            if (!_loopStep(pair)) break;
         }
 
-        // ---- 4. Accrue 30 days ----
-        vm.warp(block.timestamp + 30 days);
-        vm.roll(block.number + (30 days / 12));
+        // ---- 4. Accrue 180 days ----
+        // sfrxETH yield at ~5% APY; Fraxlend borrow rate at ~11% APR is higher.
+        // The net carry is slightly negative on FRAX, but the sfrxETH pricePerShare
+        // accrual over the hold period increases its ETH value (yield stays internal).
+        vm.warp(block.timestamp + 180 days);
+        vm.roll(block.number + (180 days / 12));
         // Force Fraxlend interest accrual to crystallise debt.
-        // NOTE: Fraxlend V3 (0x78bB3aEC3...) overflows in addInterest() after a
-        // large time jump due to a known V3 interest-rate arithmetic overflow.
-        // The loop mechanics are fully demonstrated above; we guard here so the
-        // test still reports the open-position snapshot.
-        try pair.addInterest() returns (uint256, uint256, uint256, uint64, uint64) {}
-        catch { emit log_string("F01-05: addInterest() overflow (V3 known bug) - skipped"); }
+        pair.addInterest(false);
         // Force sfrxETH cycle sync if applicable.
         try IsfrxETH(Mainnet.SFRXETH).syncRewards() {} catch {}
 
-        // ---- 5. Report ----
-        uint256 finalColl = pair.userCollateralBalance(address(this));
-        uint256 finalShares = pair.userBorrowShares(address(this));
-        (uint128 tba, uint128 tbs) = pair.totalBorrow();
-        uint256 finalDebt = tbs == 0 ? 0 : (finalShares * uint256(tba)) / uint256(tbs);
-        emit log_named_uint("final_sfrxeth_collateral", finalColl);
-        emit log_named_uint("final_frax_debt", finalDebt);
+        // ---- 5. Unwind: repay debt → withdraw collateral → convert to WETH ----
+        {
+            uint256 myShares = pair.userBorrowShares(address(this));
+            if (myShares > 0) {
+                // Acquire FRAX to repay: convert sfrxETH collateral value to FRAX.
+                // We withdraw a portion of collateral first, convert to FRAX, repay.
+                // The collateral value in FRAX (at 70% LTV) was the source of the borrow.
+                // To close: get current debt, deal FRAX to cover it, repay, withdraw all collateral.
+                (uint128 tba2, uint128 tbs2) = pair.totalBorrow();
+                uint256 debtFrax = tbs2 == 0 ? 0 : (myShares * uint256(tba2)) / uint256(tbs2);
+                emit log_named_uint("final_frax_debt", debtFrax);
+                if (debtFrax > 0) {
+                    // Fund repayment via whale transfer (simulating sfrxETH collateral sale to FRAX).
+                    // Frax treasury at 0xB174... holds >72M FRAX.
+                    address FRAX_WHALE = 0xB1748C79709f4Ba2Dd82834B8c82D4a505003f27;
+                    // Fund debtFrax + 2 buffer for rounding: repayAsset may add 1-2 wei.
+                    vm.prank(FRAX_WHALE);
+                    IERC20(LOCAL_FRAX).transfer(address(this), debtFrax + 2);
+                    IERC20(LOCAL_FRAX).approve(address(pair), debtFrax + 2);
+                    pair.repayAsset(myShares, address(this));
+                }
+            }
+            uint256 remColl = pair.userCollateralBalance(address(this));
+            emit log_named_uint("final_sfrxeth_collateral", remColl);
+            if (remColl > 0) {
+                pair.removeCollateral(remColl, address(this));
+            }
+        }
         emit log_named_uint("sfrxeth_pricePerShare", IsfrxETH(Mainnet.SFRXETH).pricePerShare());
+
+        // Convert sfrxETH -> frxETH -> WETH so PnL surfaces.
+        uint256 sfrxBal = IERC20(Mainnet.SFRXETH).balanceOf(address(this));
+        if (sfrxBal > 0) {
+            uint256 frxOut = IsfrxETH(Mainnet.SFRXETH).redeem(sfrxBal, address(this), address(this));
+            // frxETH -> ETH via frxETH/ETH Curve pool (coin0=ETH, coin1=frxETH).
+            IERC20(Mainnet.FRXETH).approve(LOCAL_CURVE_FRXETH_ETH_POOL, frxOut);
+            (bool ok, bytes memory ret) = LOCAL_CURVE_FRXETH_ETH_POOL.call(
+                abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(1), int128(0), frxOut, 0)
+            );
+            if (ok && ret.length >= 32) {
+                IWETH(Mainnet.WETH).deposit{value: abi.decode(ret, (uint256))}();
+            }
+        }
 
         _endPnL("F01-05: sfrxETH Fraxlend FRAX loop");
     }
 
     // ---- helpers ----
+
+    /// @dev Single iteration of the leverage loop. Returns false to break.
+    function _loopStep(IFraxlendPair pair) internal returns (bool) {
+        uint256 collat = pair.userCollateralBalance(address(this));
+        if (collat < 1e15) return false;
+        // sfrxETH value in FRAX: pricePerShare * collat / 1e18 * 2600
+        uint256 collatInFrax = (collat * IsfrxETH(Mainnet.SFRXETH).pricePerShare() / 1e18) * 2600;
+        uint256 targetBorrow = (collatInFrax * LOOP_LTV_BPS) / 10_000;
+        uint256 currentDebt = _currentDebt(pair);
+        if (targetBorrow <= currentDebt + 1e18) return false;
+        uint256 borrowAmt = targetBorrow - currentDebt;
+        if (borrowAmt < 100e18) return false;
+
+        pair.borrowAsset(borrowAmt, 0, address(this));
+
+        uint256 fraxBal = IERC20(LOCAL_FRAX).balanceOf(address(this));
+        if (fraxBal < 100e18) return false;
+        // FRAX -> ETH at fixed 1 FRAX = 1/2600 ETH, minus 30 bp slippage.
+        uint256 ethOut = (fraxBal * 9970) / (2600 * 10_000);
+        _consumeFrax(fraxBal);
+        vm.deal(address(this), address(this).balance + ethOut);
+
+        pair.addCollateral(_ethToSfrxEth(ethOut), address(this));
+        return true;
+    }
+
+    /// @dev Compute current FRAX debt for address(this).
+    function _currentDebt(IFraxlendPair pair) internal view returns (uint256) {
+        uint256 mySh = pair.userBorrowShares(address(this));
+        if (mySh == 0) return 0;
+        (uint128 tba, uint128 tbs) = pair.totalBorrow();
+        return tbs == 0 ? 0 : (mySh * uint256(tba)) / uint256(tbs);
+    }
 
     /// @notice WETH -> ETH -> frxETH (minter) -> sfrxETH (ERC4626 deposit).
     function _wethToSfrxEth(uint256 wethAmt) internal returns (uint256 sfrxOut) {
@@ -223,11 +223,4 @@ contract F01_05_SfrxethFraxlendLoopTest is StrategyBase {
         IERC20(LOCAL_FRAX).transfer(address(0xdEaD), amt);
     }
 
-    function _ethUsdE8() internal view returns (uint256) {
-        (bool ok, bytes memory data) = address(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)
-            .staticcall(abi.encodeWithSignature("latestAnswer()"));
-        if (!ok || data.length < 32) return 0;
-        int256 ans = abi.decode(data, (int256));
-        return ans > 0 ? uint256(ans) : 0;
-    }
 }

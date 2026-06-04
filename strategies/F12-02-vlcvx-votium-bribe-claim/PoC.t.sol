@@ -86,7 +86,6 @@ contract F12_02_PoC is StrategyBase {
         // ---- 6) Sanity asserts ----
         require(IERC20(FXS).balanceOf(address(this)) == BRIBE_FXS, "FXS claim short");
         require(IERC20(Mainnet.CRVUSD).balanceOf(address(this)) == BRIBE_CRVUSD, "crvUSD claim short");
-        // FXS was claimed at index 0, crvUSD at index 1 (matches _injectBribeAndClaim calls).
         require(
             IVotium(Mainnet.VOTIUM_MULTI_MERKLE_STASH).isClaimed(FXS, 0),
             "FXS not flagged claimed"

@@ -18,11 +18,11 @@ import {IConvexBooster, IConvexBaseRewardPool} from "src/interfaces/bribe/IConve
 ///           - extraRewards[0] is FXS (Frax incentive stream)
 contract F12_01_PoC is StrategyBase {
     // ---- Curve / Convex addresses ----
-    // frxETH/ETH LP token. NOTE: for this pool the LP token address
-    // (0xf43211935C781D5ca1a41d2041F397B8A7366C7A) differs from the pool
-    // contract (0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577).
-    // Convex Booster.poolInfo(128).lptoken == LP token, not pool contract.
-    address constant FRXETH_ETH_POOL = 0xf43211935C781D5ca1a41d2041F397B8A7366C7A;
+    // frxETH/ETH Curve pool (swap contract, coins: [ETH, frxETH]).
+    address constant FRXETH_ETH_POOL = 0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577;
+    // frxETH/ETH LP token (frxETHCRV). Separate from the pool address.
+    // Verified: Convex Booster.poolInfo(128).lptoken == FRXETH_ETH_LP.
+    address constant FRXETH_ETH_LP = 0xf43211935C781D5ca1a41d2041F397B8A7366C7A;
     // Convex BaseRewardPool for PID 128 (frxETH/ETH).
     address constant CVX_FRXETH_REWARDS = 0xbD5445402B0a287cbC77cb67B2a52e2FC635dce4;
     // Reward tokens streamed by this pool's BaseRewardPool.
@@ -45,11 +45,11 @@ contract F12_01_PoC is StrategyBase {
         // ETH/USD fallback; Chainlink on-fork should answer but be safe.
         _setEthUsdFallback(3_300e8);
 
-        // Track LP + all reward tokens. The PriceOracle returns 0 for these
+        // Track LP token + all reward tokens. The PriceOracle returns 0 for these
         // (and emits a console warning) - that's fine: the PnL block will
         // simply show only the ETH leg, but we manually `console2.log` the
         // raw balances and the test asserts they are non-zero.
-        _trackToken(FRXETH_ETH_POOL);
+        _trackToken(FRXETH_ETH_LP);
         _trackToken(CRV);
         _trackToken(Mainnet.CVX);
         _trackToken(FXS);
@@ -59,7 +59,8 @@ contract F12_01_PoC is StrategyBase {
         // 1) Sanity-check Booster's view of PID 128.
         IConvexBooster.PoolInfo memory pi =
             IConvexBooster(Mainnet.CONVEX_BOOSTER).poolInfo(PID_FRXETH);
-        require(pi.lptoken == FRXETH_ETH_POOL, "PID 128 lptoken mismatch");
+        // Note: Convex PID 128 lptoken is frxETHCRV (0xf43211935...), not the pool address.
+        require(pi.lptoken == FRXETH_ETH_LP, "PID 128 lptoken mismatch");
         require(pi.crvRewards == CVX_FRXETH_REWARDS, "PID 128 crvRewards mismatch");
         require(!pi.shutdown, "PID 128 shutdown");
 
@@ -71,14 +72,14 @@ contract F12_01_PoC is StrategyBase {
             console2.log("extraReward[i] virtualBalanceRewardPool:", xr);
         }
 
-        // 3) Fund the test contract with frxETH/ETH LP.
-        _fund(FRXETH_ETH_POOL, address(this), LP_NOTIONAL);
+        // 3) Fund the test contract with frxETH/ETH LP token (frxETHCRV).
+        _fund(FRXETH_ETH_LP, address(this), LP_NOTIONAL);
 
         _startPnL();
         vm.txGasPrice(20 gwei);
 
-        // 4) Approve + deposit into Booster with stake=true.
-        IERC20(FRXETH_ETH_POOL).approve(Mainnet.CONVEX_BOOSTER, LP_NOTIONAL);
+        // 4) Approve + deposit LP token into Booster with stake=true.
+        IERC20(FRXETH_ETH_LP).approve(Mainnet.CONVEX_BOOSTER, LP_NOTIONAL);
         bool ok = IConvexBooster(Mainnet.CONVEX_BOOSTER).deposit(PID_FRXETH, LP_NOTIONAL, true);
         require(ok, "Booster.deposit failed");
 
@@ -115,7 +116,7 @@ contract F12_01_PoC is StrategyBase {
         // block; on Apr 2024 it is ~0.4x and emits.
         require(bCvx > 0, "no CVX streamed");
 
-        // 11) Withdraw to bring LP back to wallet for PnL accounting.
+        // 11) Withdraw to bring LP token (frxETHCRV) back to wallet for PnL accounting.
         bool wOk = IConvexBaseRewardPool(CVX_FRXETH_REWARDS).withdrawAndUnwrap(LP_NOTIONAL, false);
         require(wOk, "withdraw failed");
 

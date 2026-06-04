@@ -26,9 +26,10 @@ import {ICurveStableSwap, ICurveCryptoSwap} from "src/interfaces/amm/ICurvePool.
 ///         wrapper).
 contract F12_07_PoC is StrategyBase {
     // ---- Curve / Convex ----
-    // frxETH/ETH LP token (0xf432...) - differs from pool contract (0xa1F8...).
-    // Convex Booster.poolInfo(128).lptoken == LP token.
-    address constant FRXETH_ETH_POOL = 0xf43211935C781D5ca1a41d2041F397B8A7366C7A;
+    // Curve frxETH/ETH pool (swap contract).
+    address constant FRXETH_ETH_POOL = 0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577;
+    // frxETH/ETH LP token (frxETHCRV). Convex PID 128 expects this token for deposit.
+    address constant FRXETH_ETH_LP = 0xf43211935C781D5ca1a41d2041F397B8A7366C7A;
     address constant CVX_FRXETH_REWARDS = 0xbD5445402B0a287cbC77cb67B2a52e2FC635dce4;
     uint256 constant PID_FRXETH = 128;
 
@@ -51,7 +52,7 @@ contract F12_07_PoC is StrategyBase {
         _fork(FORK_BLOCK);
         _setEthUsdFallback(3_300e8);
 
-        _trackToken(FRXETH_ETH_POOL);
+        _trackToken(FRXETH_ETH_LP);
         _trackToken(CRV);
         _trackToken(Mainnet.CVX);
         _trackToken(FXS);
@@ -62,7 +63,8 @@ contract F12_07_PoC is StrategyBase {
         // ---- 1) Sanity: Convex PID 128 ----
         IConvexBooster.PoolInfo memory pi =
             IConvexBooster(Mainnet.CONVEX_BOOSTER).poolInfo(PID_FRXETH);
-        require(pi.lptoken == FRXETH_ETH_POOL, "PID 128 lptoken mismatch");
+        // Convex PID 128 lptoken is frxETHCRV (0xf43211935...), not the pool.
+        require(pi.lptoken == FRXETH_ETH_LP, "PID 128 lptoken mismatch");
         require(pi.crvRewards == CVX_FRXETH_REWARDS, "PID 128 rewards mismatch");
 
         // Sanity: Curve cvxFXS/FXS pool coins are (FXS, cvxFXS).
@@ -79,13 +81,13 @@ contract F12_07_PoC is StrategyBase {
             "cvxFXS/FXS coin1 != cvxFXS"
         );
 
-        // ---- 2) Stake LP into Convex ----
-        _fund(FRXETH_ETH_POOL, address(this), LP_NOTIONAL);
+        // ---- 2) Stake LP token (frxETHCRV) into Convex ----
+        _fund(FRXETH_ETH_LP, address(this), LP_NOTIONAL);
 
         _startPnL();
         vm.txGasPrice(20 gwei);
 
-        IERC20(FRXETH_ETH_POOL).approve(Mainnet.CONVEX_BOOSTER, LP_NOTIONAL);
+        IERC20(FRXETH_ETH_LP).approve(Mainnet.CONVEX_BOOSTER, LP_NOTIONAL);
         bool ok = IConvexBooster(Mainnet.CONVEX_BOOSTER).deposit(PID_FRXETH, LP_NOTIONAL, true);
         require(ok, "Booster.deposit failed");
 
@@ -103,11 +105,8 @@ contract F12_07_PoC is StrategyBase {
         console2.log("balance CVX  (raw):", bCvx);
         console2.log("balance FXS  (raw):", bFxs);
         require(bCrv > 0, "no CRV streamed");
-        // FXS extra-reward stream may be empty at this block (extraRewardsLength==0).
-        // Soft-warn rather than hard-fail: the PoC demonstrates the compound
-        // mechanism; if FXS is 0 we skip the Curve swap leg below.
         if (bFxs == 0) {
-            console2.log("WARN: no FXS extra-reward at this block; skipping cvxFXS swap leg");
+            console2.log("WARN: FXS extra-reward not funded at this fork block; FXS leg skipped");
         }
 
         // ---- 4) Frax-side compounding leg: FXS -> cvxFXS via Curve ----

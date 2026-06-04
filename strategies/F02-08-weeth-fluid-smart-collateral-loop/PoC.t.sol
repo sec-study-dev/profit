@@ -22,9 +22,9 @@ import {console2} from "forge-std/console2.sol";
 contract F02_08_WeethFluidSmartCollateralLoopTest is StrategyBase {
     // ---- Pinned constants ----
 
-    /// @dev Block 21,500,000 - Dec 2024. Fluid weETH-ETH<>wstETH vault live
-    ///      (0xb4a15526 is not deployed at 21_200_000; it has code from ~21_400_000+).
-    uint256 constant FORK_BLOCK = 21_500_000;
+    /// @dev Block 21,400,000 - Nov/Dec 2024. Fluid weETH-ETH<>wstETH vault deployed
+    /// and accepting deposits (supply cap not full).
+    uint256 constant FORK_BLOCK = 21_400_000;
 
     /// @dev Fluid VaultT2 weETH-ETH<>wstETH smart-collateral vault.
     /// https://etherscan.io/address/0xb4a15526d427f4d20b0dAdaF3baB4177C85A699A
@@ -132,11 +132,7 @@ contract F02_08_WeethFluidSmartCollateralLoopTest is StrategyBase {
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
 
-        try IFluidVault(LOCAL_FLUID_WEETH_ETH_WSTETH_VAULT).getVaultVariables() returns (uint256 vars) {
-            console2.log("vault variables:", vars);
-        } catch {
-            console2.log("vault variables: (getVaultVariables reverted)");
-        }
+        console2.log("vault variables:", IFluidVault(LOCAL_FLUID_WEETH_ETH_WSTETH_VAULT).getVaultVariables());
 
         _endPnL("F02-08: weETH-fluid-smart-collateral-loop");
     }

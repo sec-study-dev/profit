@@ -98,14 +98,15 @@ contract F16_08_LusdTroveCrvUsdCurveConvexBoost is StrategyBase {
         _trackToken(CRV);
         _trackToken(Mainnet.CVX);
         _setEthUsdFallback(3_100e8);
-
-        _resolvePool();
+        // Pool resolution moved to testStrategy to avoid setUp revert when pool
+        // has no code (Solidity try/catch cannot catch "call to non-contract" in setUp).
     }
 
     function _resolvePool() internal {
-        // Guard: if no code at the candidate address, skip silently.
+        // Guard: skip entirely if the candidate has no code.
         uint256 codeSize;
-        assembly { codeSize := extcodesize(CURVE_CRVUSD_LUSD_CANDIDATE) }
+        address candidate = CURVE_CRVUSD_LUSD_CANDIDATE;
+        assembly { codeSize := extcodesize(candidate) }
         if (codeSize == 0) return;
 
         // Try the candidate address; record indices for coins.
@@ -124,6 +125,10 @@ contract F16_08_LusdTroveCrvUsdCurveConvexBoost is StrategyBase {
     }
 
     function testStrategy_F16_08() public {
+        // Resolve pool inside testStrategy (not setUp) to avoid setUp revert when
+        // the candidate pool address has no code at the fork block.
+        _resolvePool();
+
         vm.deal(address(this), ETH_COLLATERAL + 1 ether);
         _startPnL();
         vm.txGasPrice(20 gwei);

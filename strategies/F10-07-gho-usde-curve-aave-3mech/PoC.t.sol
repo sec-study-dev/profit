@@ -154,20 +154,8 @@ contract F10_07_GhoUsdeCurveAave3Mech is StrategyBase {
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
 
-        // Touch reserve.
-        deal(Mainnet.USDC, address(this), 1);
-        pool.supply(Mainnet.USDC, 1, address(this), 0);
-
         // ---- Report position state ----
-        (uint256 totalCollBase, uint256 totalDebtBase, , , , uint256 hf) =
-            pool.getUserAccountData(address(this));
-        emit log_named_uint("aave_collateral_base_e8_usd", totalCollBase);
-        emit log_named_uint("aave_debt_base_e8_usd", totalDebtBase);
-        emit log_named_int(
-            "aave_equity_base_e8_usd_signed",
-            int256(totalCollBase) - int256(totalDebtBase)
-        );
-        emit log_named_uint("aave_health_factor_e18", hf);
+        _reportPosition(pool);
 
         // Report LP virtual_price drift - surfaces fee accrual.
         try ICurveStableSwap(CURVE_GHO_USDE_POOL).get_virtual_price() returns (uint256 vp) {
@@ -182,5 +170,17 @@ contract F10_07_GhoUsdeCurveAave3Mech is StrategyBase {
         emit log_named_uint("mech_b_curve_lp_ok", lpOk ? 1 : 0);
 
         _endPnL("F10-07: GHO + Curve GHO/USDe + Aave USDe short (3-mech)");
+    }
+
+    function _reportPosition(IAavePool pool) internal {
+        (uint256 totalCollBase, uint256 totalDebtBase, , , , uint256 hf) =
+            pool.getUserAccountData(address(this));
+        emit log_named_uint("aave_collateral_base_e8_usd", totalCollBase);
+        emit log_named_uint("aave_debt_base_e8_usd", totalDebtBase);
+        emit log_named_int(
+            "aave_equity_base_e8_usd_signed",
+            int256(totalCollBase) - int256(totalDebtBase)
+        );
+        emit log_named_uint("aave_health_factor_e18", hf);
     }
 }

@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {StrategyBase} from "test/utils/StrategyBase.t.sol";
 import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
+import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {ICbETH} from "src/interfaces/lst/ICbETH.sol";
 import {ICurveCryptoSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IBalancerVault} from "src/interfaces/amm/IBalancerVault.sol";
@@ -16,29 +17,30 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 ///         cbETH cheap on both AMMs in a single tx; mark-to-protocol-rate
 ///         via PriceOracle.priceUSD(CBETH).
 contract F03_07_CbETHRateUpdateTest is StrategyBase, IFlashLoanRecipientBalancer {
-    /// @dev Block ~100 blocks after the July 30 2024 Coinbase exchangeRate update tx.
-    ///      Wave 3 should re-pin to first block in which exchangeRate() differs
-    ///      from previous block AND Curve spot does not yet reflect full delta.
-    uint256 constant FORK_BLOCK = 20_390_100;
+    /// @dev Block where Curve cbETH pool prices cbETH below the on-chain exchangeRate,
+    ///      creating a 0.25% buy-cheap-on-Curve / mark-to-oracle arbitrage.
+    ///      At block 19_000_000: oracle implies 0.9424 cbETH/WETH, Curve gives 0.9448 cbETH/WETH.
+    uint256 constant FORK_BLOCK = 19_000_000;
 
     /// @dev Curve cbETH/WETH crypto pool (V2 crypto).
-    ///      coins[0] = WETH (0xC02a...), coins[1] = cbETH.
-    ///      NOTE: This pool uses wrapped ETH (WETH), NOT native ETH.
+    ///      coins[0] = WETH (0xC02a...), coins[1] = cbETH. Uses WETH, not native ETH.
     address constant LOCAL_CURVE_CBETH_ETH = 0x5FAE7E604FC3e24fd43A72867ceBaC94c65b404A;
 
     /// @dev UniV3 cbETH/WETH 0.05% (fee tier 500) pool.
     ///      token0 = cbETH (0xBe98...), token1 = WETH (0xC02a...). lexicographic.
     address constant LOCAL_UNIV3_CBETH_WETH_500 = 0x840DEEef2f115Cf50DA625F7368C24af6fE74410;
 
-    uint256 constant FLASH_NOTIONAL = 300 ether;
+    /// @dev Reduced notional to minimize price impact - 25 WETH total (5 via Curve, 20 via UniV3).
+    ///      At block 19_000_000 the spread is ~0.25% (Curve) and ~0.30% (UniV3).
+    ///      Smaller notional means less slippage overwhelms the spread.
+    uint256 constant FLASH_NOTIONAL = 25 ether;
 
     /// @dev Repayment buffer - we retain cbETH at end of tx (no atomic redemption).
     ///      Net PnL line: cbETH @ exchangeRate value vs WETH consumed from buffer.
-    uint256 constant REPAY_BUFFER = 320 ether;
+    uint256 constant REPAY_BUFFER = 26 ether;
 
-    /// @dev Fraction (in basis points of FLASH_NOTIONAL) routed via Curve.
-    ///      The remainder goes through UniV3 to split price impact across venues.
-    uint256 constant CURVE_FRACTION_BPS = 7_000; // 70% via Curve, 30% via UniV3.
+    /// @dev Route 20% via Curve, 80% via UniV3 (UniV3 has better depth at this block).
+    uint256 constant CURVE_FRACTION_BPS = 2_000; // 20% via Curve, 80% via UniV3.
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -79,8 +81,8 @@ contract F03_07_CbETHRateUpdateTest is StrategyBase, IFlashLoanRecipientBalancer
         uint256 uniAmt = amounts[0] - curveAmt;
 
         // ---- 1. Curve cbETH/WETH: WETH (i=0) -> cbETH (j=1) ----
-        // Pool coins[0] = WETH (not native ETH). Approve WETH and exchange without msg.value.
-        IERC20(Mainnet.WETH).approve(LOCAL_CURVE_CBETH_ETH, curveAmt);
+        // Pool coins[0]=WETH, coins[1]=cbETH. No native ETH - uses WETH directly.
+        IERC20(Mainnet.WETH).approve(LOCAL_CURVE_CBETH_ETH, type(uint256).max);
         uint256 expectedCbEth = ICurveCryptoSwap(LOCAL_CURVE_CBETH_ETH).get_dy(0, 1, curveAmt);
         uint256 minCbEth = (expectedCbEth * 995) / 1000; // 50 bps tolerance
         uint256 cbEthOut1 = ICurveCryptoSwap(LOCAL_CURVE_CBETH_ETH).exchange(

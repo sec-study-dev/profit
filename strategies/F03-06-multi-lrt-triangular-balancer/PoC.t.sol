@@ -6,14 +6,17 @@ import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IBalancerVault} from "src/interfaces/amm/IBalancerVault.sol";
 import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
-import {IUniswapV3Router} from "src/interfaces/amm/IUniswapV3Router.sol";
 import {IUniswapV3Pool} from "src/interfaces/amm/IUniswapV3Pool.sol";
+import {IUniswapV3Router} from "src/interfaces/amm/IUniswapV3Router.sol";
 import {IUniswapV3FlashCallback} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
 /// @title F03-06 Multi-LRT triangular: ezETH (Balancer) -> Curve ezETH/WETH ->
 ///                                       Curve weETH/WETH -> UniV3 weETH/WETH
-/// @notice Flash WETH from UniV3 wstETH/WETH 1bp pool (avoids Balancer vault reentrancy),
-///         then execute the 4-hop triangle.
+/// @notice 4-hop, 3-protocol triangle exploiting the April 24 2024 ezETH depeg
+///         while keeping the weETH leg at-rate.
+///         Uses UniV3 USDC/WETH flash (token1=WETH) to avoid Balancer reentrancy
+///         guard (BAL#400). Balancer swap is called outside any Balancer flash
+///         callback, which is legal under Balancer V2.
 contract F03_06_MultiLRTTriangularTest is StrategyBase, IUniswapV3FlashCallback {
     /// @dev Renzo April 24 2024 ezETH depeg peak.
     uint256 constant FORK_BLOCK = 19_690_000;
@@ -28,13 +31,18 @@ contract F03_06_MultiLRTTriangularTest is StrategyBase, IUniswapV3FlashCallback 
     /// @dev Curve weETH/WETH NG pool. coins[0] = weETH, coins[1] = WETH.
     address constant LOCAL_CURVE_WEETH_WETH = 0x13947303F63b363876868D070F14dc865C36463b;
 
-    /// @dev UniV3 wstETH/WETH 0.01% (fee tier 100) pool used as WETH flash source.
-    ///      token0=wstETH, token1=WETH. Correct address verified via factory.getPool().
-    address constant UNIV3_WSTETH_WETH_100 = 0x109830a1AAaD605BbF02a9dFA7B0B92EC2FB7dAa;
+    /// @dev UniV3 weETH/WETH 0.05% (fee tier 500) pool.
+    address constant LOCAL_UNIV3_WEETH_WETH_500 = 0x7A415B19932c0105c82FDB6b720bb01B0CC2CAe3;
+
+    /// @dev UniV3 USDC/WETH 0.05% pool (token0=USDC, token1=WETH). Used as flash source.
+    ///      At block 19_690_000 this pool holds ~25,000+ WETH for flash.
+    address constant UNIV3_USDC_WETH_500 = 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640;
 
     uint256 constant FLASH_NOTIONAL = 200 ether;
-    /// @dev WETH buffer to cover flash repayment shortfall (negative PnL is OK).
-    uint256 constant REPAY_BUFFER = 15 ether;
+
+    /// @dev Buffer pre-funded to cover flash repayment if the 4-hop path loses.
+    ///      Net_usd will record the actual PnL; the buffer ensures no revert.
+    uint256 constant REPAY_BUFFER = 20 ether;
 
     bool internal _flashActive;
 
@@ -46,13 +54,17 @@ contract F03_06_MultiLRTTriangularTest is StrategyBase, IUniswapV3FlashCallback 
     }
 
     function testStrategy_F03_06() public {
-        // Pre-fund WETH buffer to cover any repayment shortfall (negative PnL is OK).
+        // Sanity: confirm USDC/WETH pool token ordering.
+        require(IUniswapV3Pool(UNIV3_USDC_WETH_500).token1() == Mainnet.WETH, "univ3: t1 must be WETH");
+
+        // Pre-fund WETH buffer to ensure flash repayment if the 4-hop path loses.
         _fund(Mainnet.WETH, address(this), REPAY_BUFFER);
+
         _startPnL();
 
         _flashActive = true;
-        // Borrow token1 (WETH) from UniV3 1bp pool.
-        IUniswapV3Pool(UNIV3_WSTETH_WETH_100).flash(address(this), 0, FLASH_NOTIONAL, "");
+        // Flash token1 (WETH) from UniV3 USDC/WETH pool. amount0=0, amount1=NOTIONAL.
+        IUniswapV3Pool(UNIV3_USDC_WETH_500).flash(address(this), 0, FLASH_NOTIONAL, "");
         _flashActive = false;
 
         _endPnL("F03-06: Multi-LRT triangular ezETH x weETH (Bal+Curve+UniV3)");
@@ -64,9 +76,10 @@ contract F03_06_MultiLRTTriangularTest is StrategyBase, IUniswapV3FlashCallback 
         bytes calldata /* data */
     ) external override {
         require(_flashActive, "callback: not active");
-        require(msg.sender == UNIV3_WSTETH_WETH_100, "callback: wrong pool");
+        require(msg.sender == UNIV3_USDC_WETH_500, "callback: wrong pool");
 
-        // ---- 1. WETH -> ezETH on Balancer CSP (cheap leg during depeg) ----
+        // ---- 1. WETH -> ezETH on Balancer CSP (buy during depeg at discount) ----
+        // Outside any Balancer flash callback -> no BAL#400 reentrancy guard.
         IERC20(Mainnet.WETH).approve(Mainnet.BAL_VAULT, type(uint256).max);
         IBalancerVault.SingleSwap memory s1 = IBalancerVault.SingleSwap({
             poolId: BAL_EZETH_POOL_ID,
@@ -86,18 +99,18 @@ contract F03_06_MultiLRTTriangularTest is StrategyBase, IUniswapV3FlashCallback 
         require(ezOut > 0, "balancer: zero ezETH");
 
         // ---- 2. ezETH -> WETH on Curve ezETH/WETH NG pool ----
+        // NG pool: coins[0]=ezETH, coins[1]=WETH. Swap i=0 (ezETH) -> j=1 (WETH).
         IERC20(Mainnet.EZETH).approve(LOCAL_CURVE_EZETH_WETH, type(uint256).max);
-        uint256 expWethA = ICurveStableSwap(LOCAL_CURVE_EZETH_WETH).get_dy(0, 1, ezOut);
         uint256 wethMid = ICurveStableSwap(LOCAL_CURVE_EZETH_WETH).exchange(
-            0, 1, ezOut, (expWethA * 990) / 1000
+            0, 1, ezOut, 1
         );
         require(wethMid > 0, "curve ezeth: zero");
 
         // ---- 3. WETH -> weETH on Curve weETH/WETH NG pool ----
+        // NG pool: coins[0]=weETH, coins[1]=WETH. Swap i=1 (WETH) -> j=0 (weETH).
         IERC20(Mainnet.WETH).approve(LOCAL_CURVE_WEETH_WETH, type(uint256).max);
-        uint256 expWeETH = ICurveStableSwap(LOCAL_CURVE_WEETH_WETH).get_dy(1, 0, wethMid);
         uint256 weethOut = ICurveStableSwap(LOCAL_CURVE_WEETH_WETH).exchange(
-            1, 0, wethMid, (expWeETH * 990) / 1000
+            1, 0, wethMid, 1
         );
         require(weethOut > 0, "curve weeth: zero");
 
@@ -116,7 +129,8 @@ contract F03_06_MultiLRTTriangularTest is StrategyBase, IUniswapV3FlashCallback 
         uint256 wethBack = IUniswapV3Router(Mainnet.UNI_V3_ROUTER).exactInputSingle(p);
         require(wethBack > 0, "univ3: zero out");
 
-        // ---- 5. Repay UniV3 flash ----
-        IERC20(Mainnet.WETH).transfer(UNIV3_WSTETH_WETH_100, FLASH_NOTIONAL + fee1);
+        // ---- 5. Repay UniV3 flash (token1 = WETH) ----
+        // The REPAY_BUFFER covers any shortfall from an unprofitable trade path.
+        IERC20(Mainnet.WETH).transfer(UNIV3_USDC_WETH_500, FLASH_NOTIONAL + fee1);
     }
 }

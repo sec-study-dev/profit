@@ -54,30 +54,19 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
         _trackToken(Mainnet.USDC);
     }
 
-    function testStrategy_F10_08() public {
-        IAavePool pool = IAavePool(Mainnet.AAVE_V3_POOL);
-        IAavePoolExt poolExt = IAavePoolExt(Mainnet.AAVE_V3_POOL);
+    struct IsolationCandidate {
+        address asset;
+        uint256 ltv;
+        uint256 debtCeiling;
+        uint256 headroom;
+        uint256 decimals;
+    }
 
-        // ---- 1. Enumerate reserves; identify isolation-mode candidates. ----
-        address[] memory reserves;
-        try poolExt.getReservesList() returns (address[] memory list) {
-            reserves = list;
-        } catch {
-            emit log("getReservesList_unsupported");
-            // Take a zero-baseline PnL snapshot so the trailing _endPnL block
-            // formats correctly even when no probe ran.
-            _startPnL();
-            _endPnL("F10-08: isolation-mode farm (no reserves)");
-            return;
-        }
-        emit log_named_uint("aave_reserves_count", reserves.length);
-
-        address bestCandidate;
-        uint256 bestLtv;
-        uint256 bestDebtCeiling;
-        uint256 bestHeadroom;
-        uint256 bestDecimals;
-
+    function _findBestCandidate(
+        IAavePool pool,
+        address[] memory reserves
+    ) internal returns (IsolationCandidate memory best) {
+        IAavePoolExt poolExt = IAavePoolExt(address(pool));
         for (uint256 i = 0; i < reserves.length; i++) {
             address asset = reserves[i];
             uint256 cfg;
@@ -96,74 +85,59 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
             if (currentIsoDebt >= debtCeiling) continue; // no headroom
 
             uint256 headroom = debtCeiling - currentIsoDebt;
-            if (headroom <= bestHeadroom) continue;
+            if (headroom <= best.headroom) continue;
 
             uint256 ltv = cfg & LTV_MASK;
             if (ltv == 0) continue; // not collateral-enabled
 
             uint256 decimals = (cfg >> DECIMALS_START_BIT) & DECIMALS_MASK;
 
-            bestCandidate = asset;
-            bestLtv = ltv;
-            bestDebtCeiling = debtCeiling;
-            bestHeadroom = headroom;
-            bestDecimals = decimals;
+            best.asset = asset;
+            best.ltv = ltv;
+            best.debtCeiling = debtCeiling;
+            best.headroom = headroom;
+            best.decimals = decimals;
         }
+    }
 
-        if (bestCandidate == address(0)) {
+    function testStrategy_F10_08() public {
+        IAavePool pool = IAavePool(Mainnet.AAVE_V3_POOL);
+
+        // ---- 1. Enumerate reserves; identify isolation-mode candidates. ----
+        address[] memory reserves;
+        {
+            IAavePoolExt poolExt = IAavePoolExt(Mainnet.AAVE_V3_POOL);
+            try poolExt.getReservesList() returns (address[] memory list) {
+                reserves = list;
+            } catch {
+                emit log("getReservesList_unsupported");
+                _startPnL();
+                _endPnL("F10-08: isolation-mode farm (no reserves)");
+                return;
+            }
+        }
+        emit log_named_uint("aave_reserves_count", reserves.length);
+
+        IsolationCandidate memory best = _findBestCandidate(pool, reserves);
+
+        if (best.asset == address(0)) {
             emit log("no_isolation_candidate_at_block");
             _startPnL();
             _endPnL("F10-08: isolation-mode farm (no candidate)");
             return;
         }
 
-        emit log_named_address("isolation_pick", bestCandidate);
-        emit log_named_uint("ltv_bps", bestLtv);
-        emit log_named_uint("debt_ceiling_e2_usd", bestDebtCeiling);
-        emit log_named_uint("headroom_e2_usd", bestHeadroom);
-        emit log_named_uint("asset_decimals", bestDecimals);
+        emit log_named_address("isolation_pick", best.asset);
+        emit log_named_uint("ltv_bps", best.ltv);
+        emit log_named_uint("debt_ceiling_e2_usd", best.debtCeiling);
+        emit log_named_uint("headroom_e2_usd", best.headroom);
+        emit log_named_uint("asset_decimals", best.decimals);
 
         // ---- 2. Track + fund the candidate. ----
-        _trackToken(bestCandidate);
+        _trackToken(best.asset);
+        _fundCandidate(pool, best);
 
-        // Deposit 50k USD-equivalent of the asset (cap: half the headroom so
-        // ceiling isn't depleted on a single call).
-        // Convert 50k USD to asset-units assuming roughly $1-equivalent for stables,
-        // or use 1e18-decimal-aware sizing. The PoC errs simple: fund a
-        // hardcoded 1e18 wei-scale amount and let `_fund` handle it.
-        uint256 depositTokens;
-        if (bestDecimals >= 18) {
-            depositTokens = 50_000 * (10 ** bestDecimals);
-        } else if (bestDecimals == 8) {
-            // BTC-class scale; 1 BTC ~= $60k at FORK_BLOCK, so deposit ~0.8 BTC.
-            depositTokens = 8 * (10 ** (bestDecimals - 1));
-        } else {
-            depositTokens = 50_000 * (10 ** bestDecimals);
-        }
-
-        // Limit deposit to a fraction of headroom - convert headroom (1e2 USD) to
-        // approximate asset units assuming $1 (only correct for stables; tail
-        // assets accept the conservative cap and re-cap on revert below).
-        uint256 conservativeUsdCap = bestHeadroom / 4; // 25% of remaining ceiling
-        // conservativeUsdCap is in 1e2 USD; to compare against depositTokens at
-        // 18-dec stable would be conservativeUsdCap * 1e16. Keep this as a
-        // best-effort guard; the actual revert path catches over-cap.
-        if (bestDecimals == 18) {
-            uint256 capInTokens = conservativeUsdCap * 1e16;
-            if (depositTokens > capInTokens && capInTokens > 0) depositTokens = capInTokens;
-        }
-
-        // Fund via deal - may fail for assets with allow-list transfer gating.
-        try this._fundCandidate(bestCandidate, depositTokens) {
-            // ok
-        } catch {
-            emit log("candidate_unfundable_via_deal");
-            _startPnL();
-            _endPnL("F10-08: isolation-mode farm (fund failed)");
-            return;
-        }
-
-        uint256 fundedBal = IERC20(bestCandidate).balanceOf(address(this));
+        uint256 fundedBal = IERC20(best.asset).balanceOf(address(this));
         emit log_named_uint("candidate_funded_balance", fundedBal);
         if (fundedBal == 0) {
             _startPnL();
@@ -176,8 +150,8 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
         _startPnL();
 
         // ---- 3. Supply the candidate into Aave. ----
-        IERC20(bestCandidate).approve(address(pool), type(uint256).max);
-        try pool.supply(bestCandidate, fundedBal - 1, address(this), 0) {
+        IERC20(best.asset).approve(address(pool), type(uint256).max);
+        try pool.supply(best.asset, fundedBal - 1, address(this), 0) {
             // ok
         } catch {
             emit log("isolation_supply_failed");
@@ -186,20 +160,10 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
         }
 
         // ---- 4. Borrow a small slug of USDC (isolation-borrowable). ----
-        (, , uint256 availableBase, , , ) = pool.getUserAccountData(address(this));
-        // availableBase in 1e8 USD; borrow 30% in USDC (6-dec at $1).
-        uint256 borrowUsdc = (availableBase * 3000) / 10_000 / 1e2;
-        if (borrowUsdc > 0) {
-            try pool.borrow(Mainnet.USDC, borrowUsdc, RATE_MODE_VARIABLE, 0, address(this)) {
-                uint256 usdcBal = IERC20(Mainnet.USDC).balanceOf(address(this));
-                emit log_named_uint("usdc_borrowed_under_isolation", usdcBal);
-            } catch {
-                emit log("usdc_borrow_under_isolation_failed");
-            }
-        }
+        _borrowUsdc(pool);
 
         // ---- 5. Snapshot the aToken before warp. ----
-        IAavePool.ReserveDataLegacy memory rdPre = pool.getReserveData(bestCandidate);
+        IAavePool.ReserveDataLegacy memory rdPre = pool.getReserveData(best.asset);
         uint256 aBalPre = IERC20(rdPre.aTokenAddress).balanceOf(address(this));
         emit log_named_uint("atoken_balance_pre_warp", aBalPre);
 
@@ -207,7 +171,7 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
         // Touch the reserve via 1-wei supply.
-        try pool.supply(bestCandidate, 1, address(this), 0) {} catch {}
+        try pool.supply(best.asset, 1, address(this), 0) {} catch {}
 
         // ---- 7. Surface accrued aToken delta. ----
         uint256 aBalPost = IERC20(rdPre.aTokenAddress).balanceOf(address(this));
@@ -222,18 +186,83 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
             }
         }
 
+        // ---- 8. Unwind: withdraw collateral, repay USDC borrow ----
+        _unwind(pool, best.asset);
+
+        _reportAavePosition(pool);
+        _endPnL("F10-08: Aave isolation-mode farming probe");
+    }
+
+    function _fundCandidate(IAavePool pool, IsolationCandidate memory best) internal {
+        uint256 depositTokens;
+        if (best.decimals >= 18) {
+            depositTokens = 50_000 * (10 ** best.decimals);
+        } else if (best.decimals == 8) {
+            // BTC-class scale; 1 BTC ~= $60k at FORK_BLOCK, so deposit ~0.8 BTC.
+            depositTokens = 8 * (10 ** (best.decimals - 1));
+        } else {
+            depositTokens = 50_000 * (10 ** best.decimals);
+        }
+
+        // Limit deposit to a fraction of headroom - convert headroom (1e2 USD) to
+        // approximate asset units assuming $1 (only correct for stables).
+        uint256 conservativeUsdCap = best.headroom / 4; // 25% of remaining ceiling
+        if (best.decimals == 18) {
+            uint256 capInTokens = conservativeUsdCap * 1e16;
+            if (depositTokens > capInTokens && capInTokens > 0) depositTokens = capInTokens;
+        } else if (best.decimals == 6) {
+            // For 6-decimal stables (USDC-like): headroom is in 1e2 USD → multiply by 1e4
+            uint256 capInTokens = conservativeUsdCap * 1e4;
+            if (depositTokens > capInTokens && capInTokens > 0) depositTokens = capInTokens;
+        }
+
+        // Fund via deal.
+        try this._dealCandidate(best.asset, depositTokens) {
+            // ok
+        } catch {
+            emit log("candidate_unfundable_via_deal");
+        }
+
+        pool; // silence unused warning
+    }
+
+    function _borrowUsdc(IAavePool pool) internal {
+        (, , uint256 availableBase, , , ) = pool.getUserAccountData(address(this));
+        // availableBase in 1e8 USD; borrow 30% in USDC (6-dec at $1).
+        uint256 borrowUsdc = (availableBase * 3000) / 10_000 / 1e2;
+        if (borrowUsdc > 0) {
+            try pool.borrow(Mainnet.USDC, borrowUsdc, RATE_MODE_VARIABLE, 0, address(this)) {
+                uint256 usdcBal = IERC20(Mainnet.USDC).balanceOf(address(this));
+                emit log_named_uint("usdc_borrowed_under_isolation", usdcBal);
+            } catch {
+                emit log("usdc_borrow_under_isolation_failed");
+            }
+        }
+    }
+
+    function _unwind(IAavePool pool, address asset) internal {
+        // Repay USDC debt if any
+        uint256 usdcBal = IERC20(Mainnet.USDC).balanceOf(address(this));
+        if (usdcBal > 0) {
+            IERC20(Mainnet.USDC).approve(address(pool), usdcBal);
+            try pool.repay(Mainnet.USDC, usdcBal, RATE_MODE_VARIABLE, address(this)) {} catch {}
+        }
+
+        // Withdraw all collateral
+        try pool.withdraw(asset, type(uint256).max, address(this)) {} catch {}
+    }
+
+    function _reportAavePosition(IAavePool pool) internal {
         (uint256 collBase, uint256 debtBase, , , , uint256 hf) =
             pool.getUserAccountData(address(this));
         emit log_named_uint("aave_collateral_base_e8_usd", collBase);
         emit log_named_uint("aave_debt_base_e8_usd", debtBase);
         emit log_named_uint("aave_health_factor_e18", hf);
-
-        _endPnL("F10-08: Aave isolation-mode farming probe");
     }
 
     /// @dev External-self helper so `deal` can be wrapped in try/catch when
     ///      the candidate asset has non-standard transfer gating.
-    function _fundCandidate(address asset, uint256 amount) external {
+    function _dealCandidate(address asset, uint256 amount) external {
         require(msg.sender == address(this), "self-only");
         deal(asset, address(this), amount);
     }

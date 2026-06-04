@@ -12,13 +12,6 @@ import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.so
 // ---- Local interfaces (do NOT modify shared) ----
 //   (No metapool-specific calls - every leg uses ICurveStableSwap from shared.)
 
-/// @dev Curve legacy 3pool (Vyper 0.2): exchange() returns no value.
-///      The shared ICurveStableSwap interface expects a uint256 return which panics on ABI
-///      decode. Declare a void-return variant here; use balanceOf-diff to capture output.
-interface ICurve3PoolNoReturn {
-    function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy) external;
-}
-
 /// @title F16-03 - DAI flashmint triangular: DAI -> USDC -> crvUSD -> GHO -> crvUSD -> USDC -> DAI
 /// @notice All-Curve route - no Balancer dependency. The triangle "closes" by
 ///         round-tripping crvUSD <-> GHO on the Curve GHO/crvUSD StableNG pool;
@@ -39,7 +32,9 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
     ///      crvUSD bridge.
     address constant CURVE_GHO_CRVUSD = 0x635EF0056A597D13863B73825CcA297236578595;
 
-    /// @dev Curve crvUSD/USDC stableswap-NG (ACTUAL: coins[0]=USDC, coins[1]=crvUSD).
+    /// @dev Curve crvUSD/USDC stableswap-NG.
+    ///      Verified on-chain: coins[0]=USDC (0xA0b...), coins[1]=crvUSD (0xf939...).
+    ///      Index ordering: 0=USDC, 1=crvUSD.
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
 
     /// @dev Mid-Sep 2024 - GHO sub-peg, crvUSD slight over-peg.
@@ -62,8 +57,9 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
 
     function testStrategy_F16_03() public {
         IDssFlash flash = IDssFlash(Mainnet.DSS_FLASH);
-        require(flash.flashFee(Mainnet.DAI, 1e18) == 0, "DSS toll non-zero");
-        require(flash.max() >= FLASH_DAI, "flash cap");
+        // Note: old DssFlash (0x6074...) has no toll() function; use flashFee() instead.
+        require(flash.flashFee(Mainnet.DAI, FLASH_DAI) == 0, "DSS fee non-zero");
+        require(flash.maxFlashLoan(Mainnet.DAI) >= FLASH_DAI, "flash cap");
 
         // ---- Discovery: quote the round trip without taking the flashloan ----
         // Step 1: DAI (idx 0) -> USDC (idx 1) on Curve 3pool.
@@ -77,7 +73,7 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
         emit log_named_uint("quote_usdc_out_from_dai_3pool", usdcOut1);
 
         // Step 2: USDC (idx 0) -> crvUSD (idx 1) on crvUSD/USDC NG pool.
-        // ACTUAL pool: coins[0]=USDC, coins[1]=crvUSD => USDC->crvUSD is idx 0->1.
+        // Verified coin ordering: coins[0]=USDC, coins[1]=crvUSD.
         uint256 crvUsdOut1 = ICurveStableSwap(CURVE_CRVUSD_USDC).get_dy(
             int128(0), int128(1), usdcOut1
         );
@@ -98,7 +94,7 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
         emit log_named_uint("quote_crvusd_back_from_gho", crvUsdOut2);
 
         // Step 5: crvUSD (idx 1) -> USDC (idx 0) reverse on NG pool.
-        // ACTUAL pool: coins[0]=USDC, coins[1]=crvUSD => crvUSD->USDC is idx 1->0.
+        // Verified coin ordering: coins[0]=USDC, coins[1]=crvUSD.
         uint256 usdcOut2 = ICurveStableSwap(CURVE_CRVUSD_USDC).get_dy(
             int128(1), int128(0), crvUsdOut2
         );
@@ -143,15 +139,14 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
         require(fee == 0, "fee non-zero");
         _executed = true;
 
-        // Leg 1: DAI -> USDC via Curve 3pool (idx 0=DAI -> 1=USDC).
-        // 3pool exchange() returns void (legacy Vyper); use balanceOf-diff.
+        // Leg 1: DAI -> USDC via Curve 3pool (idx 0 -> 1).
         IERC20(Mainnet.DAI).approve(CURVE_3POOL, amount);
-        uint256 usdcBefore1 = IERC20(Mainnet.USDC).balanceOf(address(this));
-        ICurve3PoolNoReturn(CURVE_3POOL).exchange(int128(0), int128(1), amount, 0);
-        uint256 usdcMid1 = IERC20(Mainnet.USDC).balanceOf(address(this)) - usdcBefore1;
+        uint256 usdcMid1 = ICurveStableSwap(CURVE_3POOL).exchange(
+            int128(0), int128(1), amount, 0
+        );
 
-        // Leg 2: USDC -> crvUSD via crvUSD/USDC NG pool.
-        // ACTUAL pool: coins[0]=USDC, coins[1]=crvUSD => USDC->crvUSD is idx 0->1.
+        // Leg 2: USDC -> crvUSD via crvUSD/USDC NG pool (idx 0=USDC -> 1=crvUSD).
+        // coins[0]=USDC, coins[1]=crvUSD per on-chain verification.
         IERC20(Mainnet.USDC).approve(CURVE_CRVUSD_USDC, usdcMid1);
         uint256 crvUsdMid1 = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
             int128(0), int128(1), usdcMid1, 0
@@ -170,8 +165,8 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
             int128(0), int128(1), ghoMid, 0
         );
 
-        // Leg 5: crvUSD -> USDC reverse on NG pool.
-        // ACTUAL pool: coins[0]=USDC, coins[1]=crvUSD => crvUSD->USDC is idx 1->0.
+        // Leg 5: crvUSD -> USDC reverse on NG pool (idx 1=crvUSD -> 0=USDC).
+        // coins[0]=USDC, coins[1]=crvUSD per on-chain verification.
         IERC20(Mainnet.CRVUSD).approve(CURVE_CRVUSD_USDC, crvUsdMid2);
         uint256 usdcEnd = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
             int128(1), int128(0), crvUsdMid2, 0

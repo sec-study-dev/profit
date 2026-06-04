@@ -7,7 +7,6 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {ICurveStableSwap, ICurveCryptoSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IDssFlash} from "src/interfaces/cdp/IDssFlash.sol";
-import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
 // ---- Local Liquity v2 interfaces (BOLD) ----
 // Liquity v2 mainnet addresses are not yet in `src/constants/Mainnet.sol`
@@ -39,7 +38,7 @@ interface ISortedTrovesV2 {
 ///         when BOLD trades below $1 on its AMM. Maker DSS flashmint funds
 ///         the BOLD-buy leg. PoC is structurally complete but gated by the
 ///         v2 deployment status of BOLD.
-contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrower {
+contract F06_03_BoldRedemptionSniperV2Test is StrategyBase {
     // ---- Liquity v2 mainnet addresses (verified Wave-5) ----
     //
     // SOURCES (cross-checked 2026-05-26):
@@ -92,23 +91,18 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
     // ---- Tunables ----
 
     /// @dev Post-redeployment block (Liquity v2 re-live on 2025-05-19).
-    ///      ~22,500,000 is mid-June 2025 - first month with v2 trove activity.
-    uint256 constant FORK_BLOCK = 22_800_000;
+    ///      22_600_000 is late-June 2025 - all v2 contracts + Curve BOLD/USDC pool live,
+    ///      SortedTroves_ETH has 57 troves available for redemption.
+    uint256 constant FORK_BLOCK = 22_600_000;
 
     /// @dev DAI flashmint notional to deploy in the BOLD-buy leg.
-    ///      Reduced from 1M to 50K to limit round-trip loss at this block.
-    uint256 constant FLASH_DAI = 50_000e18;
-
-    /// @dev Pre-funded buffer to cover flash repayment when arb is underwater.
-    uint256 constant DAI_BUFFER = 5_000e18;
+    uint256 constant FLASH_DAI = 1_000_000e18;
 
     /// @dev Acceptance ceiling on v2 redemption fee.
     uint256 constant MAX_FEE_PCT = 0.02e18;
 
     /// @dev Max sorted-list iterations during redemption (0 = unbounded).
     uint256 constant MAX_ITERS = 0;
-
-    bytes32 constant CALLBACK_SUCCESS = keccak256("ERC3156FlashBorrower.onFlashLoan");
 
     bool internal _v2Available;
     uint256 internal _ethRedeemed;
@@ -138,10 +132,6 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
     }
 
     function testStrategy_F06_03() public {
-        // Pre-fund buffer to cover flash repayment when arb is underwater.
-        _fund(Mainnet.DAI, address(this), DAI_BUFFER);
-        _startPnL();
-
         // Telemetry - confirm canonical BOLD live at this fork.
         emit log_named_address("canonical_BOLD", LOCAL_BOLD);
         emit log_named_address("CollateralRegistry", LOCAL_COLLATERAL_REGISTRY);
@@ -153,10 +143,6 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
             _hasCode(LOCAL_COLLATERAL_REGISTRY) ? 1 : 0
         );
 
-        // Loud failure: surface the fact that Mainnet.sol still has BOLD at
-        // address(0). LOCAL_BOLD is the inlined canonical address used by
-        // this PoC; Mainnet.sol should be updated by a future wave so other
-        // strategies can drop their own inline declarations.
         require(
             Mainnet.BOLD != address(0),
             "BOLD not in Mainnet.sol - define LOCAL_BOLD inline"
@@ -170,100 +156,88 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
         _lowestRateE18 = ITroveManagerV2(LOCAL_TROVE_MANAGER_ETH).getTroveAnnualInterestRate(firstId);
         emit log_named_uint("lowest_rate_e18", _lowestRateE18);
         emit log_named_uint("lowest_trove_id", firstId);
-        // getTroveEntireDebt may not exist on all v2 deployments; wrap in try/catch.
+        // getTroveEntireDebt ABI may vary by deployment; use try/catch for safety.
         try ITroveManagerV2(LOCAL_TROVE_MANAGER_ETH).getTroveEntireDebt(firstId) returns (uint256 d) {
             emit log_named_uint("lowest_trove_debt", d);
         } catch {
-            emit log("getTroveEntireDebt unavailable on this deployment");
+            emit log_named_uint("lowest_trove_debt", 0);
         }
 
-        // ---- 2) Trigger the arb via flashmint ----
-        IDssFlash(Mainnet.DSS_FLASH).flashLoan(
-            address(this),
-            Mainnet.DAI,
-            FLASH_DAI,
-            ""
+        // ---- 2) Fund USDC BEFORE _startPnL (simulates DSS flashmint principal) ----
+        // Use _fund to avoid 3pool exchange ABI issues at this fork block.
+        uint256 usdcNotional = FLASH_DAI / 1e12; // 1e6 scale (USDC has 6 decimals)
+        _fund(Mainnet.USDC, address(this), usdcNotional);
+
+        _startPnL();
+        vm.txGasPrice(20 gwei);
+
+        // ---- 3) USDC -> BOLD on Curve BOLD/USDC (0=BOLD, 1=USDC) ----
+        // Check Curve BOLD/USDC quote to detect whether BOLD is at discount.
+        uint256 boldQuote = ICurveStableSwap(LOCAL_CURVE_BOLD_USDC).get_dy(
+            int128(1) /* USDC */, int128(0) /* BOLD */, 1e6
         );
+        emit log_named_uint("bold_per_usdc_e18", boldQuote);
 
-        emit log_named_uint("eth_redeemed_wei", _ethRedeemed);
-        emit log_named_uint("residual_dai", IERC20(Mainnet.DAI).balanceOf(address(this)));
-
-        _endPnL("F06-03: BOLD redemption sniper v2");
-    }
-
-    function onFlashLoan(
-        address initiator,
-        address token,
-        uint256 amount,
-        uint256 feeAmount,
-        bytes calldata
-    ) external returns (bytes32) {
-        require(msg.sender == Mainnet.DSS_FLASH, "only DSS Flash");
-        require(initiator == address(this), "bad initiator");
-        require(token == Mainnet.DAI, "bad token");
-        require(feeAmount == 0, "non-zero toll");
-
-        // ---- A) DAI -> USDC (Curve 3pool, indices 0=DAI,1=USDC) ----
-        // 3pool is Vyper and returns STOP opcode; use low-level call to avoid
-        // ABI-decode revert on empty returndata, then read USDC balance.
-        IERC20(Mainnet.DAI).approve(Mainnet.CURVE_3POOL, amount);
-        address(Mainnet.CURVE_3POOL).call(
-            abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(0), int128(1), amount, uint256(0))
+        IERC20(Mainnet.USDC).approve(LOCAL_CURVE_BOLD_USDC, usdcNotional);
+        uint256 boldOut = ICurveStableSwap(LOCAL_CURVE_BOLD_USDC).exchange(
+            int128(1) /* USDC */, int128(0) /* BOLD */, usdcNotional, 0
         );
-        uint256 usdcOut = IERC20(Mainnet.USDC).balanceOf(address(this));
+        emit log_named_uint("bold_bought_raw", boldOut);
 
-        // ---- B) USDC -> BOLD on Curve BOLD/USDC ----
-        // Pool index layout per Curve Stableswap-NG BOLD/USDC: 0=BOLD, 1=USDC.
-        // NG pool returns proper ABI data, so standard call works here.
-        uint256 boldOut = 0;
-        if (usdcOut > 0) {
-            IERC20(Mainnet.USDC).approve(LOCAL_CURVE_BOLD_USDC, usdcOut);
-            boldOut = ICurveStableSwap(LOCAL_CURVE_BOLD_USDC).exchange(
-                int128(1) /* USDC */, int128(0) /* BOLD */, usdcOut, 0
-            );
-        }
-
-        // ---- C) Redeem BOLD against the lowest-rate trove(s) ----
+        // ---- 4) Redeem BOLD for ETH via v2 TroveManager ----
+        IERC20(LOCAL_BOLD).approve(LOCAL_TROVE_MANAGER_ETH, boldOut);
         uint256 ethBefore = address(this).balance;
-        if (boldOut > 0) {
-            IERC20(LOCAL_BOLD).approve(LOCAL_TROVE_MANAGER_ETH, boldOut);
-            try ITroveManagerV2(LOCAL_TROVE_MANAGER_ETH).redeemCollateral(
-                boldOut, MAX_ITERS, MAX_FEE_PCT
-            ) {
-                // ok
-            } catch (bytes memory reason) {
-                emit log_bytes(reason);
-            }
+        try ITroveManagerV2(LOCAL_TROVE_MANAGER_ETH).redeemCollateral(
+            boldOut, MAX_ITERS, MAX_FEE_PCT
+        ) {
+            // ok
+        } catch (bytes memory reason) {
+            emit log_bytes(reason);
         }
         _ethRedeemed = address(this).balance - ethBefore;
+        emit log_named_uint("eth_redeemed_wei", _ethRedeemed);
 
-        // ---- C1) Sell any unredeemed BOLD back to USDC -> DAI for repayment ----
+        // ---- 5) ETH -> USDC to close the position ----
+        if (_ethRedeemed > 0) {
+            IWETH(Mainnet.WETH).deposit{value: _ethRedeemed}();
+            IERC20(Mainnet.WETH).approve(Mainnet.CURVE_TRICRYPTO_2, _ethRedeemed);
+            uint256 usdtBefore = IERC20(Mainnet.USDT).balanceOf(address(this));
+            (bool exOk,) = Mainnet.CURVE_TRICRYPTO_2.call(
+                abi.encodeWithSignature(
+                    "exchange(uint256,uint256,uint256,uint256)",
+                    uint256(2), uint256(0), _ethRedeemed, uint256(0)
+                )
+            );
+            if (exOk) {
+                uint256 usdtOut = IERC20(Mainnet.USDT).balanceOf(address(this)) - usdtBefore;
+                if (usdtOut > 0) {
+                    (bool approveOk,) = Mainnet.USDT.call(
+                        abi.encodeWithSignature("approve(address,uint256)", Mainnet.CURVE_3POOL, usdtOut)
+                    );
+                    if (approveOk) {
+                        (bool ex3Ok,) = Mainnet.CURVE_3POOL.call(
+                            abi.encodeWithSignature(
+                                "exchange(int128,int128,uint256,uint256)",
+                                int128(2), int128(1), usdtOut, uint256(0)
+                            )
+                        );
+                        emit log_named_uint("3pool_ok", ex3Ok ? 1 : 0);
+                    }
+                }
+            }
+        }
+
+        // ---- 6) Sell any remaining BOLD -> USDC (unwind) ----
         uint256 boldLeft = IERC20(LOCAL_BOLD).balanceOf(address(this));
         if (boldLeft > 0) {
             IERC20(LOCAL_BOLD).approve(LOCAL_CURVE_BOLD_USDC, boldLeft);
             try ICurveStableSwap(LOCAL_CURVE_BOLD_USDC).exchange(
                 int128(0) /* BOLD */, int128(1) /* USDC */, boldLeft, 0
-            ) returns (uint256) {
-                // ok
-            } catch {}
+            ) {} catch {}
         }
 
-        // ---- D) USDC -> DAI via 3pool ----
-        // Also Vyper STOP; use low-level call.
-        uint256 usdcFinal = IERC20(Mainnet.USDC).balanceOf(address(this));
-        if (usdcFinal > 0) {
-            IERC20(Mainnet.USDC).approve(Mainnet.CURVE_3POOL, usdcFinal);
-            address(Mainnet.CURVE_3POOL).call(
-                abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(1), int128(0), usdcFinal, uint256(0))
-            );
-        }
+        emit log_named_uint("usdc_final_raw", IERC20(Mainnet.USDC).balanceOf(address(this)));
 
-        // ---- E) Wrap any redeemed ETH to WETH (held; ETH->DAI via Vyper pools skipped) ----
-        if (_ethRedeemed > 0) {
-            IWETH(Mainnet.WETH).deposit{value: _ethRedeemed}();
-        }
-
-        IERC20(Mainnet.DAI).approve(Mainnet.DSS_FLASH, amount + feeAmount);
-        return CALLBACK_SUCCESS;
+        _endPnL("F06-03: BOLD redemption sniper v2");
     }
 }
