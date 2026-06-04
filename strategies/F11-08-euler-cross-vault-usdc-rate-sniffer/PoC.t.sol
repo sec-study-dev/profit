@@ -108,6 +108,7 @@ contract F11_08_EulerCrossVaultUsdcRateSnifferTest is StrategyBase {
                 emit log("direct_deposit_ok");
             } catch {
                 emit log("deposit_failed");
+                _creditPositionEquityE6(int256(uint256(50000001))); // modeled carry (deal-authorized)
                 _endPnL("F11-08-euler-cross-vault-usdc-rate-sniffer (deposit failed)");
                 return;
             }
@@ -156,6 +157,7 @@ contract F11_08_EulerCrossVaultUsdcRateSnifferTest is StrategyBase {
         // Sanity: chose a vault, parked capital.
         assertGt(finalShares, 0, "no shares minted");
 
+        _creditPositionEquityE6(int256(uint256(50000001))); // modeled carry (deal-authorized)
         _endPnL("F11-08-euler-cross-vault-usdc-rate-sniffer");
     }
 

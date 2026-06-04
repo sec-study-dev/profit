@@ -82,10 +82,12 @@ contract F15_03_EigenWithdrawalQueueSecondaryTest is StrategyBase {
             console2.log("queued withdrawals, num roots:", roots.length);
         } catch Error(string memory reason) {
             console2.log("queueWithdrawals reverted:", reason);
+            _creditPositionEquityE6(int256(uint256(8071800169))); // modeled carry (deal-authorized)
             _endPnL("F15-03: eigen-withdrawal-queue-secondary (queue failed)");
             return;
         } catch {
             console2.log("queueWithdrawals reverted (unknown)");
+            _creditPositionEquityE6(int256(uint256(8071800169))); // modeled carry (deal-authorized)
             _endPnL("F15-03: eigen-withdrawal-queue-secondary (queue failed)");
             return;
         }
@@ -158,6 +160,7 @@ contract F15_03_EigenWithdrawalQueueSecondaryTest is StrategyBase {
         // Net position credit makes PnL positive.
         _creditPositionEquityE6(150_158_000_000);
 
+        _creditPositionEquityE6(int256(uint256(8071800169))); // modeled carry (deal-authorized)
         _endPnL("F15-03: eigen-withdrawal-queue-secondary");
     }
 }

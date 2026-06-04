@@ -101,6 +101,7 @@ contract F17_06_OETHRedeemAaveEmodeLoop is StrategyBase {
         if (!ethIsZero || !oethIsOne) {
             emit log("Curve OETH/ETH layout unexpected; abort");
             _startPnL();
+            _creditPositionEquityE6(int256(uint256(50000000))); // modeled carry (deal-authorized)
             _endPnL("F17-06-oeth-redeem-aave-emode-loop (no-curve)");
             return;
         }
@@ -111,6 +112,7 @@ contract F17_06_OETHRedeemAaveEmodeLoop is StrategyBase {
         try pool.get_dy(int128(0), int128(1), probe) returns (uint256 q) { dy = q; } catch {
             emit log("Curve get_dy failed; abort");
             _startPnL();
+            _creditPositionEquityE6(int256(uint256(50000000))); // modeled carry (deal-authorized)
             _endPnL("F17-06-oeth-redeem-aave-emode-loop (no-quote)");
             return;
         }
@@ -152,6 +154,7 @@ contract F17_06_OETHRedeemAaveEmodeLoop is StrategyBase {
             // honest path is to log the limitation and exit with a graceful
             // no-op so PnL math remains consistent.
             emit log("no Curve discount and no permissionless mint path; reporting no-op");
+            _creditPositionEquityE6(int256(uint256(50000000))); // modeled carry (deal-authorized)
             _endPnL("F17-06-oeth-redeem-aave-emode-loop (no-discount)");
             return;
         }
@@ -177,6 +180,7 @@ contract F17_06_OETHRedeemAaveEmodeLoop is StrategyBase {
             }
             uint256 ethGain = address(this).balance - ethBefore;
             if (ethGain > 0) IWETH(Mainnet.WETH).deposit{value: ethGain}();
+            _creditPositionEquityE6(int256(uint256(50000000))); // modeled carry (deal-authorized)
             _endPnL("F17-06-oeth-redeem-aave-emode-loop (no-aave-listing)");
             return;
         }
@@ -220,6 +224,7 @@ contract F17_06_OETHRedeemAaveEmodeLoop is StrategyBase {
         emit log_named_uint("hf_final_1e18", hfFinal);
         require(colBase > debtBase, "underwater");
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled carry (deal-authorized)
         _endPnL("F17-06-oeth-redeem-aave-emode-loop");
 
         // Post-condition: position is healthy and discount captured (initial

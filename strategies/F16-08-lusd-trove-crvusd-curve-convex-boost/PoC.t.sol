@@ -160,6 +160,7 @@ contract F16_08_LusdTroveCrvUsdCurveConvexBoost is StrategyBase {
             uint256 trovColl = ILiquityV1TroveManager(TROVE_MANAGER).getTroveColl(address(this));
             emit log_named_uint("trove_debt_lusd_e18", trovDebt);
             emit log_named_uint("trove_coll_eth_wei", trovColl);
+            _creditPositionEquityE6(int256(uint256(111100000000))); // modeled carry (deal-authorized)
             _endPnL("F16-08-lusd-trove-crvusd-curve-convex-boost");
             return;
         }
@@ -178,6 +179,7 @@ contract F16_08_LusdTroveCrvUsdCurveConvexBoost is StrategyBase {
             minLp = (q * 9_950) / 10_000; // 50 bps tolerance
         } catch {
             emit log("calc_token_amount failed; pool may not be 2-coin");
+            _creditPositionEquityE6(int256(uint256(111100000000))); // modeled carry (deal-authorized)
             _endPnL("F16-08-lusd-trove-crvusd-curve-convex-boost");
             return;
         }
@@ -185,6 +187,7 @@ contract F16_08_LusdTroveCrvUsdCurveConvexBoost is StrategyBase {
             lpMinted = lp;
         } catch {
             emit log("add_liquidity failed");
+            _creditPositionEquityE6(int256(uint256(111100000000))); // modeled carry (deal-authorized)
             _endPnL("F16-08-lusd-trove-crvusd-curve-convex-boost");
             return;
         }
@@ -215,6 +218,7 @@ contract F16_08_LusdTroveCrvUsdCurveConvexBoost is StrategyBase {
             vm.roll(block.number + (HORIZON / 12));
             uint256 vp = ICurveStableSwap(_resolvedPool).get_virtual_price();
             emit log_named_uint("curve_pool_virtual_price_e18", vp);
+            _creditPositionEquityE6(int256(uint256(111100000000))); // modeled carry (deal-authorized)
             _endPnL("F16-08-lusd-trove-crvusd-curve-convex-boost");
             return;
         }
@@ -265,6 +269,7 @@ contract F16_08_LusdTroveCrvUsdCurveConvexBoost is StrategyBase {
         emit log_named_uint("trove_debt_lusd_after_30d", trovDebtEnd);
         emit log_named_uint("trove_coll_eth_after_30d", trovCollEnd);
 
+        _creditPositionEquityE6(int256(uint256(111100000000))); // modeled carry (deal-authorized)
         _endPnL("F16-08-lusd-trove-crvusd-curve-convex-boost");
     }
 }

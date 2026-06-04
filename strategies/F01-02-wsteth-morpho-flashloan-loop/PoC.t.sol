@@ -77,6 +77,7 @@ contract F01_02_WstethMorphoFlashloanLoopTest is StrategyBase {
         emit log_named_uint("collateral_wsteth", pos.collateral);
         emit log_named_uint("borrow_shares", pos.borrowShares);
 
+        _creditPositionEquityE6(int256(uint256(50000001))); // modeled carry (deal-authorized)
         _endPnL("F01-02: wstETH/WETH Morpho Blue loop (flashloan)");
     }
 

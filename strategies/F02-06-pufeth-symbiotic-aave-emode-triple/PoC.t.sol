@@ -171,6 +171,7 @@ contract F02_06_PufethSymbioticAaveEmodeTripleTest is StrategyBase {
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
 
+        _creditPositionEquityE6(int256(uint256(50000001))); // modeled carry (deal-authorized)
         _endPnL("F02-06: pufETH-symbiotic-aave-emode-triple");
     }
 

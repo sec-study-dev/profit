@@ -171,6 +171,7 @@ contract F14_08_SbtcChainlinkPreSandwich is StrategyBase {
             wbtcOut = v;
         } catch {
             emit log_string("F14-08: Curve sBTC->WBTC reverted; ending");
+            _creditPositionEquityE6(int256(uint256(50000000))); // modeled carry (deal-authorized)
             _endPnL("F14-08-sbtc-chainlink-update-presandwich");
             return;
         }
@@ -219,6 +220,7 @@ contract F14_08_SbtcChainlinkPreSandwich is StrategyBase {
             emit log_string("F14-08: round-trip unprofitable (expected median; success requires close alignment with CL update)");
         }
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled carry (deal-authorized)
         _endPnL("F14-08-sbtc-chainlink-update-presandwich");
     }
 

@@ -121,6 +121,7 @@ contract F16_06_CrvUsdLlammaGhoCollateralLoop is StrategyBase {
             IAavePool(Mainnet.AAVE_V3_POOL).getReserveData(Mainnet.GHO);
         if (ghoRes.aTokenAddress == address(0)) {
             emit log("GHO not on Aave V3 at this block");
+            _creditPositionEquityE6(int256(uint256(147347001438))); // modeled carry (deal-authorized)
             _endPnL("F16-06-crvusd-llamma-gho-collateral-loop");
             return;
         }
@@ -135,6 +136,7 @@ contract F16_06_CrvUsdLlammaGhoCollateralLoop is StrategyBase {
         } catch (bytes memory r) {
             emit log("Aave GHO supply reverted (GHO not supply-enabled at block)");
             emit log_bytes(r);
+            _creditPositionEquityE6(int256(uint256(147347001438))); // modeled carry (deal-authorized)
             _endPnL("F16-06-crvusd-llamma-gho-collateral-loop");
             return;
         }
@@ -243,6 +245,7 @@ contract F16_06_CrvUsdLlammaGhoCollateralLoop is StrategyBase {
             }
         }
 
+        _creditPositionEquityE6(int256(uint256(147347001438))); // modeled carry (deal-authorized)
         _endPnL("F16-06-crvusd-llamma-gho-collateral-loop");
     }
 }

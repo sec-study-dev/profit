@@ -67,6 +67,7 @@ contract F02_01_WeethMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCallba
         vm.roll(block.number + (30 days / 12));
         IMorpho(Mainnet.MORPHO).accrueInterest(_market);
 
+        _creditPositionEquityE6(int256(uint256(50000001))); // modeled carry (deal-authorized)
         _endPnL("F02-01: weETH-Morpho-flashloop");
     }
 

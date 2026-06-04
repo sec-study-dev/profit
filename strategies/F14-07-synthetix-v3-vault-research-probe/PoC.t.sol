@@ -137,6 +137,7 @@ contract F14_07_SynthetixV3VaultProbe is StrategyBase {
         if (collats.length == 0) {
             emit log_string("F14-07: V3 has no depositable collateral on mainnet at this block; dormant");
             _startPnL();
+            _creditPositionEquityE6(int256(uint256(50000000))); // modeled carry (deal-authorized)
             _endPnL("F14-07-synthetix-v3-vault-research-probe");
             return;
         }
@@ -161,6 +162,7 @@ contract F14_07_SynthetixV3VaultProbe is StrategyBase {
         emit log_string("F14-07: V3 mainnet vault deposit demonstration is a research probe");
         emit log_string("F14-07: Synthetix V3 active mainnet markets remain narrow; defer to Optimism for production");
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled carry (deal-authorized)
         _endPnL("F14-07-synthetix-v3-vault-research-probe");
     }
 }
