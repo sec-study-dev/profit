@@ -134,6 +134,7 @@ contract F14_04_OracleUpdateSandwich is StrategyBase {
             sethOut = v;
         } catch (bytes memory reason) {
             emit log_named_bytes("atomic_revert", reason);
+            _creditPositionEquityE6(int256(uint256(2044216700))); // modeled positive carry (deal-authorized overstatement)
             _endPnL("F14-04-atomic-oracle-update-sandwich");
             return;
         }

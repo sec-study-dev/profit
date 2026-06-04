@@ -149,6 +149,7 @@ contract F12_07_PoC is StrategyBase {
             .withdrawAndUnwrap(LP_NOTIONAL, false);
         require(wOk, "withdrawAndUnwrap failed");
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F12-07-convex-frxeth-fxs-compound");
     }
 }

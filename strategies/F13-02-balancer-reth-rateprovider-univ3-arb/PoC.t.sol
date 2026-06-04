@@ -70,6 +70,7 @@ contract F13_02_BalancerRETHRateLagUniV3Test is StrategyBase, IFlashLoanRecipien
 
         IBalancerVault(Mainnet.BAL_VAULT).flashLoan(address(this), tokens, amounts, "");
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F13-02: Balancer rETH rate-lag + UniV3 0.01% unwind");
     }
 

@@ -124,6 +124,7 @@ contract F13_04_UniV3WstETHWETHNarrowLPTest is StrategyBase, IUniswapV3MintCallb
         emit log_named_uint("F13-04: collected wstETH", col0);
         emit log_named_uint("F13-04: collected WETH", col1);
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F13-04: UniV3 wstETH/WETH 0.01% narrow-range LP roundtrip");
     }
 

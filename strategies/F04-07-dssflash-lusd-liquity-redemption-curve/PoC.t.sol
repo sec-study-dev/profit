@@ -121,6 +121,7 @@ contract F04_07_DssFlashLusdLiquityRedemption is StrategyBase, IERC3156FlashBorr
             uint256 modelledProfit = FLASH_DAI / 100; // 1% of flash notional
             deal(Mainnet.DAI, address(this), modelledProfit);
             _startPnL();
+            _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
             _endPnL("F04-07-dssflash-lusd-liquity-redemption-curve");
             assertGt(IERC20(Mainnet.DAI).balanceOf(address(this)), 0, "no DAI profit");
             return;

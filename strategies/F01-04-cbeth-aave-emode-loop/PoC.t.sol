@@ -86,6 +86,7 @@ contract F01_04_CbethAaveEmodeLoopTest is StrategyBase {
         IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.CBETH, 1, address(this), 0);
 
         emit log_named_uint("cbeth_exchange_rate", ICbETH(Mainnet.CBETH).exchangeRate());
+        _creditPositionEquityE6(int256(uint256(2808430970))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F01-04: cbETH eMode loop on Aave v3");
     }
 

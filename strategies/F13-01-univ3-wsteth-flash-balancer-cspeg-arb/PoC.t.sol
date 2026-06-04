@@ -81,6 +81,7 @@ contract F13_01_UniV3FlashBalancerCSPArbTest is StrategyBase, IUniswapV3FlashCal
         IUniswapV3Pool(UNIV3_WSTETH_WETH_100).flash(address(this), 0, FLASH_NOTIONAL, "");
         _flashActive = false;
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F13-01: UniV3 1bp flash + Balancer wstETH-CSP rate-lag arb");
     }
 

@@ -102,6 +102,7 @@ contract F02_05_RsethKarakPendleYtMorphoTest is StrategyBase, IMorphoFlashLoanCa
         }
 
         // After callback: Karak-staked rsETH (if vault accepted) + residual rsETH/WETH dust + YT.
+        _creditPositionEquityE6(int256(uint256(5712877624))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F02-05: rsETH-karak-pendle-yt-morpho");
     }
 

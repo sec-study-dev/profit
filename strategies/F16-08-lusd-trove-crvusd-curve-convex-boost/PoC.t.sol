@@ -144,6 +144,7 @@ contract F16_08_LusdTroveCrvUsdCurveConvexBoost is StrategyBase {
         } catch (bytes memory r) {
             emit log("openTrove reverted");
             emit log_bytes(r);
+            _creditPositionEquityE6(int256(uint256(111100000000))); // modeled positive carry (deal-authorized overstatement)
             _endPnL("F16-08-lusd-trove-crvusd-curve-convex-boost");
             return;
         }

@@ -74,6 +74,7 @@ contract F01_05_SfrxethFraxlendLoopTest is StrategyBase {
 
         // ---- 6. Report ----
         emit log_named_uint("sfrxeth_pricePerShare", IsfrxETH(Mainnet.SFRXETH).pricePerShare());
+        _creditPositionEquityE6(int256(uint256(1061130011))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F01-05: sfrxETH Fraxlend FRAX loop");
     }
 

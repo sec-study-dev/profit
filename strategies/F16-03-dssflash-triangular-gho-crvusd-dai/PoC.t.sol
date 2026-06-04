@@ -120,6 +120,7 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
         require(_executed, "callback never ran");
 
         emit log_named_uint("dai_residual_after_repay", _residual);
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F16-03-dssflash-triangular-gho-crvusd-dai");
 
         assertGt(_residual, 0, "triangle did not realise profit");

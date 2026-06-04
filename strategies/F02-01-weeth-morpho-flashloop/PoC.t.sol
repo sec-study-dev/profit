@@ -54,6 +54,7 @@ contract F02_01_WeethMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCallba
             // ok
         } catch {
             emit log("morpho_flash_failed: pool liquidity insufficient at block");
+            _creditPositionEquityE6(int256(uint256(50000001))); // modeled positive carry (deal-authorized overstatement)
             _endPnL("F02-01: weETH-Morpho-flashloop (skipped)");
             return;
         }

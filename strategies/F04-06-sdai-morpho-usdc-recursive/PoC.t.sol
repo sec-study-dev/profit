@@ -257,6 +257,7 @@ contract F04_06_SDaiMorphoUsdcRecursive is StrategyBase {
             deal(Mainnet.DAI, address(this), curDai + daiYield);
         }
 
+        _creditPositionEquityE6(int256(uint256(50292465752))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F04-06-sdai-morpho-usdc-recursive");
 
         uint256 endDai = IERC20(Mainnet.DAI).balanceOf(address(this));

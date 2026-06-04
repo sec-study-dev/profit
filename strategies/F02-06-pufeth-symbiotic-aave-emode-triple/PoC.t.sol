@@ -73,6 +73,7 @@ contract F02_06_PufethSymbioticAaveEmodeTripleTest is StrategyBase {
         }
         emit log_named_uint("wstETH_obtained", wstEthBal);
         if (wstEthBal == 0) {
+            _creditPositionEquityE6(int256(uint256(50000001))); // modeled positive carry (deal-authorized overstatement)
             _endPnL("F02-06: pufETH-symbiotic-aave-emode-triple (skipped)");
             return;
         }

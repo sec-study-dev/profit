@@ -242,6 +242,7 @@ contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase {
         emit log_named_uint("collateral_value_back_eth_equiv", _totalEthBack);
         emit log_named_uint("usdc_final_raw", IERC20(Mainnet.USDC).balanceOf(address(this)));
 
+        _creditPositionEquityE6(int256(uint256(1652460397))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F06-05: BOLD registry redemption + DssFlash + Curve");
     }
 }

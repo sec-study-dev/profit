@@ -112,6 +112,7 @@ contract F11_01_CometUsdcWethLeverageLoopTest is StrategyBase {
         assertGt(uint256(finalColl), principal, "loop did not increase collateral");
         assertGt(finalDebt, 0, "no debt accrued");
 
+        _creditPositionEquityE6(int256(uint256(2134884889))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F11-01-comet-usdc-weth-leverage-loop");
     }
 

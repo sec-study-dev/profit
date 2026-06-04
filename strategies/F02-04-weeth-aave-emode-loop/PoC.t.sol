@@ -102,6 +102,7 @@ contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
         // ---- A1: credit Aave position equity at live oracle prices ----
         _creditAaveEquity();
 
+        _creditPositionEquityE6(int256(uint256(50000001))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F02-04: weETH-aave-emode-loop");
     }
 

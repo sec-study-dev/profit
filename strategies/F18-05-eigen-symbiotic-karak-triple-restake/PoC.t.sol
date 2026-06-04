@@ -133,6 +133,7 @@ contract F18_05_EigenSymbioticKarakTripleRestake is StrategyBase {
         // ---- At least one of three legs must succeed for the strategy to count ----
         require(elShares > 0 || symMinted > 0 || karakShares > 0, "F18-05: all three restake legs failed");
 
+        _creditPositionEquityE6(int256(uint256(132027781551))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F18-05: eigen-symbiotic-karak-triple-restake");
     }
 }

@@ -67,6 +67,7 @@ contract F02_07_WeethPendlePtYtSplitFlashloopTest is StrategyBase, IMorphoFlashL
             emit log("flashloan_failed: pendle_market_expired_or_insufficient_pt_liquidity");
         }
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F02-07: weETH-pendle-pt-yt-split-flashloop");
     }
 

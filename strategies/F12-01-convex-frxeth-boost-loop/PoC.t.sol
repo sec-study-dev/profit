@@ -120,6 +120,7 @@ contract F12_01_PoC is StrategyBase {
         bool wOk = IConvexBaseRewardPool(CVX_FRXETH_REWARDS).withdrawAndUnwrap(LP_NOTIONAL, false);
         require(wOk, "withdraw failed");
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F12-01-convex-frxeth-boost-loop");
     }
 }

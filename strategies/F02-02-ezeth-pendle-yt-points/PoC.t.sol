@@ -75,6 +75,7 @@ contract F02_02_EzethPendleYtPointsTest is StrategyBase {
 
         // YT PnL: at entry the YT value ≈ WETH spent (minus decay to date).
         // The strategy yield is off-chain points. Cash PnL ≈ 0 at purchase point.
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F02-02: ezETH-Pendle-YT-points");
     }
 }

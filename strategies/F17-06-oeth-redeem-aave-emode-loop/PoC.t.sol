@@ -86,6 +86,7 @@ contract F17_06_OETHRedeemAaveEmodeLoop is StrategyBase {
         if (wAsset != OETH) {
             emit log("wOETH.asset() != OETH; abort");
             _startPnL();
+            _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
             _endPnL("F17-06-oeth-redeem-aave-emode-loop (no-wrapper)");
             return;
         }

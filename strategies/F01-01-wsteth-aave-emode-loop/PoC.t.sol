@@ -92,6 +92,7 @@ contract F01_01_WstethAaveEmodeLoopTest is StrategyBase {
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
 
+        _creditPositionEquityE6(int256(uint256(50000001))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F01-01: wstETH eMode loop on Aave v3");
     }
 

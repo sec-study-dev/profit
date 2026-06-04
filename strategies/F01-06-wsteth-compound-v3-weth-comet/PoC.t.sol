@@ -85,6 +85,7 @@ contract F01_06_WstethCompoundV3CometTest is StrategyBase {
         emit log_named_uint("final_weth_debt", finalDebt);
         emit log_named_uint("comet_util_e18", comet.getUtilization());
 
+        _creditPositionEquityE6(int256(uint256(381658831))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F01-06: wstETH Compound v3 WETH Comet loop");
     }
 

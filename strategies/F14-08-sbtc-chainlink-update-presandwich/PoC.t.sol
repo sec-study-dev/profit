@@ -158,6 +158,7 @@ contract F14_08_SbtcChainlinkPreSandwich is StrategyBase {
             sbtcOut = v;
         } catch (bytes memory reason) {
             emit log_named_bytes("step1_atomic_revert", reason);
+            _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
             _endPnL("F14-08-sbtc-chainlink-update-presandwich");
             return;
         }

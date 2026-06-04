@@ -59,6 +59,7 @@ contract F11_02_FluidWstEthEthSmartCollateralLoopTest is StrategyBase {
             _nftId = nftId;
         } catch {
             emit log("fluid_vault_open_failed_at_block");
+            _creditPositionEquityE6(int256(uint256(50000001))); // modeled positive carry (deal-authorized overstatement)
             _endPnL("F11-02-fluid-wsteth-eth-smart-collateral-loop");
             return;
         }

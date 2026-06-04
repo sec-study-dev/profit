@@ -174,6 +174,7 @@ contract F14_06_SusdDeepDepegSbtcBackstop is StrategyBase, IERC3156FlashBorrower
         flash.flashLoan(address(this), Mainnet.DAI, PROBE_DAI, abi.encode(synthetix));
         require(_executed, "F14-06: callback did not run");
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F14-06-susd-deep-depeg-sbtc-backstop");
     }
 

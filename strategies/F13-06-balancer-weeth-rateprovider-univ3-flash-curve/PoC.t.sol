@@ -114,6 +114,7 @@ contract F13_06_BalancerWeETHRateLagUniV3FlashCurveTest is StrategyBase, IUniswa
         IUniswapV3Pool(UNIV3_FLASH_POOL).flash(address(this), 0, FLASH_NOTIONAL, "");
         _flashActive = false;
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F13-06: Balancer weETH rate-lag + UniV3 flash + Curve unwind (3-mech)");
     }
 

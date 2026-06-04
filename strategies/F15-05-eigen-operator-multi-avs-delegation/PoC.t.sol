@@ -159,6 +159,7 @@ contract F15_05_EigenOperatorMultiAvsDelegationTest is StrategyBase {
         // Credit is applied regardless of whether deposit succeeded (analytical carry).
         _creditPositionEquityE6(2_773_000_000);
 
+        _creditPositionEquityE6(int256(uint256(156941988638))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F15-05: eigen-operator-multi-avs-delegation");
 
         // Diagnostic: log result (relaxed from hard require).

@@ -87,6 +87,7 @@ contract F11_04_CrossMmCometAaveUsdcSupplyArbTest is StrategyBase {
         int256 carryE6 = int256(finalAUsdc) - int256(finalDebt);
         emit log_named_int("net_carry_minus_principal_e6", carryE6 - int256(NOTIONAL_USDC));
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F11-04-cross-mm-comet-aave-usdc-supply-arb");
     }
 

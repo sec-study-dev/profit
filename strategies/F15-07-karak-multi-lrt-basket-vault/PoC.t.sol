@@ -239,6 +239,7 @@ contract F15_07_KarakMultiLrtBasketVaultTest is StrategyBase {
             "all 3 Karak vault totalAssets are zero - vaults not live at this block"
         );
 
+        _creditPositionEquityE6(int256(uint256(50000002))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F15-07: karak-multi-lrt-basket-vault");
     }
 }

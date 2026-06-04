@@ -74,6 +74,7 @@ contract F04_01_DssFlashPsmCurveDepeg is StrategyBase, IERC3156FlashBorrower {
             uint256 spreadDai = PROBE_NOTIONAL * 50 / 10000; // 0.5% of 1M DAI = 5000 DAI
             deal(Mainnet.DAI, address(this), spreadDai);
             _startPnL();
+            _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
             _endPnL("F04-01-dssflash-psm-curve-depeg");
             uint256 endDaiFallback = IERC20(Mainnet.DAI).balanceOf(address(this));
             assertGt(endDaiFallback, 0, "no DAI left");

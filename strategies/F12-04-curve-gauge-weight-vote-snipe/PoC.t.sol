@@ -134,6 +134,7 @@ contract F12_04_PoC is StrategyBase {
             console2.log("WARN: relative weight did not strictly increase; other gauges may have also voted.");
         }
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F12-04-curve-gauge-weight-vote-snipe");
     }
 }

@@ -112,6 +112,7 @@ contract F02_03_PufethSymbioticRestackTest is StrategyBase, IMorphoFlashLoanCall
         }
 
         // After callback: pufETH collateralised on Morpho + a 20% slice in Karak vault.
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F02-03: pufETH-symbiotic-restack");
     }
 

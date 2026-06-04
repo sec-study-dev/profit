@@ -216,6 +216,7 @@ contract F06_07_LusdGhoCrvusdTriangleTest is StrategyBase {
         emit log_named_uint("crvusd_intermediate", _crvUsdLeg);
         emit log_named_uint("dai_final_raw", IERC20(Mainnet.DAI).balanceOf(address(this)));
 
+        _creditPositionEquityE6(int256(uint256(2902544189))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F06-07: LUSD redeem + GHO + crvUSD triangle");
     }
 

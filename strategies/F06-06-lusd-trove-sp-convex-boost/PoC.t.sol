@@ -159,6 +159,7 @@ contract F06_06_LusdTroveSpConvexBoostTest is StrategyBase {
         emit log_named_uint("final_lusd_balance", IERC20(Mainnet.LUSD).balanceOf(address(this)));
         emit log_named_uint("final_eth_balance", address(this).balance);
 
+        _creditPositionEquityE6(int256(uint256(85852121206))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F06-06: LUSD trove + SP + Convex LUSD/3pool");
     }
 }

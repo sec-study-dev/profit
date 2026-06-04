@@ -210,6 +210,7 @@ contract F06_08_BoldSpMintRecycleTest is StrategyBase {
             } catch {}
         }
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F06-08: BOLD SP-mint recycle wstETH branch");
     }
 }

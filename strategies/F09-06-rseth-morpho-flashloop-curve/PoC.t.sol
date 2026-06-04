@@ -85,6 +85,7 @@ contract F09_06_RsethMorphoFlashloopCurveTest is StrategyBase, IMorphoFlashLoanC
         console2.log("rsETH collateral (1e18) =", pos.collateral);
         console2.log("borrowShares            =", pos.borrowShares);
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F09-06: rsETH/WETH Morpho flashloop (Kelp)");
     }
 

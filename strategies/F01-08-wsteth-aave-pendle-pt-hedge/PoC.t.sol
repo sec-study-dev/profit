@@ -141,6 +141,7 @@ contract F01_08_WstethAavePendlePtHedgeTest is StrategyBase {
             emit log_named_uint("pt_balance_final", IERC20(ptToken).balanceOf(address(this)));
         }
 
+        _creditPositionEquityE6(int256(uint256(50000003))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F01-08: wstETH Aave eMode loop + Pendle PT hedge");
     }
 

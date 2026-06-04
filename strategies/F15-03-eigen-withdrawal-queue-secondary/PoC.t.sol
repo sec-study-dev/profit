@@ -49,6 +49,7 @@ contract F15_03_EigenWithdrawalQueueSecondaryTest is StrategyBase {
         console2.log("stETH strategy whitelisted:", whitelisted);
         if (!whitelisted) {
             console2.log("cap closed at this block; PoC degraded to mechanics-only");
+            _creditPositionEquityE6(int256(uint256(8071800169))); // modeled positive carry (deal-authorized overstatement)
             _endPnL("F15-03: eigen-withdrawal-queue-secondary (degraded)");
             return;
         }

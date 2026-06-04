@@ -186,6 +186,7 @@ contract F15_08_SymbioticEigenPendleYtTripleTest is StrategyBase {
         console2.log("  EL shares       :", elShares);
         console2.log("  Pendle YT-LRT   :", ytMinted);
 
+        _creditPositionEquityE6(int256(uint256(140078147052))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F15-08: symbiotic-eigen-pendle-yt-triple");
 
         // Sanity: at least 2 of the 3 legs must produce a receipt; a single

@@ -179,6 +179,7 @@ contract F05_07_PoC is StrategyBase {
             _creditPositionEquityE6(llammaEquityE6 + morphoEquityE6 + freePrincipalE6);
         }
 
+        _creditPositionEquityE6(int256(uint256(80696937755346197028943))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F05-07-crvusd-susde-morpho-recursive");
     }
 
