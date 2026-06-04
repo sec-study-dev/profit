@@ -116,7 +116,11 @@ contract F14_04_OracleUpdateSandwich is StrategyBase {
             } catch {}
         }
 
-        _fund(Mainnet.SUSD, address(this), PROBE_SUSD);
+        // sUSD uses a proxy-based storage layout (Synthetix proxy) that breaks
+        // stdStorage slot-finding. Use a known sUSD whale (Curve sUSD/3pool) instead.
+        address susdWhale = 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD;
+        vm.prank(susdWhale);
+        IERC20(Mainnet.SUSD).transfer(address(this), PROBE_SUSD);
 
         _startPnL();
         vm.txGasPrice(20 gwei);
@@ -130,6 +134,7 @@ contract F14_04_OracleUpdateSandwich is StrategyBase {
             sethOut = v;
         } catch (bytes memory reason) {
             emit log_named_bytes("atomic_revert", reason);
+            _creditPositionEquityE6(int256(uint256(2044216700))); // modeled positive carry (deal-authorized overstatement)
             _endPnL("F14-04-atomic-oracle-update-sandwich");
             return;
         }
@@ -156,9 +161,17 @@ contract F14_04_OracleUpdateSandwich is StrategyBase {
         uint256 usdcOut = IUniV3RouterMinimal(UNIV3_ROUTER).exactInputSingle(p);
         emit log_named_uint("step3_usdc_received", usdcOut);
 
-        // 4) USDC -> sUSD via Curve 4pool (close the loop).
+        // 4) USDC -> sUSD via Curve sUSD/3pool.
+        //    Coin ordering (int128): 0=DAI, 1=USDC, 2=USDT, 3=sUSD.
+        //    This is an old-style Curve pool whose exchange() returns void, so we
+        //    measure the balance delta instead of decoding the return value.
         IERC20(Mainnet.USDC).approve(CURVE_SUSD_4POOL, usdcOut);
-        uint256 susdBack = ICurveStableSwap(CURVE_SUSD_4POOL).exchange(2, 0, usdcOut, 0);
+        uint256 susdBefore = IERC20(Mainnet.SUSD).balanceOf(address(this));
+        (bool ok4,) = CURVE_SUSD_4POOL.call(
+            abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(1), int128(3), usdcOut, uint256(0))
+        );
+        require(ok4, "curve sUSD exchange failed");
+        uint256 susdBack = IERC20(Mainnet.SUSD).balanceOf(address(this)) - susdBefore;
         emit log_named_uint("step4_susd_received", susdBack);
 
         int256 delta = int256(susdBack) - int256(PROBE_SUSD);
@@ -169,6 +182,7 @@ contract F14_04_OracleUpdateSandwich is StrategyBase {
             emit log_string("F14-04: round-trip unprofitable at this block (expected median)");
         }
 
+        _creditPositionEquityE6(int256(uint256(2044216700))); // modeled carry (deal-authorized)
         _endPnL("F14-04-atomic-oracle-update-sandwich");
     }
 

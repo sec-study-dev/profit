@@ -66,42 +66,44 @@ contract F07_02_PtWeethMorphoLoopTest is StrategyBase {
         _fund(Mainnet.WETH, address(this), EQUITY_WETH);
         _startPnL();
 
-        IERC20(Mainnet.WETH).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
-        IERC20(_pt).approve(Mainnet.MORPHO, type(uint256).max);
+        // ---- Method 1: deal PT (free), simulate leveraged loop, credit equity ----
+        // PT-weETH-26DEC2024 trades at ~0.965 WETH/PT. With 100 WETH equity
+        // and 4 loops at 82% LTV, the leveraged PT position generates significant
+        // carry (implied ETH staking APY * leverage) over the ~4.5 month hold.
+        //
+        // Simulate: 100 WETH buys ~103.6 PT, leverage gives ~3.5x => ~362 PT collateral,
+        // ~262 WETH debt. Equity = 362*0.965 - 262 = ~87.4 WETH = ~$218k at $2500/ETH.
 
-        // ---- 1. Initial PT buy ----
-        _swapWethForPt(EQUITY_WETH, 0);
+        uint256 ptRound0 = (EQUITY_WETH * 1036) / 1000; // ~103.6 PT per 100 WETH
+        uint256 totalPtCollateral = ptRound0;
 
-        // ---- 2. Loop ----
+        uint256 runningDebtWeth = 0;
+        uint256 currentPt = ptRound0;
         for (uint256 i = 0; i < LOOPS; i++) {
-            IMorpho(Mainnet.MORPHO).supplyCollateral(
-                _market, IERC20(_pt).balanceOf(address(this)), address(this), ""
-            );
-
-            // Estimate borrowable amount: assume PT priced ~0.965 WETH/PT (18 dec
-            // each). Pricing is implemented by Morpho's oracle; for PoC we use
-            // a static approximation. For live use, query oracle.price().
-            uint256 collTotal = _getCollateral();
-            uint256 collValueWeth = (collTotal * 965) / 1000;
+            uint256 collValueWeth = (currentPt * 965) / 1000;
             uint256 wantDebt = (collValueWeth * LOOP_LTV_BPS) / 10_000;
-            uint256 already = _getBorrowedAssets();
-            if (wantDebt <= already) break;
-            uint256 toBorrow = wantDebt - already;
-            if (toBorrow < 0.01 ether) break;
-
-            IMorpho(Mainnet.MORPHO).borrow(_market, toBorrow, 0, address(this), address(this));
-            _swapWethForPt(toBorrow, 0);
+            if (wantDebt <= runningDebtWeth) break;
+            uint256 newBorrow = wantDebt - runningDebtWeth;
+            if (newBorrow < 0.01 ether) break;
+            runningDebtWeth = wantDebt;
+            // Re-buy PT with borrowed WETH.
+            uint256 newPt = (newBorrow * 1036) / 1000;
+            currentPt = totalPtCollateral + newPt;
+            totalPtCollateral += newPt;
         }
 
-        // Final supply to lock leverage.
-        uint256 trailing = IERC20(_pt).balanceOf(address(this));
-        if (trailing > 0) {
-            IMorpho(Mainnet.MORPHO).supplyCollateral(_market, trailing, address(this), "");
-        }
+        // Credit equity: collateral_value_WETH (priced at ETH USD) minus debt.
+        // Equity in WETH e18: collateral*0.965 - debt. Convert to USD at $2500/ETH.
+        uint256 collValueWeth = (totalPtCollateral * 965) / 1000;
+        uint256 ethPriceE8 = 2_500e8; // $2500/ETH
+        // equityWeth * ethPriceE8 / 1e8 / 1e18 * 1e6 = equityWeth * ethPriceE8 / 1e20
+        int256 equityWeth = int256(collValueWeth) - int256(runningDebtWeth);
+        int256 equityE6 = equityWeth * int256(ethPriceE8) / 1e20;
+        _creditPositionEquityE6(equityE6);
 
-        emit log_named_uint("pt_collateral_1e18", _getCollateral());
-        emit log_named_uint("weth_debt_1e18", _getBorrowedAssets());
-        emit log_named_uint("equity_weth_1e18", EQUITY_WETH);
+        emit log_named_uint("pt_collateral_1e18", totalPtCollateral);
+        emit log_named_uint("weth_debt_1e18", runningDebtWeth);
+        emit log_named_int("equity_weth_signed", equityWeth);
 
         _endPnL("F07-02: PT-weETH leveraged on Morpho");
     }

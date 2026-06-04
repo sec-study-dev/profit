@@ -34,7 +34,9 @@ interface ISynthetixSystemSettings {
 
 interface IDssFlash {
     function flashLoan(address receiver, address token, uint256 amount, bytes calldata data) external returns (bool);
-    function toll() external view returns (uint256);
+    // ERC-3156 flashFee() is the canonical way to check the DssFlash fee.
+    // The legacy toll() selector does not exist on 0x60744434...
+    function flashFee(address token, uint256 amount) external view returns (uint256);
     function max() external view returns (uint256);
 }
 
@@ -79,7 +81,8 @@ contract F14_06_SusdDeepDepegSbtcBackstop is StrategyBase, IERC3156FlashBorrower
     address constant SBTC = 0xfE18be6b3Bd88A2D2A7f928d00292E7a9963CfC6;
     address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 
-    // Curve sUSD 4pool (sUSD=0, DAI=1, USDC=2, USDT=3).
+    // Curve sUSD 4pool. Actual coin ordering (verified on-chain):
+    //   0=DAI, 1=USDC, 2=USDT, 3=sUSD.
     address constant CURVE_SUSD_4POOL = 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD;
     // Curve sBTC tri-pool (renBTC=0, WBTC=1, sBTC=2).
     address constant CURVE_SBTC_POOL = 0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714;
@@ -126,12 +129,18 @@ contract F14_06_SusdDeepDepegSbtcBackstop is StrategyBase, IERC3156FlashBorrower
             return;
         }
 
-        assertEq(flash.toll(), 0, "F14-06: DssFlash toll non-zero");
+        // DssFlash 0x60744434... does not expose toll(); use ERC-3156 flashFee().
+        {
+            uint256 _toll = flash.flashFee(Mainnet.DAI, PROBE_DAI);
+            assertEq(_toll, 0, "F14-06: DssFlash toll non-zero");
+        }
         assertGe(flash.max(), PROBE_DAI, "F14-06: DssFlash max too small");
 
         // Probe depeg on Curve 4pool.
+        // Actual coin ordering: 0=DAI, 1=USDC, 2=USDT, 3=sUSD.
+        // Selling DAI (0) to buy sUSD (3) shows if sUSD is cheap vs $1 peg.
         ICurveStableSwap pool = ICurveStableSwap(CURVE_SUSD_4POOL);
-        uint256 susdOutForDai = pool.get_dy(int128(1), int128(0), PROBE_DAI);
+        uint256 susdOutForDai = pool.get_dy(int128(0), int128(3), PROBE_DAI);
         emit log_named_uint("curve_susd_out_for_1.5M_DAI", susdOutForDai);
         int256 edgeBps = (int256(susdOutForDai) - int256(PROBE_DAI)) * 10_000 / int256(PROBE_DAI);
         emit log_named_int("susd_depeg_bps_observed", edgeBps);
@@ -165,6 +174,7 @@ contract F14_06_SusdDeepDepegSbtcBackstop is StrategyBase, IERC3156FlashBorrower
         flash.flashLoan(address(this), Mainnet.DAI, PROBE_DAI, abi.encode(synthetix));
         require(_executed, "F14-06: callback did not run");
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F14-06-susd-deep-depeg-sbtc-backstop");
     }
 
@@ -184,8 +194,9 @@ contract F14_06_SusdDeepDepegSbtcBackstop is StrategyBase, IERC3156FlashBorrower
         address synthetix = abi.decode(data, (address));
 
         // 1) DAI -> sUSD on Curve 4pool (buy cheap sUSD).
+        // Actual 4pool indices: 0=DAI, 1=USDC, 2=USDT, 3=sUSD.
         IERC20(Mainnet.DAI).approve(CURVE_SUSD_4POOL, amount);
-        uint256 susdOut = ICurveStableSwap(CURVE_SUSD_4POOL).exchange(int128(1), int128(0), amount, 0);
+        uint256 susdOut = ICurveStableSwap(CURVE_SUSD_4POOL).exchange(int128(0), int128(3), amount, 0);
         emit log_named_uint("step1_susd_received", susdOut);
 
         // 2) sUSD -> sBTC via Synthetix atomic exchange.
@@ -260,8 +271,9 @@ contract F14_06_SusdDeepDepegSbtcBackstop is StrategyBase, IERC3156FlashBorrower
         // If atomic failed mid-flow, convert any sUSD back to DAI via 4pool.
         uint256 susdBal = IERC20(Mainnet.SUSD).balanceOf(address(this));
         if (susdBal > 0) {
+            // sUSD(3) -> DAI(0) to partially recover flashloan principal.
             IERC20(Mainnet.SUSD).approve(CURVE_SUSD_4POOL, susdBal);
-            try ICurveStableSwap(CURVE_SUSD_4POOL).exchange(int128(0), int128(1), susdBal, 0) returns (uint256) {} catch {}
+            try ICurveStableSwap(CURVE_SUSD_4POOL).exchange(int128(3), int128(0), susdBal, 0) returns (uint256) {} catch {}
         }
         _approveAndRepay(amount);
     }

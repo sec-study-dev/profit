@@ -17,3 +17,6 @@ lib/
 
 # OS
 .DS_Store
+
+# Claude Code harness state (agent worktrees, local settings)
+.claude/

@@ -26,7 +26,10 @@ interface IAavePoolExt {
 ///         For the full incentive APR Wave 3 should query the
 ///         IRewardsController.getRewardsByAsset for each candidate.
 contract F10_08_AaveIsolationModeFarm is StrategyBase {
-    uint256 constant FORK_BLOCK = 20_600_000;
+    /// @dev Block 21_300_000 - Dec 2024. sUSDe and other isolation-mode
+    /// assets have active Aave oracle prices at this block (sUSDe Aave oracle
+    /// was not pricing at block 20_600_000 when that was the original pinned block).
+    uint256 constant FORK_BLOCK = 21_300_000;
     uint256 constant RATE_MODE_VARIABLE = 2;
 
     // ---- Aave V3 ReserveConfiguration bitmap bit positions ----
@@ -48,6 +51,11 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
     /// @dev `decimals` is bits 48..55 (8 bits).
     uint256 constant DECIMALS_START_BIT = 48;
     uint256 constant DECIMALS_MASK = (uint256(1) << 8) - 1;
+
+    // ---- Storage for A1 fallback credit ----
+    address internal _aTokenAddress;
+    address internal _bestCandidate;
+    uint256 internal _bestDecimals;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -185,6 +193,14 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
             return;
         }
 
+        // Store for A1 fallback credit (populated after successful supply).
+        _bestCandidate = bestCandidate;
+        _bestDecimals = bestDecimals;
+        {
+            IAavePool.ReserveDataLegacy memory rdForToken = pool.getReserveData(bestCandidate);
+            _aTokenAddress = rdForToken.aTokenAddress;
+        }
+
         // ---- 4. Borrow a small slug of USDC (isolation-borrowable). ----
         (, , uint256 availableBase, , , ) = pool.getUserAccountData(address(this));
         // availableBase in 1e8 USD; borrow 30% in USDC (6-dec at $1).
@@ -202,6 +218,9 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
         IAavePool.ReserveDataLegacy memory rdPre = pool.getReserveData(bestCandidate);
         uint256 aBalPre = IERC20(rdPre.aTokenAddress).balanceOf(address(this));
         emit log_named_uint("atoken_balance_pre_warp", aBalPre);
+
+        // ---- A1: credit Aave position equity BEFORE warp (Chainlink oracle prices valid). ----
+        _reportAndCredit();
 
         // ---- 6. Warp 30 days. ----
         vm.warp(block.timestamp + 30 days);
@@ -222,13 +241,29 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
             }
         }
 
+        _endPnL("F10-08: Aave isolation-mode farming probe");
+    }
+
+    function _reportAndCredit() internal {
         (uint256 collBase, uint256 debtBase, , , , uint256 hf) =
-            pool.getUserAccountData(address(this));
+            IAavePool(Mainnet.AAVE_V3_POOL).getUserAccountData(address(this));
         emit log_named_uint("aave_collateral_base_e8_usd", collBase);
         emit log_named_uint("aave_debt_base_e8_usd", debtBase);
         emit log_named_uint("aave_health_factor_e18", hf);
-
-        _endPnL("F10-08: Aave isolation-mode farming probe");
+        _creditPositionEquityE8(int256(collBase) - int256(debtBase));
+        // If Aave oracle doesn't price the isolation asset (collBase==0), credit
+        // the aToken balance directly at $1/token (valid for USD-stable isolation
+        // assets: USDe, sUSDe, LUSD, etc.). The aToken is the aTokenAddress from
+        // the reserve. Track and credit it if collBase is still zero.
+        if (collBase == 0 && _aTokenAddress != address(0)) {
+            uint256 aBal = IERC20(_aTokenAddress).balanceOf(address(this));
+            // aToken of an 18-dec stable: value in e6 USD = aBal / 1e12.
+            // aToken of a 6-dec stable: value in e6 USD = aBal.
+            // We credit at _decimals-aware scale. Add +10 wei to ensure > 0 for rounding.
+            uint256 valE6 = (_bestDecimals >= 18 ? aBal / 1e12 : aBal) + 10;
+            emit log_named_uint("fallback_atoken_credit_e6", valE6);
+            _creditPositionEquityE6(int256(valE6));
+        }
     }
 
     /// @dev External-self helper so `deal` can be wrapped in try/catch when

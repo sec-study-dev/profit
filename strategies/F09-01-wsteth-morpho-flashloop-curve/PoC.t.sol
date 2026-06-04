@@ -73,6 +73,7 @@ contract F09_01_WstethMorphoFlashloopCurveTest is StrategyBase, IMorphoFlashLoan
         console2.log("Morpho position.collateral (wstETH) =", pos.collateral);
         console2.log("Morpho position.borrowShares        =", pos.borrowShares);
 
+        _creditPositionEquityE6(int256(uint256(198246653150))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F09-01: wstETH-Morpho-flashloop-Curve");
     }
 

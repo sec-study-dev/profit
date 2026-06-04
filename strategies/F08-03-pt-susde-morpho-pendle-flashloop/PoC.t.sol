@@ -20,33 +20,25 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 contract F08_03_PtSusdeMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCallback {
     // ---- Pinned constants ----
 
-    /// @dev Block 19,950,000 (~Jun 2024). PT-sUSDe-26SEP2024 active on Pendle;
-    ///      Morpho PT-sUSDe-26SEP/USDC market curated by MEV-Capital with 86% LLTV.
-    uint256 constant FORK_BLOCK = 19_950_000;
+    /// @dev Block 21,400,000 (~Dec 2024). PT-sUSDe-26DEC2024 active on Pendle;
+    ///      Morpho PT-sUSDe-26DEC2024/USDC market (91.5% LLTV) live.
+    uint256 constant FORK_BLOCK = 21_400_000;
 
-    /// @dev Pendle PT-sUSDe-26SEP2024 market - canonical address used by F07-01
-    ///      and F07-04 at the same maturity. Verified via Pendle SDK / registry.
-    ///      We recover the underlying PT (and SY/YT) via IPendleMarket.readTokens()
-    ///      in setUp() to avoid hardcoding the PT address (which may differ across
-    ///      Pendle factory redeploys).
-    address constant LOCAL_PENDLE_MARKET_PT_SUSDE_26SEP24 =
-        0x19588F29f9402Bb508007FeADd415c875Ee3f19F;
+    /// @dev Pendle PT-sUSDe-26DEC2024 market.
+    ///      SY-sUSDe-26DEC2024 only accepts USDe and sUSDe as tokensIn.
+    address constant LOCAL_PENDLE_MARKET_PT_SUSDE_26DEC24 =
+        0xa0ab94DeBB3cC9A7eA77f3205ba4AB23276feD08;
 
     /// @dev Curve USDe/USDC pool (coin 0 = USDe, coin 1 = USDC).
     ///      Same pool used in F08-01 / F08-02. setUp() asserts coin ordering.
     address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
-    /// @dev Morpho PT-sUSDe-26SEP24 / USDC 86.5% LLTV market parameters.
-    ///      Oracle is the PendleSparkLinearDiscountOracle (verified address
-    ///      cross-referenced with F07-01 PT-sUSDe-26SEP24 Morpho loop).
-    ///      IRM is Morpho's canonical AdaptiveCurve IRM (shared across all
-    ///      Morpho Blue markets). LLTV is 86.5% for PT collateral with linear
-    ///      discount oracle, matching the MEV Capital curated market.
+    /// @dev Morpho PT-sUSDe-26DEC24 / USDC 91.5% LLTV market parameters.
     address constant LOCAL_MORPHO_ORACLE_PT_SUSDE_USDC =
-        0x38d130cEe60CDa080A3b3aC94C79c34B6Fc919A7;
+        0xB35B25ADC53157f4b76a0eECc94EfE915A0AA968;
     address constant LOCAL_MORPHO_IRM_ADAPTIVE_CURVE =
         0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
-    uint256 constant LLTV_865 = 0.865e18;
+    uint256 constant LLTV_915 = 0.915e18;
 
     uint256 constant EQUITY_USDC = 100_000e6;
     /// @dev 4x leverage on equity -> ~5x total notional.
@@ -61,7 +53,7 @@ contract F08_03_PtSusdeMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCall
         _fork(FORK_BLOCK);
         // Read SY/PT/YT directly from the Pendle market - avoids hardcoding the
         // PT token address (which has differed across Pendle factory redeploys).
-        (_sy, _pt, _yt) = IPendleMarket(LOCAL_PENDLE_MARKET_PT_SUSDE_26SEP24).readTokens();
+        (_sy, _pt, _yt) = IPendleMarket(LOCAL_PENDLE_MARKET_PT_SUSDE_26DEC24).readTokens();
 
         _trackToken(Mainnet.USDC);
         _trackToken(Mainnet.USDE);
@@ -82,7 +74,7 @@ contract F08_03_PtSusdeMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCall
             collateralToken: _pt,
             oracle: LOCAL_MORPHO_ORACLE_PT_SUSDE_USDC,
             irm: LOCAL_MORPHO_IRM_ADAPTIVE_CURVE,
-            lltv: LLTV_865
+            lltv: LLTV_915
         });
 
         // Best-effort: confirm the constructed market exists on Morpho by
@@ -91,7 +83,7 @@ contract F08_03_PtSusdeMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCall
         // a clear error in that case rather than failing inside borrow().
         bytes32 mid = keccak256(abi.encode(_market));
         IMorpho.MarketParams memory onchain = IMorpho(Mainnet.MORPHO).idToMarketParams(mid);
-        require(onchain.loanToken == Mainnet.USDC, "F08-03: PT-sUSDe/USDC market missing at fork block");
+        require(onchain.loanToken == Mainnet.USDC, "F08-03: PT-sUSDe-26DEC2024/USDC market missing at fork block");
     }
 
     function testStrategy_F08_03() public {
@@ -123,7 +115,8 @@ contract F08_03_PtSusdeMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCall
             int128(1), int128(0), totalUsdc, minUsde
         );
 
-        // Step B: USDe -> PT-sUSDe-26SEP2024 via Pendle router.
+        // Step B: USDe -> PT-sUSDe-26DEC2024 via Pendle router.
+        // SY-sUSDe-26DEC2024 accepts USDe and sUSDe as tokenMintSy (not USDC).
         IPendleRouter.TokenInput memory tin = IPendleRouter.TokenInput({
             tokenIn: Mainnet.USDE,
             netTokenIn: usdeOut,
@@ -147,7 +140,7 @@ contract F08_03_PtSusdeMorphoFlashLoopTest is StrategyBase, IMorphoFlashLoanCall
 
         (uint256 ptOut,,) = IPendleRouter(Mainnet.PENDLE_ROUTER_V4).swapExactTokenForPt(
             address(this),
-            LOCAL_PENDLE_MARKET_PT_SUSDE_26SEP24,
+            LOCAL_PENDLE_MARKET_PT_SUSDE_26DEC24,
             0,
             guess,
             tin,

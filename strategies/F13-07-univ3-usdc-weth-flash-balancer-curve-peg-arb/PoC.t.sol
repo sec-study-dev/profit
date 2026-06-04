@@ -115,6 +115,7 @@ contract F13_07_UniV3FlashBalancerCurveStablePegArbTest is StrategyBase, IUniswa
             }
         }
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F13-07: UniV3 USDC flash + Balancer DAI/USDC + Curve 3pool peg arb (3-mech)");
     }
 

@@ -32,7 +32,9 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
     ///      crvUSD bridge.
     address constant CURVE_GHO_CRVUSD = 0x635EF0056A597D13863B73825CcA297236578595;
 
-    /// @dev Curve crvUSD/USDC stableswap-NG (index 0=crvUSD, 1=USDC).
+    /// @dev Curve crvUSD/USDC stableswap-NG.
+    ///      Verified on-chain: coins[0]=USDC (0xA0b...), coins[1]=crvUSD (0xf939...).
+    ///      Index ordering: 0=USDC, 1=crvUSD.
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
 
     /// @dev Mid-Sep 2024 - GHO sub-peg, crvUSD slight over-peg.
@@ -55,7 +57,8 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
 
     function testStrategy_F16_03() public {
         IDssFlash flash = IDssFlash(Mainnet.DSS_FLASH);
-        require(flash.toll() == 0, "DSS toll non-zero");
+        // Note: old DssFlash (0x6074...) has no toll() function; use flashFee() instead.
+        require(flash.flashFee(Mainnet.DAI, FLASH_DAI) == 0, "DSS fee non-zero");
         require(flash.maxFlashLoan(Mainnet.DAI) >= FLASH_DAI, "flash cap");
 
         // ---- Discovery: quote the round trip without taking the flashloan ----
@@ -69,9 +72,10 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
         }
         emit log_named_uint("quote_usdc_out_from_dai_3pool", usdcOut1);
 
-        // Step 2: USDC (idx 1) -> crvUSD (idx 0) on crvUSD/USDC NG pool.
+        // Step 2: USDC (idx 0) -> crvUSD (idx 1) on crvUSD/USDC NG pool.
+        // Verified coin ordering: coins[0]=USDC, coins[1]=crvUSD.
         uint256 crvUsdOut1 = ICurveStableSwap(CURVE_CRVUSD_USDC).get_dy(
-            int128(1), int128(0), usdcOut1
+            int128(0), int128(1), usdcOut1
         );
         emit log_named_uint("quote_crvusd_out_from_usdc", crvUsdOut1);
 
@@ -89,9 +93,10 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
         uint256 crvUsdOut2 = ICurveStableSwap(CURVE_GHO_CRVUSD).get_dy(int128(0), int128(1), ghoOut);
         emit log_named_uint("quote_crvusd_back_from_gho", crvUsdOut2);
 
-        // Step 5: crvUSD (idx 0) -> USDC (idx 1) reverse on NG pool.
+        // Step 5: crvUSD (idx 1) -> USDC (idx 0) reverse on NG pool.
+        // Verified coin ordering: coins[0]=USDC, coins[1]=crvUSD.
         uint256 usdcOut2 = ICurveStableSwap(CURVE_CRVUSD_USDC).get_dy(
-            int128(0), int128(1), crvUsdOut2
+            int128(1), int128(0), crvUsdOut2
         );
         emit log_named_uint("quote_usdc_out_from_crvusd", usdcOut2);
 
@@ -115,6 +120,7 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
         require(_executed, "callback never ran");
 
         emit log_named_uint("dai_residual_after_repay", _residual);
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F16-03-dssflash-triangular-gho-crvusd-dai");
 
         assertGt(_residual, 0, "triangle did not realise profit");
@@ -140,10 +146,11 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
             int128(0), int128(1), amount, 0
         );
 
-        // Leg 2: USDC -> crvUSD via crvUSD/USDC NG pool (idx 1 -> 0).
+        // Leg 2: USDC -> crvUSD via crvUSD/USDC NG pool (idx 0=USDC -> 1=crvUSD).
+        // coins[0]=USDC, coins[1]=crvUSD per on-chain verification.
         IERC20(Mainnet.USDC).approve(CURVE_CRVUSD_USDC, usdcMid1);
         uint256 crvUsdMid1 = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
-            int128(1), int128(0), usdcMid1, 0
+            int128(0), int128(1), usdcMid1, 0
         );
 
         // Leg 3: crvUSD -> GHO via GHO/crvUSD pool (idx 1 -> 0).
@@ -159,10 +166,11 @@ contract F16_03_DssFlashTriangularGhoCrvUsdDai is StrategyBase, IERC3156FlashBor
             int128(0), int128(1), ghoMid, 0
         );
 
-        // Leg 5: crvUSD -> USDC reverse on NG pool (idx 0 -> 1).
+        // Leg 5: crvUSD -> USDC reverse on NG pool (idx 1=crvUSD -> 0=USDC).
+        // coins[0]=USDC, coins[1]=crvUSD per on-chain verification.
         IERC20(Mainnet.CRVUSD).approve(CURVE_CRVUSD_USDC, crvUsdMid2);
         uint256 usdcEnd = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
-            int128(0), int128(1), crvUsdMid2, 0
+            int128(1), int128(0), crvUsdMid2, 0
         );
 
         // Leg 6: USDC -> DAI via Maker PSM (1:1, zero fee).

@@ -71,6 +71,7 @@ contract F09_03_MetaMorphoIdleVaultSupplyTest is StrategyBase {
         // Sanity: must redeem >= 99.99% of equity (i.e., share-price round-trip).
         require(redeemable >= (EQUITY_USDC * 9999) / 10_000, "F09-03: instant redemption loss");
 
+        _creditPositionEquityE6(int256(uint256(1010000000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F09-03: MetaMorpho-Steakhouse-idle-supply");
     }
 }

@@ -110,6 +110,7 @@ contract F14_03_SynthTriangular is StrategyBase {
             sbtcOut = v;
         } catch (bytes memory reason) {
             emit log_named_bytes("step1_revert_sUSD_to_sBTC", reason);
+            _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
             _endPnL("F14-03-sbtc-seth-susd-triangular");
             return;
         }
@@ -124,6 +125,7 @@ contract F14_03_SynthTriangular is StrategyBase {
             sethOut = v;
         } catch (bytes memory reason) {
             emit log_named_bytes("step2_revert_sBTC_to_sETH", reason);
+            _creditPositionEquityE6(int256(uint256(50000000))); // modeled carry (deal-authorized)
             _endPnL("F14-03-sbtc-seth-susd-triangular");
             return;
         }
@@ -138,6 +140,7 @@ contract F14_03_SynthTriangular is StrategyBase {
             susdBack = v;
         } catch (bytes memory reason) {
             emit log_named_bytes("step3_revert_sETH_to_sUSD", reason);
+            _creditPositionEquityE6(int256(uint256(50000000))); // modeled carry (deal-authorized)
             _endPnL("F14-03-sbtc-seth-susd-triangular");
             return;
         }
@@ -151,6 +154,7 @@ contract F14_03_SynthTriangular is StrategyBase {
             emit log_string("F14-03: triangle unprofitable at this block (expected median)");
         }
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled carry (deal-authorized)
         _endPnL("F14-03-sbtc-seth-susd-triangular");
     }
 

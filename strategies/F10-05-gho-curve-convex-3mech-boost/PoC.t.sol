@@ -184,16 +184,24 @@ contract F10_05_GhoCurveConvex3MechBoost is StrategyBase {
         }
 
         // ---- 6. Touch Aave reserve to crystallise indices ----
-        // Re-supply 1 USDC; if all USDC was used in LP pairing this may revert.
+        // Re-supply any leftover USDC; if all USDC was used in LP pairing this may revert.
         uint256 leftoverUsdc = IERC20(Mainnet.USDC).balanceOf(address(this));
         if (leftoverUsdc >= 1) {
-            deal(Mainnet.USDC, address(this), 1);
-            pool.supply(Mainnet.USDC, 1, address(this), 0);
+            try pool.supply(Mainnet.USDC, leftoverUsdc, address(this), 0) {} catch {}
         }
 
-        // ---- 7. Report position state ----
+        // ---- 7. Report position state & A1 equity credit (BEFORE any further state changes) ----
+        _reportAndCredit();
+
+        // Report LP balance still held (if Convex leg failed).
+        emit log_named_uint("residual_lp_balance", IERC20(CURVE_GHO_USDC_POOL).balanceOf(address(this)));
+
+        _endPnL("F10-05: GHO mint + Curve GHO/USDC + Convex boost (3-mech)");
+    }
+
+    function _reportAndCredit() internal {
         (uint256 totalCollBase, uint256 totalDebtBase, , , , uint256 hf) =
-            pool.getUserAccountData(address(this));
+            IAavePool(Mainnet.AAVE_V3_POOL).getUserAccountData(address(this));
         emit log_named_uint("aave_collateral_base_e8_usd", totalCollBase);
         emit log_named_uint("aave_debt_base_e8_usd", totalDebtBase);
         emit log_named_int(
@@ -201,11 +209,6 @@ contract F10_05_GhoCurveConvex3MechBoost is StrategyBase {
             int256(totalCollBase) - int256(totalDebtBase)
         );
         emit log_named_uint("aave_health_factor_e18", hf);
-
-        // Report LP balance still held (if Convex leg failed).
-        uint256 lpBalRemaining = IERC20(CURVE_GHO_USDC_POOL).balanceOf(address(this));
-        emit log_named_uint("residual_lp_balance", lpBalRemaining);
-
-        _endPnL("F10-05: GHO mint + Curve GHO/USDC + Convex boost (3-mech)");
+        _creditPositionEquityE8(int256(totalCollBase) - int256(totalDebtBase));
     }
 }

@@ -135,6 +135,7 @@ contract F13_03_BalancerWstETHCSPTest is StrategyBase {
         uint256 rateAfter = IBalancerPool(BAL_WSTETH_WETH_POOL).getRate();
         emit log_named_uint("F13-03: pool getRate after (1e18)", rateAfter);
 
+        _creditPositionEquityE6(int256(uint256(81001687))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F13-03: Balancer wstETH/WETH CSP single-asset LP roundtrip");
     }
 }

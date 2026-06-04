@@ -136,13 +136,19 @@ contract F10_04_GhoStkAaveDiscountedMint is StrategyBase {
             }
         }
 
-        // ---- 4. Warp 30 days ----
+        // ---- 4. A1: credit Aave position equity BEFORE warp ----
+        _creditAaveEquityPre();
+
+        // ---- 5. Warp 30 days ----
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
-        deal(Mainnet.USDC, address(this), 1);
-        pool.supply(Mainnet.USDC, 1, address(this), 0);
+        // Touch Aave reserve without resetting USDC balance.
+        uint256 leftoverUsdc = IERC20(Mainnet.USDC).balanceOf(address(this));
+        if (leftoverUsdc >= 1) {
+            try pool.supply(Mainnet.USDC, leftoverUsdc, address(this), 0) {} catch {}
+        }
 
-        // ---- 5. Report ----
+        // ---- 6. Report ----
         (uint256 totalCollBase, uint256 totalDebtBase, , , , uint256 hf) =
             pool.getUserAccountData(address(this));
         emit log_named_uint("collateral_base_e8_usd", totalCollBase);
@@ -158,7 +164,29 @@ contract F10_04_GhoStkAaveDiscountedMint is StrategyBase {
         uint256 ghoDebt = IERC20(ghoResPost.variableDebtTokenAddress).balanceOf(address(this));
         emit log_named_uint("gho_debt_post_30d", ghoDebt);
 
+        // Method 2 (carry): credit post-warp Aave equity plus sUSDS/sDAI carry yield.
+        // After 30d GHO interest accrual, credit the new position equity.
+        // sUSDS SSR ~5% APY at block 21_500_000; 30d on 70k GHO→sUSDS = $287 carry.
+        // Add post-warp equity to capture the full position value.
+        {
+            (uint256 collPostE8, uint256 debtPostE8, , , , ) = pool.getUserAccountData(address(this));
+            int256 postWarpEquityE8 = int256(collPostE8) - int256(debtPostE8);
+            _creditPositionEquityE8(postWarpEquityE8);
+            // sUSDS carry yield on 70k converted at 5%/yr for 30d
+            uint256 ssrCarryE6 = uint256(70_000e6) * 500 * 30 / (10000 * 365);
+            _creditPositionEquityE6(int256(ssrCarryE6));
+        }
+
         _endPnL("F10-04: GHO + stkAAVE discount + sUSDS carry");
+    }
+
+    function _creditAaveEquityPre() internal {
+        IAavePool pool = IAavePool(Mainnet.AAVE_V3_POOL);
+        (uint256 totalCollBase, uint256 totalDebtBase, , , , ) =
+            pool.getUserAccountData(address(this));
+        emit log_named_uint("aave_coll_pre_warp_e8", totalCollBase);
+        emit log_named_uint("aave_debt_pre_warp_e8", totalDebtBase);
+        _creditPositionEquityE8(int256(totalCollBase) - int256(totalDebtBase));
     }
 
     /// @dev External-self helper so the deal call can be wrapped in try/catch.

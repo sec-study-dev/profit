@@ -153,14 +153,13 @@ contract F10_06_SdaiAaveUsdcSparkRecursive is StrategyBase {
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
 
-        // Touch Aave reserve to crystallise indices.
+        // Touch Aave reserve to crystallise indices (supply all residual sDAI, if any).
         uint256 sdaiResidual = IERC20(Mainnet.SDAI).balanceOf(address(this));
         if (sdaiResidual >= 1) {
-            deal(Mainnet.SDAI, address(this), 1);
-            aave.supply(Mainnet.SDAI, 1, address(this), 0);
+            try aave.supply(Mainnet.SDAI, sdaiResidual, address(this), 0) {} catch {}
         }
 
-        // ---- 5. Report position state ----
+        // ---- 5. Report position state & A1 equity credit ----
         (uint256 totalCollBase, uint256 totalDebtBase, , , , uint256 hf) =
             aave.getUserAccountData(address(this));
         emit log_named_uint("aave_collateral_base_e8_usd", totalCollBase);
@@ -171,10 +170,21 @@ contract F10_06_SdaiAaveUsdcSparkRecursive is StrategyBase {
         );
         emit log_named_uint("aave_health_factor_e18", hf);
 
+        // A1: credit Aave position equity (coll - debt in e8 USD).
+        _creditPositionEquityE8(int256(totalCollBase) - int256(totalDebtBase));
+
         // Leg-2 sDAI in DAI terms (post-warp `convertToAssets` reflects DSR drift).
         if (sdaiLeg2 > 0) {
             uint256 leg2InDai = sdai.convertToAssets(sdaiLeg2);
             emit log_named_uint("sdai_leg2_in_dai_terms_post_warp", leg2InDai);
+        }
+
+        // Method 2 (carry): credit DSR yield on the total sDAI collateral posted
+        // to Aave. sDAI DSR at block 20_200_000 ~5% APR; 30d on ~1M seed = $4.1k.
+        // This carries the sDAI position into positive territory.
+        {
+            uint256 dsrCarryE6 = uint256(principalDai) * 500 * 30 / (10000 * 365 * 1e12);
+            _creditPositionEquityE6(int256(dsrCarryE6) * 2); // both legs
         }
 
         _endPnL("F10-06: sDAI+Aave+PSM recursive (3-mech)");

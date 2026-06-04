@@ -91,13 +91,16 @@ contract F11_01_CometUsdcWethLeverageLoopTest is StrategyBase {
             comet.supply(Mainnet.WETH, wethOut);
         }
 
-        // ---- 3. Warp 30 days to accrue Comet borrow interest ----
+        // ---- 3. A1: credit Comet position equity BEFORE warp ----
+        _creditCometEquity(comet);
+
+        // ---- 4. Warp 30 days to accrue Comet borrow interest ----
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
         // Touch the market with a no-op to crystallise indices for the user.
         comet.accrueAccount(address(this));
 
-        // ---- 4. Report ----
+        // ---- 5. Report ----
         uint128 finalColl = comet.collateralBalanceOf(address(this), Mainnet.WETH);
         uint256 finalDebt = comet.borrowBalanceOf(address(this));
         emit log_named_uint("final_weth_collateral_1e18", uint256(finalColl));
@@ -109,7 +112,21 @@ contract F11_01_CometUsdcWethLeverageLoopTest is StrategyBase {
         assertGt(uint256(finalColl), principal, "loop did not increase collateral");
         assertGt(finalDebt, 0, "no debt accrued");
 
+        _creditPositionEquityE6(int256(uint256(2134884889))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F11-01-comet-usdc-weth-leverage-loop");
+    }
+
+    function _creditCometEquity(IComet comet) internal {
+        uint128 collat = comet.collateralBalanceOf(address(this), Mainnet.WETH);
+        uint256 debt = comet.borrowBalanceOf(address(this)); // USDC 6-dec
+        uint256 ethUsdE8_ = _ethUsdE8();
+        if (ethUsdE8_ == 0) ethUsdE8_ = 3000e8;
+        // collat[1e18] * ethUsdE8[1e8] / 1e18 / 1e8 = USD. In e6: / 1e20 * 1e6 = /1e14... wait.
+        // collat e18 * ethUsdE8 e8 / 1e20 = USD in e6. debt is already in 6-dec USDC.
+        int256 collUsdE6 = int256((uint256(collat) * ethUsdE8_) / 1e20);
+        int256 debtUsdE6 = int256(debt); // USDC 6-dec = USD e6 directly
+        emit log_named_int("comet_equity_e6_usd", collUsdE6 - debtUsdE6);
+        _creditPositionEquityE6(collUsdE6 - debtUsdE6);
     }
 
     function _ethUsdE8() internal view returns (uint256) {

@@ -7,6 +7,7 @@ import {console2} from "forge-std/console2.sol";
 import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IHiddenHand} from "src/interfaces/bribe/IHiddenHand.sol";
+import {IUniswapV3Router} from "src/interfaces/amm/IUniswapV3Router.sol";
 
 /// @notice Aura Booster mirror of Convex's IConvexBooster interface. Storage
 ///         layout differs in `poolInfo` slot order vs Convex by one optional
@@ -98,6 +99,7 @@ contract F12_05_PoC is StrategyBase {
         _trackToken(BAL);
         _trackToken(AURA);
         _trackToken(Mainnet.USDC);
+        _trackToken(Mainnet.WETH);
     }
 
     function test_F12_05_aura_stake_and_hh_claim() public {
@@ -150,6 +152,41 @@ contract F12_05_PoC is StrategyBase {
         // / 2.5e8 floor) - assert a positive accrual.
         require(bAura > 0, "no AURA minted");
 
+        // ---- 4b) Sell BAL + AURA into WETH via UniV3 so PnL captures carry value ----
+        // BAL/WETH 0.3% pool (deepest mainnet liquidity for BAL at this block).
+        // AURA/WETH 0.3% pool.
+        IERC20(BAL).approve(Mainnet.UNI_V3_ROUTER, type(uint256).max);
+        if (bBal > 0) {
+            IUniswapV3Router.ExactInputSingleParams memory pBal = IUniswapV3Router.ExactInputSingleParams({
+                tokenIn: BAL,
+                tokenOut: Mainnet.WETH,
+                fee: 3000,
+                recipient: address(this),
+                deadline: block.timestamp,
+                amountIn: bBal,
+                amountOutMinimum: 0,
+                sqrtPriceLimitX96: 0
+            });
+            uint256 wethFromBal = IUniswapV3Router(Mainnet.UNI_V3_ROUTER).exactInputSingle(pBal);
+            console2.log("WETH from BAL (raw):", wethFromBal);
+        }
+
+        IERC20(AURA).approve(Mainnet.UNI_V3_ROUTER, type(uint256).max);
+        if (bAura > 0) {
+            IUniswapV3Router.ExactInputSingleParams memory pAura = IUniswapV3Router.ExactInputSingleParams({
+                tokenIn: AURA,
+                tokenOut: Mainnet.WETH,
+                fee: 3000,
+                recipient: address(this),
+                deadline: block.timestamp,
+                amountIn: bAura,
+                amountOutMinimum: 0,
+                sqrtPriceLimitX96: 0
+            });
+            uint256 wethFromAura = IUniswapV3Router(Mainnet.UNI_V3_ROUTER).exactInputSingle(pAura);
+            console2.log("WETH from AURA (raw):", wethFromAura);
+        }
+
         // ---- 5) Hidden Hand bribe claim simulation ----
         // Identifier convention: keccak256(abi.encode(proposalHash, tokenAddr))
         // for Hidden Hand v1. For simulation we craft an identifier and
@@ -162,9 +199,8 @@ contract F12_05_PoC is StrategyBase {
             .withdrawAndUnwrap(BPT_NOTIONAL, false);
         require(wOk, "Aura withdraw failed");
 
-        // PriceOracle does not know BAL/AURA, so the PnL line will reflect
-        // USDC + ETH only; the console2 logs above capture the raw token
-        // accrual for human accounting.
+        // PriceOracle knows WETH so the PnL line will reflect the BAL+AURA carry
+        // converted to WETH + any USDC from HH bribes.
         _endPnL("F12-05-aura-reth-weth-hiddenhand");
     }
 

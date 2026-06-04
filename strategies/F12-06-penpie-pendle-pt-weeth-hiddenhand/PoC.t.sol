@@ -8,6 +8,7 @@ import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IHiddenHand} from "src/interfaces/bribe/IHiddenHand.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
+import {IUniswapV3Router} from "src/interfaces/amm/IUniswapV3Router.sol";
 
 /// @notice Penpie MasterPenpie - analogue of vlCVX for Pendle. Inlined per
 ///         family rule (no shared-interface edits).
@@ -86,6 +87,7 @@ contract F12_06_PoC is StrategyBase {
         _trackToken(PENDLE_MARKET_PT_WEETH);  // Pendle LP
         _trackToken(PENDLE);
         _trackToken(Mainnet.USDC);
+        _trackToken(Mainnet.WETH);
         // mPENDLE / PNP intentionally not tracked - addresses can drift
         // across Penpie redeploys and a missing contract would revert the
         // PnL snapshot's balanceOf() call. Logged via try/catch below.
@@ -118,10 +120,17 @@ contract F12_06_PoC is StrategyBase {
             require(balPen == LP_NOTIONAL, "penpie stake mismatch");
         } catch {
             console2.log("Penpie helper revert; market may not be registered on this fork.");
-            // The strategy still proceeds - the LP can be claimed directly on
-            // the Pendle market via redeemRewards (Pendle-native path) so we
-            // can still demonstrate the income stream.
             IERC20(PENDLE_MARKET_PT_WEETH).approve(PENDLE_MARKET_DEPOSIT_HELPER, 0);
+            // Initialize the native-Pendle reward checkpoint for address(this)
+            // so the 14-day accrual window below is captured rather than zeroed.
+            // Pendle's reward index updates on first redeemRewards call; calling
+            // here sets userIndex = globalIndex at t=0 so warping 14 days
+            // accumulates the delta accrual in address(this)'s userReward.accrued.
+            try IPendleMarket(PENDLE_MARKET_PT_WEETH).redeemRewards(address(this)) returns (uint256[] memory _init) {
+                console2.log("Pendle reward checkpoint init (amts[0]):", _init.length > 0 ? _init[0] : 0);
+            } catch {
+                console2.log("Pendle redeemRewards init revert; skipping native rewards.");
+            }
         }
 
         // ---- 3) Warp 14 days ----
@@ -153,6 +162,27 @@ contract F12_06_PoC is StrategyBase {
             for (uint256 i = 0; i < amts.length && i < rewards.length; i++) {
                 console2.log("Pendle native reward token:", rewards[i]);
                 console2.log("Pendle native reward amount (raw):", amts[i]);
+            }
+
+            // Sell PENDLE rewards -> WETH via UniV3 3000 so PriceOracle captures the carry.
+            uint256 bPendle2 = IERC20(PENDLE).balanceOf(address(this));
+            if (bPendle2 > 0) {
+                IERC20(PENDLE).approve(Mainnet.UNI_V3_ROUTER, type(uint256).max);
+                IUniswapV3Router.ExactInputSingleParams memory pPendle = IUniswapV3Router.ExactInputSingleParams({
+                    tokenIn: PENDLE,
+                    tokenOut: Mainnet.WETH,
+                    fee: 3000,
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountIn: bPendle2,
+                    amountOutMinimum: 0,
+                    sqrtPriceLimitX96: 0
+                });
+                try IUniswapV3Router(Mainnet.UNI_V3_ROUTER).exactInputSingle(pPendle) returns (uint256 wethFromPendle) {
+                    console2.log("WETH from PENDLE (raw):", wethFromPendle);
+                } catch {
+                    console2.log("PENDLE->WETH swap reverted.");
+                }
             }
         }
 

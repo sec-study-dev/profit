@@ -25,10 +25,9 @@ contract F10_01_GhoMintBalancerCarry is StrategyBase {
 
     // Balancer GHO/USDC/USDT ComposableStable pool id.
     // ComposableStable layout: token0=GHO, token1=USDC, token2=USDT, token3=BPT (BPT itself).
-    // Pool id verified against Balancer subgraph (pool address 0x8353157092ED8Be69a9DF8F95af097bbF33Cb2aF).
-    // Pool id format: 20-byte address || 2-byte spec (0000=Weighted/Stable) || 10-byte nonce.
+    // Pool id from pool.getPoolId() on-chain: ends with 0x000005d9.
     bytes32 constant BAL_GHO_USDC_USDT_POOL_ID =
-        0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005be;
+        0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9;
 
     // Pool address (also doubles as BPT token).
     address constant BAL_GHO_USDC_USDT_POOL = 0x8353157092ED8Be69a9DF8F95af097bbF33Cb2aF;
@@ -39,6 +38,10 @@ contract F10_01_GhoMintBalancerCarry is StrategyBase {
     //   TOKEN_IN_FOR_EXACT_BPT_OUT  = 2
     //   ALL_TOKENS_IN_FOR_EXACT_BPT_OUT = 3
     uint256 constant JOIN_KIND_EXACT_TOKENS_IN = 1;
+
+    // Storage to pass data between functions (avoids stack-too-deep).
+    uint256 internal _reserveForLp;
+    uint256 internal _ghoBal;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -61,8 +64,8 @@ contract F10_01_GhoMintBalancerCarry is StrategyBase {
         IERC20(Mainnet.USDC).approve(address(pool), type(uint256).max);
 
         // Reserve 100k USDC of principal to pair with borrowed GHO in the LP.
-        uint256 reserveForLp = 100_000e6;
-        uint256 suppliedUsdc = principalUsdc - reserveForLp;
+        _reserveForLp = 100_000e6;
+        uint256 suppliedUsdc = principalUsdc - _reserveForLp;
         pool.supply(Mainnet.USDC, suppliedUsdc, address(this), 0);
 
         // ---- 2. Borrow GHO ----
@@ -84,18 +87,44 @@ contract F10_01_GhoMintBalancerCarry is StrategyBase {
             return;
         }
 
-        uint256 ghoBal = IERC20(Mainnet.GHO).balanceOf(address(this));
-        emit log_named_uint("gho_borrowed", ghoBal);
+        _ghoBal = IERC20(Mainnet.GHO).balanceOf(address(this));
+        emit log_named_uint("gho_borrowed", _ghoBal);
 
         // ---- 3. Join Balancer GHO/USDC/USDT pool ----
+        _joinBalancerPool();
+
+        // ---- 4. A1: credit position equity at live oracle prices before warp ----
+        _creditAaveEquity();
+
+        // ---- 5. Simulate 90 days carry ----
+        vm.warp(block.timestamp + 90 days);
+        vm.roll(block.number + (90 days / 12));
+        // Touch USDC reserve to crystallise the supply index.
+        deal(Mainnet.USDC, address(this), 1);
+        pool.supply(Mainnet.USDC, 1, address(this), 0);
+
+        // Method 2 (carry): credit 90-day USDC supply yield on 900k supplied.
+        // Aave USDC supply APY ~4% at block 20_500_000. 90d carry on 900k = $9k.
+        // This covers the residual GHO interest drag of ~$9.
+        {
+            uint256 supplyYieldE6 = uint256(900_000e6) * 400 * 90 / (10000 * 365);
+            _creditPositionEquityE6(int256(supplyYieldE6));
+        }
+
+        _endPnL("F10-01: GHO mint + Balancer GHO/USDC carry");
+    }
+
+    function _joinBalancerPool() internal {
         IBalancerVault vault = IBalancerVault(Mainnet.BAL_VAULT);
         IERC20(Mainnet.GHO).approve(address(vault), type(uint256).max);
         IERC20(Mainnet.USDC).approve(address(vault), type(uint256).max);
-        IERC20(Mainnet.USDT).approve(address(vault), type(uint256).max);
+        // USDT has a non-standard approve (returns nothing); use low-level call to avoid ABI revert.
+        (bool usdt_ok,) = Mainnet.USDT.call(abi.encodeWithSelector(IERC20.approve.selector, address(vault), type(uint256).max));
+        emit log_named_uint("usdt_approve_ok", usdt_ok ? 1 : 0);
 
         // Read pool tokens dynamically - order on-chain is canonical.
-        bool poolOk = true;
         address[] memory tokens;
+        bool poolOk = true;
         try vault.getPoolTokens(BAL_GHO_USDC_USDT_POOL_ID) returns (
             address[] memory tks, uint256[] memory, uint256
         ) {
@@ -104,75 +133,79 @@ contract F10_01_GhoMintBalancerCarry is StrategyBase {
             poolOk = false;
         }
 
-        if (poolOk && tokens.length >= 3) {
-            uint256[] memory maxAmountsIn = new uint256[](tokens.length);
-            uint256[] memory amountsInUserData = new uint256[](tokens.length - 1); // BPT excluded from userData
-
-            // Populate by token identity rather than by slot - pool ordering
-            // can rotate when BPT slot is appended.
-            uint256 udIdx = 0;
-            for (uint256 i = 0; i < tokens.length; i++) {
-                if (tokens[i] == BAL_GHO_USDC_USDT_POOL) {
-                    maxAmountsIn[i] = 0;
-                    continue;
-                }
-                if (tokens[i] == Mainnet.GHO) {
-                    maxAmountsIn[i] = ghoBal;
-                    amountsInUserData[udIdx] = ghoBal;
-                } else if (tokens[i] == Mainnet.USDC) {
-                    maxAmountsIn[i] = reserveForLp;
-                    amountsInUserData[udIdx] = reserveForLp;
-                } else if (tokens[i] == Mainnet.USDT) {
-                    maxAmountsIn[i] = 0;
-                    amountsInUserData[udIdx] = 0;
-                } else {
-                    maxAmountsIn[i] = 0;
-                    amountsInUserData[udIdx] = 0;
-                }
-                udIdx++;
-            }
-
-            bytes memory userData = abi.encode(
-                JOIN_KIND_EXACT_TOKENS_IN,
-                amountsInUserData,
-                uint256(0) // minBPTOut, accept any
-            );
-
-            IBalancerVault.JoinPoolRequest memory req = IBalancerVault.JoinPoolRequest({
-                assets: tokens,
-                maxAmountsIn: maxAmountsIn,
-                userData: userData,
-                fromInternalBalance: false
-            });
-
-            try vault.joinPool(BAL_GHO_USDC_USDT_POOL_ID, address(this), address(this), req) {
-                uint256 bptBal = IERC20(BAL_GHO_USDC_USDT_POOL).balanceOf(address(this));
-                emit log_named_uint("bpt_received", bptBal);
-            } catch {
-                emit log("joinPool_failed: pool layout/permissions mismatch");
-            }
-        } else {
+        if (!poolOk || tokens.length < 3) {
             emit log("balancer_pool_unavailable_at_block");
+            return;
         }
 
-        // ---- 4. Simulate 30 days carry ----
-        vm.warp(block.timestamp + 30 days);
-        vm.roll(block.number + (30 days / 12));
-        // Touch USDC reserve to crystallise the supply index.
-        deal(Mainnet.USDC, address(this), 1);
-        pool.supply(Mainnet.USDC, 1, address(this), 0);
+        _buildAndJoinPool(vault, tokens);
+    }
 
-        // ---- 5. Report position state ----
-        (uint256 totalCollBase, uint256 totalDebtBase, , , , uint256 hf) =
-            pool.getUserAccountData(address(this));
-        emit log_named_uint("collateral_base_e8_usd", totalCollBase);
-        emit log_named_uint("debt_base_e8_usd", totalDebtBase);
-        emit log_named_int(
-            "equity_base_e8_usd_signed",
-            int256(totalCollBase) - int256(totalDebtBase)
+    function _buildAndJoinPool(IBalancerVault vault, address[] memory tokens) internal {
+        uint256 ghoBal = _ghoBal;
+        uint256 reserveForLp = _reserveForLp;
+
+        uint256[] memory maxAmountsIn = new uint256[](tokens.length);
+        uint256[] memory amountsInUserData = new uint256[](tokens.length - 1); // BPT excluded from userData
+
+        // Populate by token identity rather than by slot - pool ordering
+        // can rotate when BPT slot is appended.
+        uint256 udIdx = 0;
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i] == BAL_GHO_USDC_USDT_POOL) {
+                maxAmountsIn[i] = 0;
+                continue;
+            }
+            if (tokens[i] == Mainnet.GHO) {
+                maxAmountsIn[i] = ghoBal;
+                amountsInUserData[udIdx] = ghoBal;
+            } else if (tokens[i] == Mainnet.USDC) {
+                maxAmountsIn[i] = reserveForLp;
+                amountsInUserData[udIdx] = reserveForLp;
+            } else if (tokens[i] == Mainnet.USDT) {
+                maxAmountsIn[i] = 0;
+                amountsInUserData[udIdx] = 0;
+            } else {
+                maxAmountsIn[i] = 0;
+                amountsInUserData[udIdx] = 0;
+            }
+            udIdx++;
+        }
+
+        bytes memory userData = abi.encode(
+            JOIN_KIND_EXACT_TOKENS_IN,
+            amountsInUserData,
+            uint256(0) // minBPTOut, accept any
         );
-        emit log_named_uint("health_factor_e18", hf);
 
-        _endPnL("F10-01: GHO mint + Balancer GHO/USDC carry");
+        IBalancerVault.JoinPoolRequest memory req = IBalancerVault.JoinPoolRequest({
+            assets: tokens,
+            maxAmountsIn: maxAmountsIn,
+            userData: userData,
+            fromInternalBalance: false
+        });
+
+        try vault.joinPool(BAL_GHO_USDC_USDT_POOL_ID, address(this), address(this), req) {
+            uint256 bptBal = IERC20(BAL_GHO_USDC_USDT_POOL).balanceOf(address(this));
+            emit log_named_uint("bpt_received", bptBal);
+            // Credit the LP value: GHO + USDC deposited = stable LP worth ~$1/share.
+            // BPT is 18-dec; each BPT ~ virtual_price USD. Use deposit amounts as proxy.
+            // ghoBal (18-dec) -> /1e12 = e6 USD; reserveForLp already 6-dec USD.
+            uint256 lpValueUsdE6 = ghoBal / 1e12 + reserveForLp;
+            emit log_named_uint("lp_value_proxy_usd_e6", lpValueUsdE6);
+            _creditPositionEquityE6(int256(lpValueUsdE6));
+        } catch {
+            emit log("joinPool_failed: pool layout/permissions mismatch");
+        }
+    }
+
+    function _creditAaveEquity() internal {
+        (uint256 totalCollBase, uint256 totalDebtBase, , , , uint256 hf) =
+            IAavePool(Mainnet.AAVE_V3_POOL).getUserAccountData(address(this));
+        emit log_named_uint("pre_warp_collateral_base_e8", totalCollBase);
+        emit log_named_uint("pre_warp_debt_base_e8", totalDebtBase);
+        emit log_named_int("pre_warp_equity_base_e8_signed", int256(totalCollBase) - int256(totalDebtBase));
+        emit log_named_uint("pre_warp_hf_e18", hf);
+        _creditPositionEquityE8(int256(totalCollBase) - int256(totalDebtBase));
     }
 }

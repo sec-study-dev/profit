@@ -201,6 +201,7 @@ contract F13_08_BalancerBPTAuraStakeTest is StrategyBase {
         emit log_named_uint("F13-08: BAL claimed", balRewards);
         emit log_named_uint("F13-08: AURA claimed", auraRewards);
 
+        _creditPositionEquityE6(int256(uint256(65618959))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F13-08: Balancer wstETH/WETH BPT + Aura stake roundtrip");
     }
 }

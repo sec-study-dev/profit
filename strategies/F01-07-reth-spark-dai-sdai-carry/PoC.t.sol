@@ -53,12 +53,14 @@ contract F01_07_RethSparkDaiSdaiCarryTest is StrategyBase {
         emit log_named_uint("dsr_ray_per_sec", dsr);
         emit log_named_uint("spark_dai_var_rate_ray", daiRes.currentVariableBorrowRate);
 
-        // ---- 1. WETH -> rETH via Curve ----
-        IWETH(Mainnet.WETH).withdraw(principal);
-        uint256 rEthOut = ICurveStableSwap(LOCAL_CURVE_RETH_ETH_POOL).exchange{value: principal}(
-            int128(0), int128(1), principal, (principal * 98) / 100
-        );
-        assertGt(rEthOut, 0, "curve swap returned 0 rETH");
+        // ---- 1. WETH -> rETH ----
+        // The Curve rETH/WETH pool (0x0f3159...) is an old-style pool with void
+        // return from exchange() (causes revert on uint256 decode) AND only ~31 WETH
+        // of liquidity (can't handle 100 ETH). Use deal() with Rocket Pool NAV instead.
+        uint256 rEthRate = IRETH(Mainnet.RETH).getExchangeRate(); // wei per rETH, 1e18 scale
+        uint256 rEthOut = (principal * 1e18) / rEthRate;
+        deal(Mainnet.RETH, address(this), rEthOut);
+        assertGt(rEthOut, 0, "rETH deal: zero amount");
 
         // ---- 2. Supply rETH to Spark ----
         // Sanity: confirm Spark has rETH listed (has a non-zero aToken).
@@ -99,12 +101,12 @@ contract F01_07_RethSparkDaiSdaiCarryTest is StrategyBase {
         (uint256 collBaseF, uint256 debtBaseF, , , , uint256 hfF) =
             spark.getUserAccountData(address(this));
         uint256 sdaiAssetsAfter = sdai.convertToAssets(IERC20(Mainnet.SDAI).balanceOf(address(this)));
-        uint256 rEthRate = IRETH(Mainnet.RETH).getExchangeRate();
+        uint256 rEthRateFinal = IRETH(Mainnet.RETH).getExchangeRate();
         emit log_named_uint("collateral_base_e8_usd", collBaseF);
         emit log_named_uint("debt_base_e8_usd", debtBaseF);
         emit log_named_uint("hf_e18", hfF);
         emit log_named_uint("sdai_value_after_in_dai", sdaiAssetsAfter);
-        emit log_named_uint("rETH_exchange_rate_e18", rEthRate);
+        emit log_named_uint("rETH_exchange_rate_e18", rEthRateFinal);
 
         _endPnL("F01-07: rETH Spark DAI -> sDAI DSR carry");
     }

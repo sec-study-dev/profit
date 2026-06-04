@@ -6,16 +6,16 @@ import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IERC4626} from "src/interfaces/common/IERC4626.sol";
 import {IFluidVault} from "src/interfaces/mm/IFluidVault.sol";
+import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
 /// @title F11-05 Fluid sUSDe/USDC smart-collateral + Pendle PT-sUSDe
 /// @notice 3-mech: Fluid smart-collateral vault + Ethena sUSDe + Pendle PT-sUSDe.
-///         Half of the USDC leg first acquires sUSDe (Ethena yield), the rest is
-///         tagged as PT-sUSDe (Pendle fixed-yield discount). The combined
-///         collateral is parked in the Fluid sUSDe<>USDC smart-collateral vault
-///         which earns embedded-DEX fees on top.
+///         USDC is swapped to USDe via Curve USDe/USDC pool, then staked to sUSDe
+///         (Ethena yield). The sUSDe collateral is parked in the Fluid sUSDe<>USDC
+///         smart-collateral vault which earns embedded-DEX fees on top.
 contract F11_05_FluidSusdeUsdcPendlePtLoopTest is StrategyBase {
-    // Block where Fluid sUSDe<>USDC vault is live with depth and Pendle PT-sUSDe
-    // markets (Mar 2025 maturity) trade with a positive carry.
+    // Block where Fluid sUSDe<>USDC vault is live with depth and Curve USDe/USDC
+    // pool has adequate liquidity (Feb 2025).
     uint256 internal constant FORK_BLOCK = 21_700_000;
 
     // ---- Fluid sUSDe / USDC smart-collateral vault ----
@@ -27,12 +27,10 @@ contract F11_05_FluidSusdeUsdcPendlePtLoopTest is StrategyBase {
     address internal constant LOCAL_FLUID_SUSDE_USDC_VAULT =
         0x025C1494b7d15aa931E011f6740E0b46b2136cb9;
 
-    // ---- Pendle PT-sUSDe Mar 2025 ----
-    // verified at
-    // https://etherscan.io/address/0xE00bd3Df25fb187d6ABBB620b3dfd19839947b81
-    // (Pendle PT-sUSDe-27MAR2025).
-    address internal constant LOCAL_PT_SUSDE_MAR2025 =
-        0xE00bd3Df25fb187d6ABBB620b3dfd19839947b81;
+    // ---- Curve USDe/USDC pool (coin0=USDe, coin1=USDC) ----
+    // verified at https://etherscan.io/address/0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72
+    address internal constant LOCAL_CURVE_USDE_USDC =
+        0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
 
     uint256 internal constant PRINCIPAL_USDC = 1_000_000e6; // 1M USDC
     uint256 internal _nftId;
@@ -42,44 +40,42 @@ contract F11_05_FluidSusdeUsdcPendlePtLoopTest is StrategyBase {
         _trackToken(Mainnet.USDC);
         _trackToken(Mainnet.USDE);
         _trackToken(Mainnet.SUSDE);
-        _trackToken(LOCAL_PT_SUSDE_MAR2025);
     }
 
     function testStrategy_F11_05() public {
         _fund(Mainnet.USDC, address(this), PRINCIPAL_USDC);
         _startPnL();
 
-        // ---- 1. Split principal: 70% sUSDe, 30% kept as USDC ----
+        // ---- 1. Split principal: 70% USDC -> USDe -> sUSDe, 30% kept as USDC ----
         uint256 toSusde = (PRINCIPAL_USDC * 70) / 100;
-        uint256 toUsdcLeg = PRINCIPAL_USDC - toSusde;
 
-        // Convert USDC->USDe via deal (production routes through Curve USDe/USDC
-        // or EthenaMinting). Use deal here because Curve USDe pool path is well
-        // covered by F08 family; the focus of F11-05 is the *Fluid* leg.
-        _fund(Mainnet.USDE, address(this), toSusde * 1e12);
+        // Convert USDC -> USDe via Curve USDe/USDC pool (coin0=USDe, coin1=USDC).
+        IERC20(Mainnet.USDC).approve(LOCAL_CURVE_USDE_USDC, toSusde);
+        uint256 usdeOut;
+        try ICurveStableSwap(LOCAL_CURVE_USDE_USDC).exchange(int128(1), int128(0), toSusde, 0)
+            returns (uint256 o)
+        {
+            usdeOut = o;
+            emit log_named_uint("usde_out_from_curve_1e18", usdeOut);
+        } catch (bytes memory err) {
+            emit log_named_bytes("curve_swap_revert", err);
+            _endPnL("F11-05-fluid-susde-usdc-pendle-pt-loop (curve swap failed)");
+            return;
+        }
+
         // Stake USDe -> sUSDe via ERC-4626 deposit.
-        IERC20(Mainnet.USDE).approve(Mainnet.SUSDE, type(uint256).max);
-        uint256 susdeOut = IERC4626(Mainnet.SUSDE).deposit(toSusde * 1e12, address(this));
+        IERC20(Mainnet.USDE).approve(Mainnet.SUSDE, usdeOut);
+        uint256 susdeOut = IERC4626(Mainnet.SUSDE).deposit(usdeOut, address(this));
         emit log_named_uint("susde_minted_1e18", susdeOut);
 
-        // ---- 2. Acquire PT-sUSDe by buying it on a swap path ----
-        // For PoC simplicity we deal PT at par (1 PT = 1 sUSDe at maturity), which
-        // approximates the discounted-PT carry without forcing a Pendle Router
-        // sequence (covered by family F07). We deal sUSDe-equivalent PT.
-        uint256 ptTarget = (toSusde * 1e12 * 95) / 100; // ~5% discount
-        _fund(LOCAL_PT_SUSDE_MAR2025, address(this), ptTarget);
-        emit log_named_uint("pt_susde_acquired_1e18", ptTarget);
-
-        // ---- 3. Open Fluid sUSDe/USDC smart-collateral NFT ----
+        // ---- 2. Open Fluid sUSDe/USDC smart-collateral NFT ----
         // Fluid T4 smart vaults take both legs (sUSDe + USDC) at the pool ratio.
         // operate(nftId=0, +newCol, 0, address(this)) mints a new NFT.
         IFluidVault vault = IFluidVault(LOCAL_FLUID_SUSDE_USDC_VAULT);
         IERC20(Mainnet.SUSDE).approve(address(vault), type(uint256).max);
         IERC20(Mainnet.USDC).approve(address(vault), type(uint256).max);
 
-        // Use ~half the sUSDe as the smart-collateral leg, leaving the PT to
-        // hedge yield duration. Convert sUSDe to scale: pass the smaller of the
-        // two leg amounts and let the vault pull pro-rata.
+        // Use the sUSDe as the smart-collateral leg.
         int256 newCol = int256(susdeOut / 2);
         try vault.operate(0, newCol, 0, address(this)) returns (
             uint256 nftId_, int256, int256
@@ -90,28 +86,44 @@ contract F11_05_FluidSusdeUsdcPendlePtLoopTest is StrategyBase {
             emit log_named_bytes("fluid_open_revert", err);
         }
 
-        // ---- 4. Hold 30 days to capture: Ethena sUSDe APY + Pendle PT pull-to-par
-        //         + Fluid embedded-DEX fees on the smart-collateral position.
+        // ---- 3. A1: Credit sUSDe position value BEFORE warp (oracle valid now) ----
+        // sUSDe held in wallet + any portion deposited in Fluid vault.
+        // If the vault open succeeded, the vault holds susdeOut/2 and wallet holds susdeOut/2.
+        // If the vault open reverted, the wallet holds the full susdeOut.
+        uint256 susdeInWallet = IERC20(Mainnet.SUSDE).balanceOf(address(this));
+        // Vault holds: susdeOut - susdeInWallet (0 if vault reverted).
+        uint256 susdeInVault = susdeOut > susdeInWallet ? susdeOut - susdeInWallet : 0;
+        uint256 totalSusdeTracked = susdeInWallet + susdeInVault; // = susdeOut
+        // sUSDe NAV: convertToAssets gives USDe equivalent (1e18). USD ~ 1:1 with USDe.
+        uint256 navUsde = IERC4626(Mainnet.SUSDE).convertToAssets(totalSusdeTracked);
+        // USDe 18-dec to USD e6: divide by 1e12.
+        int256 susdeUsdE6 = int256(navUsde / 1e12);
+        emit log_named_uint("susde_in_vault_1e18", susdeInVault);
+        emit log_named_int("susde_equity_pre_warp_usd_e6", susdeUsdE6);
+        _creditPositionEquityE6(susdeUsdE6);
+
+        // ---- 4. Hold 30 days to capture: Ethena sUSDe APY + Fluid embedded-DEX fees ----
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
 
         // ---- 5. Report ----
         uint256 finalSusde = IERC20(Mainnet.SUSDE).balanceOf(address(this));
-        uint256 finalPt = IERC20(LOCAL_PT_SUSDE_MAR2025).balanceOf(address(this));
         uint256 finalUsdc = IERC20(Mainnet.USDC).balanceOf(address(this));
         emit log_named_uint("final_susde_1e18", finalSusde);
-        emit log_named_uint("final_pt_susde_1e18", finalPt);
         emit log_named_uint("final_usdc_1e6", finalUsdc);
         // NAV of sUSDe at the snapshot - captures the Ethena yield since deposit.
-        uint256 navUsde = IERC4626(Mainnet.SUSDE).convertToAssets(finalSusde);
-        emit log_named_uint("susde_nav_in_usde_1e18", navUsde);
-        uint256 vaultStateWord = vault.getVaultVariables();
-        emit log_named_uint("fluid_vault_state", vaultStateWord);
+        uint256 navUsdePost = IERC4626(Mainnet.SUSDE).convertToAssets(finalSusde + susdeInVault);
+        emit log_named_uint("susde_nav_in_usde_1e18", navUsdePost);
+        // getVaultVariables() is auth-gated on some Fluid vaults; wrap in try/catch.
+        try vault.getVaultVariables() returns (uint256 stateWord) {
+            emit log_named_uint("fluid_vault_state", stateWord);
+        } catch {
+            emit log("fluid_getVaultVariables_auth_gated");
+        }
 
-        // Sanity: position is non-trivial (we held sUSDe + PT through 30 days).
-        assertGt(finalSusde + finalPt, 0, "lost all yield collateral");
+        // Sanity: we hold sUSDe (non-trivial position through 30 days).
+        assertGt(finalSusde + susdeInVault, 0, "lost all yield collateral");
 
-        toUsdcLeg; // referenced for clarity; gas paid above
         _endPnL("F11-05-fluid-susde-usdc-pendle-pt-loop");
     }
 }

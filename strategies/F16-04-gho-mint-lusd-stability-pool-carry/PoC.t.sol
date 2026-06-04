@@ -85,8 +85,9 @@ contract F16_04_GhoMintLusdStabilityPoolCarry is StrategyBase {
     ///      `[crvUSD]: GHO Pegkeeper Review` (gov.curve.finance/t/.../11003).
     ///      Pool index ordering: 0=GHO, 1=crvUSD.
     address constant CURVE_GHO_CRVUSD = 0x635EF0056A597D13863B73825CcA297236578595;
-    /// @dev Curve crvUSD/USDC StableNG (idx 0=crvUSD, 1=USDC). Used to bridge
-    ///      GHO -> crvUSD -> USDC since no deep GHO/3CRV metapool exists.
+    /// @dev Curve crvUSD/USDC StableNG. Used to bridge GHO -> crvUSD -> USDC.
+    ///      Verified on-chain: coins[0]=USDC (0xA0b...), coins[1]=crvUSD (0xf939...).
+    ///      Index ordering: 0=USDC, 1=crvUSD.
     address constant CURVE_CRVUSD_USDC = 0x4DEcE678ceceb27446b35C672dC7d61F30bAD69E;
     /// @dev Curve LUSD/3pool meta-pool (underlying coins [LUSD, DAI, USDC, USDT]).
     address constant CURVE_LUSD_3POOL = 0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA;
@@ -95,7 +96,7 @@ contract F16_04_GhoMintLusdStabilityPoolCarry is StrategyBase {
     uint256 constant FORK_BLOCK = 20_500_000;
     uint256 constant USDC_PRINCIPAL = 200_000e6;
     uint256 constant GHO_BORROW = 100_000e18;
-    uint256 constant HORIZON = 30 days;
+    uint256 constant HORIZON = 365 days;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -147,9 +148,10 @@ contract F16_04_GhoMintLusdStabilityPoolCarry is StrategyBase {
         }
         emit log_named_uint("crvusd_intermediate", crvUsdMid);
 
+        // Swap crvUSD -> USDC: coins[0]=USDC, coins[1]=crvUSD, so sell idx 1 for idx 0.
         IERC20(Mainnet.CRVUSD).approve(CURVE_CRVUSD_USDC, crvUsdMid);
         uint256 usdcMid = ICurveStableSwap(CURVE_CRVUSD_USDC).exchange(
-            int128(0), int128(1), crvUsdMid, 0
+            int128(1), int128(0), crvUsdMid, 0
         );
         emit log_named_uint("usdc_intermediate", usdcMid);
 
@@ -187,8 +189,25 @@ contract F16_04_GhoMintLusdStabilityPoolCarry is StrategyBase {
         uint256 spLusdEnd = IStabilityPool(LIQUITY_SP).getCompoundedLUSDDeposit(address(this));
         emit log_named_uint("sp_lusd_after_30d", spLusdEnd);
 
-        (, uint256 totalDebtBase, , , ,) = IAaveV3Pool(AAVE_POOL).getUserAccountData(address(this));
+        (uint256 totalCollBase, uint256 totalDebtBase, , , ,) = IAaveV3Pool(AAVE_POOL).getUserAccountData(address(this));
+        emit log_named_uint("aave_user_total_coll_base", totalCollBase);
         emit log_named_uint("aave_user_total_debt_base", totalDebtBase);
+
+        // A1: Credit the open position equity.
+        // (a) Aave position: USDC collateral - GHO debt (both in 1e8 USD base).
+        {
+            int256 aaveEquityE8 = int256(totalCollBase) - int256(totalDebtBase);
+            _creditPositionEquityE8(aaveEquityE8);
+            emit log_named_int("A1_aave_equity_e8", aaveEquityE8);
+        }
+        // (b) Liquity SP: remaining LUSD deposit value (LUSD ~ $1, 1e18 dec -> 1e6 USD).
+        {
+            int256 spEquityE6 = int256(spLusdEnd / 1e12);
+            _creditPositionEquityE6(spEquityE6);
+            emit log_named_int("A1_sp_lusd_equity_e6", spEquityE6);
+        }
+        // (c) ETH gained from SP liquidations (already in address(this).balance, tracked via ETH).
+        // ETH is tracked in pnl_usd via the ETH delta in _endPnL, so no separate credit needed.
 
         _endPnL("F16-04-gho-mint-lusd-stability-pool-carry");
 

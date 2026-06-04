@@ -91,7 +91,7 @@ contract F12_02_PoC is StrategyBase {
             "FXS not flagged claimed"
         );
         require(
-            IVotium(Mainnet.VOTIUM_MULTI_MERKLE_STASH).isClaimed(Mainnet.CRVUSD, 0),
+            IVotium(Mainnet.VOTIUM_MULTI_MERKLE_STASH).isClaimed(Mainnet.CRVUSD, 1),
             "crvUSD not flagged claimed"
         );
 

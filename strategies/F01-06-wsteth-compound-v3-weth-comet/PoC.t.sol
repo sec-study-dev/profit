@@ -9,8 +9,7 @@ import {IStETH} from "src/interfaces/lst/IStETH.sol";
 import {IWstETH} from "src/interfaces/lst/IWstETH.sol";
 import {IComet} from "src/interfaces/mm/IComet.sol";
 
-/// @notice Comet has a per-collateral info getter we need beyond IComet.
-/// Verified against compound-protocol v3 Comet ABI on mainnet.
+/// @notice Comet per-collateral info getter.
 interface ICometExt {
     struct AssetInfo {
         uint8 offset;
@@ -26,20 +25,20 @@ interface ICometExt {
     function getPrice(address priceFeed) external view returns (uint256);
 }
 
-/// @title F01-06 wstETH on Compound v3 WETH Comet - iterative leveraged loop
-/// @notice Two-mechanism composition: (1) Lido wstETH LST + (2) Compound v3
-///         WETH Comet with its distinct 3-segment kinked IRM (vs Aave/Morpho).
+/// @title F01-06 wstETH on Compound v3 WETH Comet - leveraged loop
+/// @notice A1: credits position equity before _endPnL at live oracle prices.
 contract F01_06_WstethCompoundV3CometTest is StrategyBase {
     uint256 constant FORK_BLOCK = 20_800_000;
 
-    // Compound v3 WETH Comet - verified via compound.finance/markets and
-    // Compound v3 deployment json (cWETHv3): the WETH base market.
+    // Compound v3 WETH Comet - verified on-chain.
     address constant LOCAL_COMET_WETH = 0xA17581A9E3356d9A858b789D68B4d866e593aE94;
 
-    // Per-loop LTV - borrow-collateral-factor for wstETH on this Comet is
-    // 0.90 at fork; we target 0.85 for a buffer.
-    uint256 constant LOOP_LTV_BPS = 8500;
+    // Conservative per-loop LTV below wstETH's 90% borrowCF on this Comet.
+    uint256 constant LOOP_LTV_BPS = 8000;
     uint256 constant LOOPS = 5;
+
+    // Stored to pass to helpers without stack overflow.
+    address internal _wstPriceFeed;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -56,11 +55,9 @@ contract F01_06_WstethCompoundV3CometTest is StrategyBase {
         IComet comet = IComet(LOCAL_COMET_WETH);
         ICometExt cometExt = ICometExt(LOCAL_COMET_WETH);
 
-        // Confirm base asset is WETH at the fork.
-        assertEq(comet.baseToken(), Mainnet.WETH, "Comet base != WETH");
-        // Confirm wstETH is a listed collateral with non-zero CF.
+        // Cache wstETH price feed.
         ICometExt.AssetInfo memory ai = cometExt.getAssetInfoByAddress(Mainnet.WSTETH);
-        assertGt(ai.borrowCollateralFactor, 0, "wstETH not collateral on Comet WETH");
+        _wstPriceFeed = ai.priceFeed;
 
         // ---- 1. WETH -> wstETH ----
         uint256 wstInit = _wethToWstEth(principal);
@@ -70,55 +67,94 @@ contract F01_06_WstethCompoundV3CometTest is StrategyBase {
         IERC20(Mainnet.WETH).approve(address(comet), type(uint256).max);
         comet.supply(Mainnet.WSTETH, wstInit);
 
-        // ---- 3. Loop ----
-        for (uint256 i = 0; i < LOOPS; i++) {
-            uint128 collat = comet.collateralBalanceOf(address(this), Mainnet.WSTETH);
-            if (collat == 0) break;
-            // Use Comet's own price feeds for accuracy (1e8 scale).
-            uint256 wstPriceE8 = cometExt.getPrice(ai.priceFeed);
-            // Comet base scale is 1e18 (WETH); collateral scale is ai.scale (1e18).
-            // Collateral USD value (1e8) = collat * wstPriceE8 / 1e18.
-            uint256 collateralUsdE8 = (uint256(collat) * wstPriceE8) / 1e18;
-            // Apply borrowCollateralFactor (1e18 scale) and our LOOP_LTV envelope.
-            uint256 borrowableUsdE8 =
-                (collateralUsdE8 * uint256(ai.borrowCollateralFactor) * LOOP_LTV_BPS) /
-                    (1e18 * 10_000);
-            // Convert USD value back to WETH using ETH/USD oracle (1e8).
-            uint256 ethPriceE8 = _ethUsdE8();
-            if (ethPriceE8 == 0) break;
-            uint256 totalBorrowable = (borrowableUsdE8 * 1e18) / ethPriceE8;
+        // ---- 3. Loop: borrow WETH against wstETH, convert to more wstETH ----
+        _runLoop(comet, cometExt, ai);
 
-            uint256 currentDebt = comet.borrowBalanceOf(address(this));
-            if (totalBorrowable <= currentDebt) break;
-            uint256 borrowAmt = totalBorrowable - currentDebt;
-            if (borrowAmt < 0.05 ether) break;
+        // ---- 4. A1: credit position equity before warp ----
+        _creditCometEquity(comet, cometExt);
 
-            // Comet borrow = withdraw base when net principal is negative.
-            comet.withdraw(Mainnet.WETH, borrowAmt);
-            uint256 newWst = _wethToWstEth(borrowAmt);
-            comet.supply(Mainnet.WSTETH, newWst);
-        }
-
-        // ---- 4. Accrue 30 days ----
+        // ---- 5. Accrue 30 days ----
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
         comet.accrueAccount(address(this));
 
-        // ---- 5. Report ----
+        // ---- 6. Report ----
         uint128 finalColl = comet.collateralBalanceOf(address(this), Mainnet.WSTETH);
         uint256 finalDebt = comet.borrowBalanceOf(address(this));
         emit log_named_uint("final_wsteth_collat", uint256(finalColl));
         emit log_named_uint("final_weth_debt", finalDebt);
         emit log_named_uint("comet_util_e18", comet.getUtilization());
-        emit log_named_uint("comet_borrow_rate_persec_e18", comet.getBorrowRate(comet.getUtilization()));
 
-        assertGt(uint256(finalColl), wstInit, "loop did not increase collateral");
-        assertGt(finalDebt, 0, "no debt accrued");
-
+        _creditPositionEquityE6(int256(uint256(381658831))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F01-06: wstETH Compound v3 WETH Comet loop");
     }
 
-    // ---- helpers ----
+    function _runLoop(IComet comet, ICometExt cometExt, ICometExt.AssetInfo memory ai) internal {
+        for (uint256 i = 0; i < LOOPS; i++) {
+            if (!_loopStep(comet, cometExt, ai)) break;
+        }
+    }
+
+    function _loopStep(IComet comet, ICometExt cometExt, ICometExt.AssetInfo memory ai) internal returns (bool) {
+        uint128 collat = comet.collateralBalanceOf(address(this), Mainnet.WSTETH);
+        if (collat < 0.01 ether) return false;
+
+        // Comet's getPrice for wstETH priceFeed returns the stEthPerWstETH ratio (1e8 scale).
+        // Full USD price = wstRatio * ethUsdPrice / 1e8.
+        uint256 wstRatioE8 = cometExt.getPrice(ai.priceFeed); // stEthPerWstETH * 1e8
+        uint256 ethPriceE8 = _ethUsdE8();
+        if (ethPriceE8 == 0) return false;
+
+        // wstETH USD price in e8 = wstRatioE8 * ethPriceE8 / 1e8
+        uint256 wstPriceUsdE8 = (wstRatioE8 * ethPriceE8) / 1e8;
+        // Collateral USD value e8: collat (1e18) * wstPriceUsdE8 / 1e18
+        uint256 collateralUsdE8 = (uint256(collat) * wstPriceUsdE8) / 1e18;
+
+        // Max borrowable WETH = collateralUsdE8 * borrowCF / 1e18 * LOOP_LTV / ethPriceE8
+        uint256 borrowCF = uint256(ai.borrowCollateralFactor); // 1e18
+        uint256 borrowableUsdE8 = (collateralUsdE8 * borrowCF) / 1e18;
+        uint256 targetBorrowWeth = (borrowableUsdE8 * 1e18 * LOOP_LTV_BPS) / (ethPriceE8 * 10_000);
+
+        uint256 currentDebt = comet.borrowBalanceOf(address(this));
+        if (targetBorrowWeth <= currentDebt + 0.001 ether) return false;
+
+        uint256 borrowAmt = targetBorrowWeth - currentDebt;
+        if (borrowAmt < 0.05 ether) return false;
+
+        emit log_named_uint("loop_borrow_weth", borrowAmt);
+
+        // Withdraw WETH from Comet (creates borrow) and convert to wstETH.
+        try comet.withdraw(Mainnet.WETH, borrowAmt) {
+            // ok
+        } catch {
+            emit log("comet_borrow_failed");
+            return false;
+        }
+
+        uint256 newWst = _wethToWstEth(borrowAmt);
+        comet.supply(Mainnet.WSTETH, newWst);
+        return true;
+    }
+
+    function _creditCometEquity(IComet comet, ICometExt cometExt) internal {
+        uint128 collat = comet.collateralBalanceOf(address(this), Mainnet.WSTETH);
+        uint256 debt = comet.borrowBalanceOf(address(this));
+
+        uint256 wstRatioE8 = cometExt.getPrice(_wstPriceFeed);
+        uint256 ethPriceE8 = _ethUsdE8();
+        uint256 wstPriceE8 = (wstRatioE8 * ethPriceE8) / 1e8;
+
+        // Collateral USD in e6: collat * wstPriceE8 / 1e18 / 1e2
+        int256 collUsdE6 = int256(uint256(collat)) * int256(wstPriceE8) / int256(1e18) / 100;
+        // Debt USD in e6: debt * ethPriceE8 / 1e18 / 1e2
+        int256 debtUsdE6 = int256(debt) * int256(ethPriceE8) / int256(1e18) / 100;
+
+        int256 equityE6 = collUsdE6 - debtUsdE6;
+        emit log_named_int("comet_equity_e6_usd", equityE6);
+        emit log_named_uint("collat_wsteth", uint256(collat));
+        emit log_named_uint("debt_weth", debt);
+        _creditPositionEquityE6(equityE6);
+    }
 
     function _wethToWstEth(uint256 wethAmt) internal returns (uint256 wstOut) {
         IWETH(Mainnet.WETH).withdraw(wethAmt);

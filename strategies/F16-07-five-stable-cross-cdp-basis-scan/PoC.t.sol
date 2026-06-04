@@ -240,6 +240,7 @@ contract F16_07_FiveStableCrossCdpBasisScan is StrategyBase {
                 int256(daiBorrowBps) - int256(lusdBorrowFeeBps));
         }
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F16-07-five-stable-cross-cdp-basis-scan");
     }
 

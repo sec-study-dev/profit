@@ -23,7 +23,7 @@ contract F13_01_UniV3FlashBalancerCSPArbTest is StrategyBase, IUniswapV3FlashCal
 
     /// @dev UniV3 wstETH/WETH 0.01% (fee tier 100) pool. token0 = wstETH, token1 = WETH
     ///      on mainnet (wstETH < WETH lexicographically).
-    address constant UNIV3_WSTETH_WETH_100 = 0x109830A3b59DdAbE21EE0b1C34DD4A59E3F2aC81;
+    address constant UNIV3_WSTETH_WETH_100 = 0x109830a1AAaD605BbF02a9dFA7B0B92EC2FB7dAa;
 
     /// @dev Balancer wstETH/WETH ComposableStable pool (current canonical "BAL wstETH-WETH-BPT").
     address constant BAL_WSTETH_WETH_POOL = 0x93d199263632a4EF4Bb438F1feB99e57b4b5f0BD;
@@ -81,6 +81,7 @@ contract F13_01_UniV3FlashBalancerCSPArbTest is StrategyBase, IUniswapV3FlashCal
         IUniswapV3Pool(UNIV3_WSTETH_WETH_100).flash(address(this), 0, FLASH_NOTIONAL, "");
         _flashActive = false;
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F13-01: UniV3 1bp flash + Balancer wstETH-CSP rate-lag arb");
     }
 

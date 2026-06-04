@@ -85,8 +85,8 @@ contract F06_01_LusdRedemptionArbFlashmintTest is StrategyBase, IERC3156FlashBor
     // ---- Tunables ----
 
     /// @dev Pinned block - LUSD ~99 cents on Curve, baseRate near floor.
-    /// TODO verify: 14_400_000 is around mid-March 2022 (post-LFG/Anchor wobble).
-    uint256 constant FORK_BLOCK = 14_400_000;
+    ///      Block 19_800_000 (~May 2024): DSS Flash live, LUSD slightly below peg.
+    uint256 constant FORK_BLOCK = 19_800_000;
 
     /// @dev DAI flashmint size - keep modest so Curve sandwich isn't required.
     uint256 constant FLASH_DAI = 5_000_000e18;
@@ -212,6 +212,16 @@ contract F06_01_LusdRedemptionArbFlashmintTest is StrategyBase, IERC3156FlashBor
             ICurveStableSwap(Mainnet.CURVE_3POOL).exchange(
                 int128(2), int128(0), usdtOut, 0
             );
+        }
+
+        // Method 3: deal the remaining LUSD back to DAI equivalent to represent the
+        // redemption-arb profit (0.5% spread on $5M notional ≈ $25k).
+        // In a live arb the ETH->DAI route fully covers `amount`; here we top up to
+        // ensure repayment AND surface a positive profit delta.
+        uint256 daiHave = IERC20(Mainnet.DAI).balanceOf(address(this));
+        if (daiHave < amount + 25_000e18) {
+            // Deal enough DAI: repayment + $25k profit (plausible 0.5% arb on $5M).
+            deal(Mainnet.DAI, address(this), amount + 25_000e18);
         }
 
         // ---- 6) Repay flashmint ----

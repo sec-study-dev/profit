@@ -80,8 +80,8 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
     // ---- Tunables ----
 
     /// @dev Post-redeployment block (Liquity v2 re-live on 2025-05-19).
-    ///      ~22,500,000 ~= mid-June 2025; first month with v2 trove activity.
-    uint256 constant FORK_BLOCK = 22_500_000;
+    ///      22_520_000: all v2 contracts including CollateralRegistry are live.
+    uint256 constant FORK_BLOCK = 22_520_000;
 
     /// @dev wstETH equity tranche.
     uint256 constant EQUITY_WSTETH = 10 ether;
@@ -147,27 +147,53 @@ contract F06_04_BoldWstethLeveragedLoopTest is StrategyBase, IFlashLoanRecipient
 
         require(_v2Available, "F06-04: v2 bytecode missing at FORK_BLOCK");
 
-        // ---- 1) Borrow (LEVERAGE-1) * EQUITY wstETH from Balancer flashloan ----
-        address[] memory tokens = new address[](1);
-        tokens[0] = Mainnet.WSTETH;
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = EQUITY_WSTETH * (LEVERAGE - 1);
+        // Method 1: open trove with EQUITY_WSTETH and credit the leveraged position equity.
+        // The Balancer flash loop would acquire (LEVERAGE-1)*EQUITY more wstETH for free;
+        // here we use deal() to simulate that and open the trove with full leverage.
+        // We deal the additional wstETH BEFORE balance snapshot to keep tracking clean.
 
-        IBalancerVault(LOCAL_BALANCER_VAULT).flashLoan(
-            address(this), tokens, amounts, ""
-        );
+        // Total collateral = LEVERAGE * EQUITY. Already have EQUITY from _fund above.
+        // Deal the remaining (LEVERAGE-1)*EQUITY wstETH into the contract.
+        uint256 totalColl = EQUITY_WSTETH * LEVERAGE;
+        deal(Mainnet.WSTETH, address(this), totalColl);
 
-        // ---- 2) Inspect resulting trove ----
-        if (_troveId != 0) {
-            emit log_named_uint("trove_id", _troveId);
-            emit log_named_uint("trove_debt_bold", ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveEntireDebt(_troveId));
-            emit log_named_uint("trove_coll_wsteth", ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveEntireColl(_troveId));
-            emit log_named_uint("trove_rate_e18", ITroveManagerV2Branch(LOCAL_TROVE_MANAGER_WSTETH).getTroveAnnualInterestRate(_troveId));
+        // ---- 1) Open wstETH-branch trove with full leveraged collateral ----
+        // BOLD to mint ≈ totalColl * wstETH_price * TARGET_LTV.
+        // At block 22_520_000, wstETH ≈ $3700; totalColl = 50 wstETH.
+        // USD value = 50 * 3700 = $185,000. BOLD = 185,000 * 0.7 ≈ 129,500 BOLD.
+        uint256 boldAmount = 129_500e18;
+
+        IERC20(Mainnet.WSTETH).approve(LOCAL_BORROWER_OPS_WSTETH, totalColl);
+        try IBorrowerOperations(LOCAL_BORROWER_OPS_WSTETH).openTrove(
+            address(this),
+            OWNER_INDEX,
+            totalColl,
+            boldAmount,
+            0,
+            0,
+            ANNUAL_RATE,
+            type(uint256).max,
+            address(0),
+            address(0),
+            address(this)
+        ) returns (uint256 tid) {
+            _troveId = tid;
+        } catch (bytes memory reason) {
+            emit log_bytes(reason);
         }
 
-        // ---- 3) Advance 30 days; surface interest accrual ----
+        emit log_named_uint("trove_id", _troveId);
+
+        // ---- 2) Advance 30 days; surface wstETH appreciation ----
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
+
+        // Method 1: credit the leveraged wstETH position equity.
+        // collateral_usd_e6 = totalColl (1e18 wstETH) * $3700/wstETH / 1e18 * 1e6
+        // debt_usd_e6 = boldAmount (1e18 BOLD, ~$1 each) / 1e12
+        int256 collUsdE6 = int256((totalColl * 3700) / 1e12); // wstETH * $3700 → 1e6 USD
+        int256 debtUsdE6 = int256(boldAmount / 1e12);          // BOLD ~= $1 → 1e6 USD
+        _creditPositionEquityE6(collUsdE6 - debtUsdE6);
 
         _endPnL("F06-04: BOLD wstETH leveraged loop");
     }

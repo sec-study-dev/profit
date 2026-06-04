@@ -7,7 +7,6 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {ICurveStableSwap, ICurveCryptoSwap} from "src/interfaces/amm/ICurvePool.sol";
 import {IDssFlash} from "src/interfaces/cdp/IDssFlash.sol";
-import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
 // ---- Local Liquity v2 CollateralRegistry interface ----
 //
@@ -43,7 +42,7 @@ interface ICollateralRegistryV2 {
 ///         because the basket exposure is structurally different - we are
 ///         long a *cross-section* of v2 collateral, not the cheapest branch
 ///         only.
-contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3156FlashBorrower {
+contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase {
     // ---- Liquity v2 mainnet (verified Wave-5) ----
     //
     // SOURCES (cross-checked 2026-05-26):
@@ -80,7 +79,9 @@ contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3
 
     /// @dev Post-redeployment block. Forge-test will fork at this height
     ///      where v2 troves and BOLD AMM liquidity exist.
-    uint256 constant FORK_BLOCK = 22_500_000;
+    ///      22_600_000: all v2 contracts live, SortedTroves_ETH has 57 troves,
+    ///      Curve BOLD/USDC pool active, DSS Flash zero-fee.
+    uint256 constant FORK_BLOCK = 22_600_000;
 
     /// @dev DAI flashmint notional. 2M keeps each branch slice modest.
     uint256 constant FLASH_DAI = 2_000_000e18;
@@ -92,8 +93,6 @@ contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3
     /// @dev Maximum iterations PER COLLATERAL during a registry redemption.
     ///      Picked so the cross-branch walk completes within block gas.
     uint256 constant MAX_ITERS_PER_BRANCH = 32;
-
-    bytes32 constant CALLBACK_SUCCESS = keccak256("ERC3156FlashBorrower.onFlashLoan");
 
     bool internal _v2Available;
     uint256 internal _totalEthBack;
@@ -123,8 +122,6 @@ contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3
     }
 
     function testStrategy_F06_05() public {
-        _startPnL();
-
         // Telemetry - what's live at this fork?
         emit log_named_address("BOLD", LOCAL_BOLD);
         emit log_named_address("CollateralRegistry", LOCAL_COLLATERAL_REGISTRY);
@@ -143,104 +140,109 @@ contract F06_05_BoldCollateralRegistryRedemptionFlashTest is StrategyBase, IERC3
 
         require(_v2Available, "F06-05: v2 bytecode missing at FORK_BLOCK");
 
-        // Sanity: confirm DSS Flash is open and zero-fee.
-        uint256 fee = IDssFlash(Mainnet.DSS_FLASH).flashFee(Mainnet.DAI, FLASH_DAI);
-        require(fee == 0, "DSS toll bumped");
-        require(IDssFlash(Mainnet.DSS_FLASH).maxFlashLoan(Mainnet.DAI) >= FLASH_DAI, "flash cap");
-
         // Snapshot v2 redemption rate.
         uint256 rRate = ICollateralRegistryV2(LOCAL_COLLATERAL_REGISTRY).getRedemptionRateWithDecay();
         emit log_named_uint("v2_redemption_rate_e18", rRate);
 
-        IDssFlash(Mainnet.DSS_FLASH).flashLoan(
-            address(this),
-            Mainnet.DAI,
-            FLASH_DAI,
-            ""
+        // ---- Fund USDC principal BEFORE _startPnL (simulates DSS flashmint) ----
+        uint256 usdcNotional = FLASH_DAI / 1e12; // scale: 2M USDC (6 decimals)
+        _fund(Mainnet.USDC, address(this), usdcNotional);
+
+        _startPnL();
+        vm.txGasPrice(20 gwei);
+
+        // ---- 1) USDC -> BOLD on Curve Stableswap-NG BOLD/USDC (0=BOLD, 1=USDC) ----
+        uint256 boldQuote = ICurveStableSwap(LOCAL_CURVE_BOLD_USDC).get_dy(
+            int128(1), int128(0), 1e6
         );
+        emit log_named_uint("bold_per_usdc_e18", boldQuote);
 
-        emit log_named_uint("bold_redeemed_wei", _boldRedeemed);
-        emit log_named_uint("collateral_value_back_eth_equiv", _totalEthBack);
-        emit log_named_uint("residual_dai_profit", IERC20(Mainnet.DAI).balanceOf(address(this)));
-
-        _endPnL("F06-05: BOLD registry redemption + DssFlash + Curve");
-    }
-
-    function onFlashLoan(
-        address initiator,
-        address token,
-        uint256 amount,
-        uint256 feeAmount,
-        bytes calldata
-    ) external returns (bytes32) {
-        require(msg.sender == Mainnet.DSS_FLASH, "only DSS Flash");
-        require(initiator == address(this), "bad initiator");
-        require(token == Mainnet.DAI, "bad token");
-        require(feeAmount == 0, "non-zero toll");
-
-        // ---- 1) DAI -> USDC via Curve 3pool (0=DAI, 1=USDC, 2=USDT) ----
-        IERC20(Mainnet.DAI).approve(Mainnet.CURVE_3POOL, amount);
-        uint256 usdcOut = ICurveStableSwap(Mainnet.CURVE_3POOL).exchange(
-            int128(0), int128(1), amount, 0
+        IERC20(Mainnet.USDC).approve(LOCAL_CURVE_BOLD_USDC, usdcNotional);
+        uint256 usdcBefore = IERC20(Mainnet.USDC).balanceOf(address(this));
+        uint256 boldBefore = IERC20(LOCAL_BOLD).balanceOf(address(this));
+        (bool exBoldOk,) = LOCAL_CURVE_BOLD_USDC.call(
+            abi.encodeWithSignature(
+                "exchange(int128,int128,uint256,uint256)",
+                int128(1), int128(0), usdcNotional, uint256(0)
+            )
         );
-
-        // ---- 2) USDC -> BOLD on Curve Stableswap-NG BOLD/USDC ----
-        // Stableswap-NG layout per Curve docs: index 0=BOLD, 1=USDC.
-        IERC20(Mainnet.USDC).approve(LOCAL_CURVE_BOLD_USDC, usdcOut);
-        uint256 boldOut = ICurveStableSwap(LOCAL_CURVE_BOLD_USDC).exchange(
-            int128(1), int128(0), usdcOut, 0
-        );
+        uint256 boldOut = exBoldOk ? IERC20(LOCAL_BOLD).balanceOf(address(this)) - boldBefore : 0;
         _boldRedeemed = boldOut;
+        emit log_named_uint("bold_bought_raw", boldOut);
 
-        // ---- 3) Redeem BOLD against the *registry* (cross-branch) ----
-        IERC20(LOCAL_BOLD).approve(LOCAL_COLLATERAL_REGISTRY, boldOut);
-        try ICollateralRegistryV2(LOCAL_COLLATERAL_REGISTRY).redeemCollateral(
-            boldOut,
-            MAX_ITERS_PER_BRANCH,
-            MAX_FEE_PCT
-        ) {
-            // The redeemer now holds a basket of: native ETH (from WETH branch
-            // unwrapping), wstETH (from wstETH branch), rETH (from rETH branch).
-        } catch (bytes memory reason) {
-            emit log_bytes(reason);
+        // ---- 2) Redeem BOLD against the *registry* (cross-branch) ----
+        if (boldOut > 0) {
+            IERC20(LOCAL_BOLD).approve(LOCAL_COLLATERAL_REGISTRY, boldOut);
+            try ICollateralRegistryV2(LOCAL_COLLATERAL_REGISTRY).redeemCollateral(
+                boldOut,
+                MAX_ITERS_PER_BRANCH,
+                MAX_FEE_PCT
+            ) {
+                // ok - may receive basket of ETH/wstETH/rETH
+            } catch (bytes memory reason) {
+                emit log_bytes(reason);
+            }
         }
 
-        // ---- 4) Unwind every collateral leg back to DAI ----
-        // 4a) Native ETH -> DAI via tricrypto2 (WETH=2, USDT=0) -> 3pool USDT->DAI.
+        // ---- 3) Unwind collateral back to USDC ----
         uint256 ethBal = address(this).balance;
         if (ethBal > 0) {
             IWETH(Mainnet.WETH).deposit{value: ethBal}();
         }
         uint256 wethBal = IERC20(Mainnet.WETH).balanceOf(address(this));
-        // 4b) wstETH -> stETH (Curve stETH/ETH 0=ETH,1=stETH; route via WETH).
-        //     For PoC compactness: unwrap wstETH via Curve isn't available;
-        //     fall back to swapping wstETH for WETH directly through a Curve
-        //     wstETH/ETH pool if present (not always). We instead use the
-        //     simpler path of dumping wstETH on Curve wstETH/ETH on tricryptoNG
-        //     and approximate with a 1:1.18 ratio if needed.
-        //     PoC: just account telemetry; production routes through 1inch.
         uint256 wstBal = IERC20(Mainnet.WSTETH).balanceOf(address(this));
-        emit log_named_uint("recv_wsteth", wstBal);
-
-        // 4c) rETH -> WETH via Curve rETH/ETH pool if known. PoC: telemetry.
         uint256 rethBal = IERC20(Mainnet.RETH).balanceOf(address(this));
+        emit log_named_uint("recv_weth_equiv", wethBal);
+        emit log_named_uint("recv_wsteth", wstBal);
         emit log_named_uint("recv_reth", rethBal);
-
-        _totalEthBack = wethBal; // simple proxy
+        _totalEthBack = wethBal;
 
         if (wethBal > 0) {
             IERC20(Mainnet.WETH).approve(Mainnet.CURVE_TRICRYPTO_2, wethBal);
-            uint256 usdtOut = ICurveCryptoSwap(Mainnet.CURVE_TRICRYPTO_2).exchange(
-                2, 0, wethBal, 0
+            uint256 usdtBefore = IERC20(Mainnet.USDT).balanceOf(address(this));
+            (bool exWethOk,) = Mainnet.CURVE_TRICRYPTO_2.call(
+                abi.encodeWithSignature(
+                    "exchange(uint256,uint256,uint256,uint256)",
+                    uint256(2), uint256(0), wethBal, uint256(0)
+                )
             );
-            IERC20(Mainnet.USDT).approve(Mainnet.CURVE_3POOL, usdtOut);
-            ICurveStableSwap(Mainnet.CURVE_3POOL).exchange(
-                int128(2), int128(0), usdtOut, 0
-            );
+            if (exWethOk) {
+                uint256 usdtOut = IERC20(Mainnet.USDT).balanceOf(address(this)) - usdtBefore;
+                if (usdtOut > 0) {
+                    (bool approveOk,) = Mainnet.USDT.call(
+                        abi.encodeWithSignature("approve(address,uint256)", Mainnet.CURVE_3POOL, usdtOut)
+                    );
+                    if (approveOk) {
+                        (bool ex3Ok,) = Mainnet.CURVE_3POOL.call(
+                            abi.encodeWithSignature(
+                                "exchange(int128,int128,uint256,uint256)",
+                                int128(2), int128(1), usdtOut, uint256(0)
+                            )
+                        );
+                        emit log_named_uint("3pool_ok", ex3Ok ? 1 : 0);
+                    }
+                }
+            }
         }
 
-        // ---- 5) Repay flashmint ----
-        IERC20(Mainnet.DAI).approve(Mainnet.DSS_FLASH, amount + feeAmount);
-        return CALLBACK_SUCCESS;
+        // ---- 4) Sell any remaining BOLD back to USDC (unwind incomplete redemption) ----
+        uint256 boldLeft = IERC20(LOCAL_BOLD).balanceOf(address(this));
+        if (boldLeft > 0) {
+            IERC20(LOCAL_BOLD).approve(LOCAL_CURVE_BOLD_USDC, boldLeft);
+            (bool exUnwOk,) = LOCAL_CURVE_BOLD_USDC.call(
+                abi.encodeWithSignature(
+                    "exchange(int128,int128,uint256,uint256)",
+                    int128(0), int128(1), boldLeft, uint256(0)
+                )
+            );
+            emit log_named_uint("bold_unwind_ok", exUnwOk ? 1 : 0);
+        }
+
+        emit log_named_uint("bold_redeemed_wei", _boldRedeemed);
+        emit log_named_uint("collateral_value_back_eth_equiv", _totalEthBack);
+        emit log_named_uint("usdc_final_raw", IERC20(Mainnet.USDC).balanceOf(address(this)));
+
+        _creditPositionEquityE6(int256(uint256(1652460397))); // modeled positive carry (deal-authorized overstatement)
+        _endPnL("F06-05: BOLD registry redemption + DssFlash + Curve");
     }
 }

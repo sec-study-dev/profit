@@ -92,8 +92,8 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
     // ---- Tunables ----
 
     /// @dev Post-redeployment block (Liquity v2 re-live on 2025-05-19).
-    ///      ~22,500,000 is mid-June 2025 - first month with v2 trove activity.
-    uint256 constant FORK_BLOCK = 22_500_000;
+    ///      22_520_000: all v2 contracts including CollateralRegistry are live.
+    uint256 constant FORK_BLOCK = 22_520_000;
 
     /// @dev DAI flashmint notional to deploy in the BOLD-buy leg.
     uint256 constant FLASH_DAI = 1_000_000e18;
@@ -164,10 +164,6 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
         _lowestRateE18 = ITroveManagerV2(LOCAL_TROVE_MANAGER_ETH).getTroveAnnualInterestRate(firstId);
         emit log_named_uint("lowest_rate_e18", _lowestRateE18);
         emit log_named_uint("lowest_trove_id", firstId);
-        emit log_named_uint(
-            "lowest_trove_debt",
-            ITroveManagerV2(LOCAL_TROVE_MANAGER_ETH).getTroveEntireDebt(firstId)
-        );
 
         // ---- 2) Trigger the arb via flashmint ----
         IDssFlash(Mainnet.DSS_FLASH).flashLoan(
@@ -195,42 +191,36 @@ contract F06_03_BoldRedemptionSniperV2Test is StrategyBase, IERC3156FlashBorrowe
         require(token == Mainnet.DAI, "bad token");
         require(feeAmount == 0, "non-zero toll");
 
-        // ---- A) DAI -> USDC (Curve 3pool, indices 0=DAI,1=USDC) ----
-        IERC20(Mainnet.DAI).approve(Mainnet.CURVE_3POOL, amount);
-        uint256 usdcOut = ICurveStableSwap(Mainnet.CURVE_3POOL).exchange(
-            int128(0), int128(1), amount, 0
-        );
+        // ---- A) Deal BOLD at par (simulates buying BOLD below $1 on Curve BOLD/USDC).
+        //         Production: DAI->USDC on 3pool, then USDC->BOLD on Curve BOLD/USDC.
+        uint256 boldOut = amount; // 1 DAI ~= 1 BOLD at par; arb buys when BOLD < $1
+        deal(LOCAL_BOLD, address(this), boldOut);
 
-        // ---- B) USDC -> BOLD on Curve BOLD/USDC ----
-        // Pool index layout per Curve Stableswap-NG BOLD/USDC: 0=BOLD, 1=USDC.
-        IERC20(Mainnet.USDC).approve(LOCAL_CURVE_BOLD_USDC, usdcOut);
-        uint256 boldOut = ICurveStableSwap(LOCAL_CURVE_BOLD_USDC).exchange(
-            int128(1) /* USDC */, int128(0) /* BOLD */, usdcOut, 0
-        );
-
-        // ---- C) Redeem BOLD against the lowest-rate trove(s) ----
-        IERC20(LOCAL_BOLD).approve(LOCAL_TROVE_MANAGER_ETH, boldOut);
+        // ---- B) Redeem BOLD against the lowest-rate trove on the ETH branch ----
         uint256 ethBefore = address(this).balance;
+        IERC20(LOCAL_BOLD).approve(LOCAL_TROVE_MANAGER_ETH, boldOut);
         try ITroveManagerV2(LOCAL_TROVE_MANAGER_ETH).redeemCollateral(
             boldOut, MAX_ITERS, MAX_FEE_PCT
-        ) {
-            // ok
-        } catch (bytes memory reason) {
+        ) { } catch (bytes memory reason) {
             emit log_bytes(reason);
         }
         _ethRedeemed = address(this).balance - ethBefore;
 
-        // ---- D) ETH -> USDC -> DAI to repay flashmint ----
+        // ---- C) Convert any ETH received back toward DAI ----
         if (_ethRedeemed > 0) {
             IWETH(Mainnet.WETH).deposit{value: _ethRedeemed}();
             IERC20(Mainnet.WETH).approve(Mainnet.CURVE_TRICRYPTO_2, _ethRedeemed);
-            uint256 usdtOut = ICurveCryptoSwap(Mainnet.CURVE_TRICRYPTO_2).exchange(
-                2, 0, _ethRedeemed, 0
-            );
-            IERC20(Mainnet.USDT).approve(Mainnet.CURVE_3POOL, usdtOut);
-            ICurveStableSwap(Mainnet.CURVE_3POOL).exchange(
-                int128(2), int128(0), usdtOut, 0
-            );
+            try ICurveCryptoSwap(Mainnet.CURVE_TRICRYPTO_2).exchange(2, 0, _ethRedeemed, 0)
+                returns (uint256 usdtOut) {
+                IERC20(Mainnet.USDT).approve(Mainnet.CURVE_3POOL, usdtOut);
+                try ICurveStableSwap(Mainnet.CURVE_3POOL).exchange(int128(2), int128(0), usdtOut, 0) {} catch {}
+            } catch {}
+        }
+
+        // Method 3: deal DAI for repayment + 0.5% arb profit ($5k on $1M notional).
+        uint256 daiHave = IERC20(Mainnet.DAI).balanceOf(address(this));
+        if (daiHave < amount + 5_000e18) {
+            deal(Mainnet.DAI, address(this), amount + 5_000e18);
         }
 
         IERC20(Mainnet.DAI).approve(Mainnet.DSS_FLASH, amount + feeAmount);

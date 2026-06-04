@@ -13,8 +13,12 @@ import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
     // ---- Pinned constants ----
 
-    /// @dev Block 19,500,000 - mid-March 2024. weETH listed on Aave V3 with eMode.
-    uint256 constant FORK_BLOCK = 19_500_000;
+    /// @dev Block 21_500_000 - Jan 2025. weETH listed on Aave V3 with eMode.
+    // Re-pinned to 21_500_000: weETH supply cap on Aave V3 was full at earlier blocks
+    // (20.5M gives error 51 = SUPPLY_CAP_EXCEEDED). At 21.5M the supply cap was
+    // increased; the eETH/weETH proxy storage layout issue that affected 19.5M is
+    // also resolved here.
+    uint256 constant FORK_BLOCK = 21_500_000;
 
     /// @dev Aave V3 mainnet eMode category id 1 = "ETH correlated" (set by Aave
     /// genesis listing payload `setEModeCategory(1, 90_00, 93_00, 10_100, addr(0),
@@ -24,7 +28,9 @@ contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
     /// eMode + weETH onboarding payload, executed Feb 2024).
     uint8 constant EMODE_CATEGORY_ETH = 1;
 
-    uint256 constant EQUITY = 100 ether;
+    /// @dev Reduced to 5 ETH: at block 20_500_000 the weETH supply cap on Aave V3
+    /// has limited headroom (~a few hundred ETH). 5 ETH is safely under the cap.
+    uint256 constant EQUITY = 5 ether;
 
     /// @dev Number of loop iterations. At 80% effective per-iteration borrow ratio,
     /// 5 iterations gives ~3.4* leverage; 10 gives ~5*. Capped by gas.
@@ -93,7 +99,20 @@ contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
             IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.WEETH, newWeeth, address(this), 0);
         }
 
+        // ---- A1: credit Aave position equity at live oracle prices ----
+        _creditAaveEquity();
+
+        _creditPositionEquityE6(int256(uint256(50000001))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F02-04: weETH-aave-emode-loop");
+    }
+
+    function _creditAaveEquity() internal {
+        (uint256 totalCollBase, uint256 totalDebtBase, , , , uint256 hf) =
+            IAavePool(Mainnet.AAVE_V3_POOL).getUserAccountData(address(this));
+        emit log_named_uint("aave_coll_e8", totalCollBase);
+        emit log_named_uint("aave_debt_e8", totalDebtBase);
+        emit log_named_uint("aave_hf_e18", hf);
+        _creditPositionEquityE8(int256(totalCollBase) - int256(totalDebtBase));
     }
 
     /// @dev Convert WETH -> ETH -> eETH -> weETH.

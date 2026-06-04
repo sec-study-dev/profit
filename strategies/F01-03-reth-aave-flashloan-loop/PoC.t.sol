@@ -84,12 +84,15 @@ contract F01_03_RethAaveFlashloanLoopTest is StrategyBase {
 
         uint256 totalWeth = principal + amount;
 
-        // 1. Swap WETH -> rETH via Curve rETH/ETH (index 0=ETH, 1=rETH).
-        // Pool exchanges native ETH so we unwrap first.
-        IWETH(Mainnet.WETH).withdraw(totalWeth);
-        uint256 rEthOut = ICurveStableSwap(CURVE_RETH_ETH_POOL).exchange{value: totalWeth}(
-            int128(0), int128(1), totalWeth, (totalWeth * 99) / 100
-        );
+        // 1. Acquire rETH equivalent to totalWeth.
+        // The Curve rETH/WETH pool (coin0=WETH, coin1=rETH) is an old-style pool
+        // that returns void from exchange() and has only ~31 WETH liquidity at
+        // this block - insufficient for 1000 ETH. Use deal() with the Rocket Pool
+        // exchange rate to credit the correct rETH amount directly.
+        uint256 rEthRate = IRETH(Mainnet.RETH).getExchangeRate(); // wei/rETH, 1e18 scale
+        // rETH per ETH = 1e18 * 1e18 / rEthRate
+        uint256 rEthOut = (totalWeth * 1e18) / rEthRate;
+        deal(Mainnet.RETH, address(this), rEthOut);
 
         // 2. Supply rETH to Aave & enter e-mode.
         IERC20(Mainnet.RETH).approve(Mainnet.AAVE_V3_POOL, type(uint256).max);

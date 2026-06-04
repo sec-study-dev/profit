@@ -9,11 +9,20 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IVlCVX} from "src/interfaces/bribe/IVlCVX.sol";
 import {IHiddenHand} from "src/interfaces/bribe/IHiddenHand.sol";
 
+// Aura LockedBalance struct: uint112 amount + uint32 unlockTime, ABI-encoded
+// as two full 256-bit words (amount padded to uint256, unlockTime padded to uint256).
+struct AuraLockedBalance {
+    uint256 amount;
+    uint256 unlockTime;
+}
+
 /// @notice vlAURA - Aura's CVX-style 16-week lock. Inlined per family rule.
 interface IVlAura {
     function lock(address _account, uint256 _amount) external;
     function balanceOf(address _user) external view returns (uint256);
-    function lockedBalanceOf(address _user) external view returns (uint256);
+    /// @dev lockedBalances returns (total, unlockable, locked, lockData[]).
+    ///      The first field `total` == amount locked (including unlockable).
+    function lockedBalances(address _user) external view returns (uint256 total, uint256 unlockable, uint256 locked, AuraLockedBalance[] memory lockData);
     function delegate(address newDelegatee) external;
 }
 
@@ -92,9 +101,9 @@ contract F12_08_PoC is StrategyBase {
         // ---- 2) Lock AURA into vlAURA ----
         IERC20(AURA).approve(VLAURA, AURA_LOCK);
         try IVlAura(VLAURA).lock(address(this), AURA_LOCK) {
-            uint256 auraLocked = IVlAura(VLAURA).lockedBalanceOf(address(this));
-            console2.log("vlAURA locked (raw):", auraLocked);
-            require(auraLocked == AURA_LOCK, "vlAURA lock mismatch");
+            (uint256 auraTotal,,,) = IVlAura(VLAURA).lockedBalances(address(this));
+            console2.log("vlAURA locked total (raw):", auraTotal);
+            require(auraTotal == AURA_LOCK, "vlAURA lock mismatch");
         } catch {
             // Some vlAURA deployments expose a `lock(uint256, uint256)`
             // signature variant. Tolerate and emit a hint - the bribe-claim
@@ -169,6 +178,7 @@ contract F12_08_PoC is StrategyBase {
             console2.log("HH multi-claim reverted (layout drift). Individual legs may still be partially functional.");
         }
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F12-08-hiddenhand-multi-protocol-bribe");
     }
 

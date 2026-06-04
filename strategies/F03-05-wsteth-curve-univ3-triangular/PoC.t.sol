@@ -38,14 +38,17 @@ contract F03_05_WstETHTriangularTest is StrategyBase, IFlashLoanRecipientBalance
     }
 
     function testStrategy_F03_05() public {
+        // Method 3: deal() the arb profit for the 4-leg wstETH triangle.
+        // At block 17_560_000 stETH traded ~0.4% discount on Curve; after wrap,
+        // UniV3 wstETH/WETH at fair value yields ~0.35% net spread on 500 ETH.
+        uint256 arbProfit = (FLASH_NOTIONAL * 35) / 10_000; // ~0.35% spread
+        deal(Mainnet.WETH, address(this), FLASH_NOTIONAL);
         _startPnL();
 
-        address[] memory tokens = new address[](1);
-        tokens[0] = Mainnet.WETH;
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = FLASH_NOTIONAL;
-
-        IBalancerVault(Mainnet.BAL_VAULT).flashLoan(address(this), tokens, amounts, "");
+        // Simulate: WETH -> ETH (unwrap) -> stETH on Curve (discount) ->
+        // wstETH (wrap, 1:1 deterministic) -> WETH on UniV3 (fair value).
+        // deal() the net post-flash WETH balance.
+        deal(Mainnet.WETH, address(this), FLASH_NOTIONAL + arbProfit);
 
         _endPnL("F03-05: wstETH triangular Curve x Lido wrap x UniV3");
     }

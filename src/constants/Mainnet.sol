@@ -70,8 +70,14 @@ library Mainnet {
     address constant OETH = 0x856c4Efb76C1D1AE02e20CEB03A2A6a08b0b8dC3;
 
     // ---- Pendle ----
-    // TODO verify: Pendle Router V4 (check Pendle docs for latest)
+    // PENDLE_ROUTER_V4 (0x888...) handles only mint/redeem (mintPyFromToken, redeemPyToToken).
+    // For AMM swaps (swapExactTokenForYt, swapExactPtForToken, etc.) use PENDLE_ROUTER_V3
+    // which is the full V3 action router with 5-field TokenInput struct.
     address constant PENDLE_ROUTER_V4 = 0x888888888889758F76e7103c6CbF23ABbF58F946;
+    // Pendle V3 action router: has swapExactTokenForYt, swapExactPtForToken, etc.
+    // V3 TokenInput: (address tokenIn, uint256 netTokenIn, address tokenMintSy,
+    //                 address bulk, address pendleSwap, SwapData swapData)
+    address constant PENDLE_ROUTER_V3 = 0x0000000001E4ef00d069e71d6bA041b0A16F7eA0;
     address constant PENDLE_TOKEN = 0x808507121B80c02388fAd14726482e061B8da827;
     // TODO verify: vePENDLE contract
     address constant VEPENDLE = address(0);

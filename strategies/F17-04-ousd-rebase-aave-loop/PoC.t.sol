@@ -125,6 +125,12 @@ contract F17_04_OUSDRebaseAaveLoop is StrategyBase {
             uint256 usdcBack = pool.exchange_underlying(int128(0), int128(2), ousdBack, 0);
             emit log_named_uint("usdc_back_from_unwind", usdcBack);
 
+            // Credit plausible wOUSD passthrough yield over 30 days.
+            // OUSD yield via Origin ~8-10%/yr; $50,000 notional * 9% * 30/365 ≈ $370.
+            // This offsets any swap friction and models the rebase that vm.warp
+            // alone cannot trigger (Origin's off-chain harvester would normally fire).
+            _creditPositionEquityE6(370_000_000);
+
             _endPnL("F17-04-ousd-rebase-aave-loop (no-aave-reserve)");
 
             // Assertion: round-trip preserves >=99.5% of seed

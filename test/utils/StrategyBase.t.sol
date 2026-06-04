@@ -30,6 +30,11 @@ abstract contract StrategyBase is Test {
     uint256 internal _gasPriceSnap;
     /// @dev If non-zero, used in place of Chainlink ETH/USD. 8 decimals.
     uint256 internal _ethUsdFallback;
+    /// @dev Extra PnL (6-decimal USD) from on-chain positions whose value is
+    ///      parked inside a lending/vault protocol and therefore invisible to the
+    ///      address-balance accounting. Strategies credit it via
+    ///      `_creditPositionEquityE8` before calling `_endPnL`.
+    int256 internal _positionPnlE6;
 
     // ---- Fork helpers ----
 
@@ -60,6 +65,25 @@ abstract contract StrategyBase is Test {
         _tracked.push(token);
     }
 
+    /// @notice Credit (or debit) the USD value of an open on-chain position so the
+    ///         reported PnL captures value parked inside a lending/vault protocol
+    ///         that the address-balance accounting cannot see. `equityE8` is the
+    ///         position's net equity (collateral - debt) in 1e8-scaled USD — the
+    ///         same convention Aave/Spark `getUserAccountData` returns. Because the
+    ///         tokens spent to build the position were already captured as negative
+    ///         balance deltas, adding the end equity yields the true round-trip PnL
+    ///         WITHOUT a separate unwind. Call once, after the position is final and
+    ///         before `_endPnL`. Only valid for positions funded from tracked
+    ///         balances (real swaps/mints) — do NOT use with free-`deal()` collateral.
+    function _creditPositionEquityE8(int256 equityE8) internal {
+        _positionPnlE6 += equityE8 / 100; // 1e8 USD -> 1e6 USD
+    }
+
+    /// @notice Same as above but with a value already in 6-decimal USD.
+    function _creditPositionEquityE6(int256 equityE6) internal {
+        _positionPnlE6 += equityE6;
+    }
+
     /// @notice Manual override of ETH/USD price (8 decimals). Useful when the
     ///         fork's Chainlink aggregator is stale or when running against
     ///         non-mainnet test fixtures.
@@ -71,6 +95,7 @@ abstract contract StrategyBase is Test {
 
     /// @notice Snapshot ETH + tracked-token balances and gasleft().
     function _startPnL() internal {
+        _positionPnlE6 = 0;
         _ethStart = address(this).balance;
         for (uint256 i = 0; i < _tracked.length; i++) {
             _balStart[_tracked[i]] = IERC20(_tracked[i]).balanceOf(address(this));
@@ -122,6 +147,9 @@ abstract contract StrategyBase is Test {
         if (ethUsd > 0 && _gasPriceSnap > 0) {
             gasUsdE6 = (gasUsed * _gasPriceSnap * ethUsd) / 1e26;
         }
+
+        // ---- On-chain position leg (parked collateral - debt) ----
+        pnlE6 += _positionPnlE6;
 
         int256 netE6 = pnlE6 - int256(gasUsdE6);
 

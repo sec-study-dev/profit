@@ -15,15 +15,17 @@ import {IPPrincipalToken} from "src/interfaces/pendle/IPPrincipalToken.sol";
 ///         warp past maturity and redeem PT 1:1 for SY -> USDC via the Pendle
 ///         router. Returns the redemption gap (minus Pendle/SY fees).
 contract F07_04_PtSyMaturityArbTest is StrategyBase {
-    // ---- Block (3-4 days pre-maturity) ----
-    /// @dev ~Sep 22 2024, 4 days before 26-SEP-2024 PT-sUSDe expiry.
-    uint256 constant FORK_BLOCK = 20_661_000;
+    // ---- Block (5 days pre-maturity) ----
+    /// @dev ~Jul 20 2024, 5 days before 25-JUL-2024 PT-sUSDe expiry.
+    ///      SY-sUSDe-26JUL2024 only accepts USDe as tokenIn/tokenOut.
+    uint256 constant FORK_BLOCK = 20_350_000;
 
-    // ---- Pendle market (PT/YT/SY-sUSDe-26SEP2024) ----
+    // ---- Pendle market (PT/YT/SY-sUSDe-26JUL2024) ----
+    /// @dev Expiry: 1721865600 (Jul 25, 2024). SY only accepts USDe.
     address constant LOCAL_MARKET = 0x19588F29f9402Bb508007FeADd415c875Ee3f19F;
 
-    // ---- Equity ----
-    uint256 constant EQUITY_USDC = 1_000_000e6;
+    // ---- Equity (100K USDe; SY-sUSDe only accepts USDe not USDC) ----
+    uint256 constant EQUITY_USDE = 100_000e18;
 
     // ---- State ----
     address internal _sy;
@@ -44,21 +46,22 @@ contract F07_04_PtSyMaturityArbTest is StrategyBase {
     }
 
     function testStrategy_F07_04() public {
-        _fund(Mainnet.USDC, address(this), EQUITY_USDC);
+        _fund(Mainnet.USDE, address(this), EQUITY_USDE);
         _startPnL();
 
-        IERC20(Mainnet.USDC).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
+        IERC20(Mainnet.USDE).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
 
-        // ---- 1. Buy PT at near-maturity discount ----
-        uint256 ptOut = _swapUsdcForPt(EQUITY_USDC, 0);
+        // ---- 1. Buy PT at near-maturity discount (fund and tokenIn = USDe) ----
+        uint256 ptOut = _swapUsdeForPt(EQUITY_USDE, 0);
         emit log_named_uint("pt_received_1e18", ptOut);
         // Implied entry "fixed yield" over the remaining ~4 days is read off
         // the AMM via market.readState; not strictly necessary for PoC PnL.
 
         // ---- 2. Warp past maturity ----
         require(_expiry > block.timestamp, "already expired at fork block");
+        uint256 secondsUntilExpiry = _expiry - block.timestamp;
+        vm.roll(block.number + ((secondsUntilExpiry + 1 hours) / 12 + 1));
         vm.warp(_expiry + 1 hours);
-        vm.roll(block.number + ((_expiry - block.timestamp + 1 hours) / 12 + 1));
 
         // Confirm expiry status
         assertTrue(IPPrincipalToken(_pt).isExpired(), "PT should be expired");
@@ -69,10 +72,11 @@ contract F07_04_PtSyMaturityArbTest is StrategyBase {
         IERC20(_pt).approve(Mainnet.PENDLE_ROUTER_V4, ptOut);
 
         IPendleRouter.SwapData memory emptySwap;
+        // SY-sUSDe-26JUL2024 only supports USDe as tokenRedeemSy.
         IPendleRouter.TokenOutput memory output = IPendleRouter.TokenOutput({
-            tokenOut: Mainnet.USDC,
+            tokenOut: Mainnet.USDE,
             minTokenOut: 0,
-            tokenRedeemSy: Mainnet.USDC,
+            tokenRedeemSy: Mainnet.USDE,
             pendleSwap: address(0),
             swapData: emptySwap
         });
@@ -87,21 +91,21 @@ contract F07_04_PtSyMaturityArbTest is StrategyBase {
         try IPendleRouter(Mainnet.PENDLE_ROUTER_V4).redeemPyToToken(
             address(this), _yt, ptOut, output
         ) returns (uint256 netTokenOut, uint256) {
-            emit log_named_uint("redeemed_usdc_via_router_1e6", netTokenOut);
+            emit log_named_uint("redeemed_usde_via_router_1e18", netTokenOut);
         } catch {
             // Fallback: manual PT -> SY (via YT.redeemPY) -> tokenOut (via SY.redeem).
             _fallbackRedeem(ptOut);
         }
 
-        emit log_named_uint("final_usdc_1e6", IERC20(Mainnet.USDC).balanceOf(address(this)));
-        emit log_named_uint("equity_usdc_1e6", EQUITY_USDC);
+        emit log_named_uint("final_usde_1e18", IERC20(Mainnet.USDE).balanceOf(address(this)));
+        emit log_named_uint("equity_usde_1e18", EQUITY_USDE);
 
         _endPnL("F07-04: PT/SY maturity redemption arb");
     }
 
     // ---- Helpers ----
 
-    function _swapUsdcForPt(uint256 usdcIn, uint256 minPtOut) internal returns (uint256 netPtOut) {
+    function _swapUsdeForPt(uint256 usdeIn, uint256 minPtOut) internal returns (uint256 netPtOut) {
         IPendleRouter.ApproxParams memory approx = IPendleRouter.ApproxParams({
             guessMin: 0,
             guessMax: type(uint256).max,
@@ -110,10 +114,11 @@ contract F07_04_PtSyMaturityArbTest is StrategyBase {
             eps: 1e15
         });
         IPendleRouter.SwapData memory emptySwap;
+        // SY-sUSDe-26JUL2024 only accepts USDe as tokenIn.
         IPendleRouter.TokenInput memory input = IPendleRouter.TokenInput({
-            tokenIn: Mainnet.USDC,
-            netTokenIn: usdcIn,
-            tokenMintSy: Mainnet.USDC,
+            tokenIn: Mainnet.USDE,
+            netTokenIn: usdeIn,
+            tokenMintSy: Mainnet.USDE,
             pendleSwap: address(0),
             swapData: emptySwap
         });
@@ -131,14 +136,14 @@ contract F07_04_PtSyMaturityArbTest is StrategyBase {
         uint256 syOut = IPYieldToken(_yt).redeemPY(address(this));
         emit log_named_uint("sy_received_1e18", syOut);
 
-        // SY -> USDC. SY-sUSDe accepts USDC, USDT, sUSDe, USDe as tokensOut.
+        // SY -> USDe. SY-sUSDe-26JUL2024 only accepts USDe as tokenOut.
         IERC20(_sy).approve(_sy, syOut); // SY.redeem(burnFromInternalBalance=false) uses transferFrom
         (bool ok, bytes memory ret) = _sy.call(
             abi.encodeWithSignature(
                 "redeem(address,uint256,address,uint256,bool)",
                 address(this),
                 syOut,
-                Mainnet.USDC,
+                Mainnet.USDE,
                 0,
                 false
             )

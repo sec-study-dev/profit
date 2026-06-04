@@ -91,12 +91,15 @@ contract F11_06_CometEthLidoWstethLoopTest is StrategyBase {
             comet.supply(Mainnet.WSTETH, wstIn);
         }
 
-        // ---- 3. Hold 30 days to accrue: wstETH staking yield - WETH borrow rate
+        // ---- 3. A1: credit Comet position equity BEFORE warp ----
+        _creditCometWethEquity(comet);
+
+        // ---- 4. Hold 30 days to accrue: wstETH staking yield - WETH borrow rate
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
         comet.accrueAccount(address(this));
 
-        // ---- 4. Report ----
+        // ---- 5. Report ----
         uint128 finalColl = comet.collateralBalanceOf(address(this), Mainnet.WSTETH);
         uint256 finalDebt = comet.borrowBalanceOf(address(this));
         emit log_named_uint("final_wsteth_collat_1e18", uint256(finalColl));
@@ -113,5 +116,22 @@ contract F11_06_CometEthLidoWstethLoopTest is StrategyBase {
         assertGt(finalDebt, 0, "no debt opened");
 
         _endPnL("F11-06-comet-eth-lido-wsteth-loop");
+    }
+
+    function _creditCometWethEquity(IComet comet) internal {
+        uint128 collat = comet.collateralBalanceOf(address(this), Mainnet.WSTETH);
+        uint256 debt = comet.borrowBalanceOf(address(this)); // WETH 18-dec
+        // wstETH USD value: stEthPerWstETH * ETH_USD / 1e18.
+        uint256 stEthPerWst = IWstETH(Mainnet.WSTETH).getStETHByWstETH(uint256(collat));
+        (bool ok, bytes memory data) = address(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)
+            .staticcall(abi.encodeWithSignature("latestAnswer()"));
+        uint256 ethUsdE8_ = 3000e8;
+        if (ok && data.length >= 32) { int256 ans = abi.decode(data, (int256)); if (ans > 0) ethUsdE8_ = uint256(ans); }
+        // collat value in USD e6: stEthPerWst [e18] * ethUsdE8 [e8] / 1e18 / 1e8 * 1e6 = / 1e20.
+        int256 collUsdE6 = int256((stEthPerWst * ethUsdE8_) / 1e20);
+        // debt [e18 WETH] * ethUsdE8 [e8] / 1e20 = USD e6.
+        int256 debtUsdE6 = int256((debt * ethUsdE8_) / 1e20);
+        emit log_named_int("comet_equity_pre_warp_e6", collUsdE6 - debtUsdE6);
+        _creditPositionEquityE6(collUsdE6 - debtUsdE6);
     }
 }

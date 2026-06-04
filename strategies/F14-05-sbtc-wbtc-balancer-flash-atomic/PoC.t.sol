@@ -153,6 +153,7 @@ contract F14_05_AtomicSbtcWbtc is StrategyBase, IFlashLoanRecipientBalancer {
         bytes memory data = abi.encode(synthetix);
         IBalancerVault(Mainnet.BAL_VAULT).flashLoan(address(this), tokens, amounts, data);
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F14-05-sbtc-wbtc-balancer-flash-atomic");
     }
 

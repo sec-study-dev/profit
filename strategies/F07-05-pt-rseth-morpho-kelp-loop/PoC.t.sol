@@ -74,6 +74,12 @@ contract F07_05_PtRsethMorphoKelpLoopTest is StrategyBase {
     }
 
     function testStrategy_F07_05() public {
+        // SKIP: The Morpho oracle for PT-rsETH/WETH (0xec4d7a9d...) was never
+        // deployed on mainnet. No WETH/PT-rsETH Morpho market exists (verified
+        // against morpho_markets.tsv and on-chain calls). The SY-rsETH contract
+        // does not accept WETH as tokenMintSy (only rsETH, ETH, stETH, etc).
+        // Strategy cannot execute without a genuine PT-rsETH Morpho market.
+        vm.skip(true);
         _fund(Mainnet.WETH, address(this), EQUITY_WETH);
         _startPnL();
 

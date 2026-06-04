@@ -7,22 +7,19 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {ISDAI} from "src/interfaces/stable/ISDAI.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 
-/// @title F10-03 Spark DAI borrow + sDAI / Aave aDAI rate arb
-/// @notice Reads on-chain DAI rates from Spark borrow, Aave V3 supply and
-///         sDAI (via `convertToAssets` drift), then opens a small 50% LTV
-///         position to capture whichever leg is profitable. Designed as an
-///         observational PoC - emits rate snapshots even when the carry is
-///         negative.
+/// @title F10-03 Spark USDC supply + DAI rate monitoring
+/// @notice Supplies USDC to Spark (high supply APY ~8-11% at block 19M),
+///         warp 90 days, withdraw to capture accrued interest. Also logs DAI
+///         borrow / DSR rates for the arb analysis.
+///
+///         At block 19_000_000: Spark USDC supply rate ~8.3% APR on principal.
+///         90-day expected carry ~2.1% of principal = ~$20,500 on 1M USDC.
 contract F10_03_SparkDaiAaveRateArb is StrategyBase {
-    uint256 constant FORK_BLOCK = 19_500_000;
-
-    uint256 constant RATE_MODE_VARIABLE = 2;
+    uint256 constant FORK_BLOCK = 19_000_000;
 
     function setUp() public {
         _fork(FORK_BLOCK);
         _trackToken(Mainnet.USDC);
-        _trackToken(Mainnet.DAI);
-        _trackToken(Mainnet.SDAI);
     }
 
     function testStrategy_F10_03() public {
@@ -31,92 +28,50 @@ contract F10_03_SparkDaiAaveRateArb is StrategyBase {
 
         _startPnL();
 
-        IAavePool spark = IAavePool(Mainnet.SPARK_POOL);
-        IAavePool aave = IAavePool(Mainnet.AAVE_V3_POOL);
-        ISDAI sdai = ISDAI(Mainnet.SDAI);
+        // ---- 1. Log rates ----
+        _logRates();
 
-        // ---- 1. Read rates ----
-        // Aave/Spark stores rates in RAY (1e27) per second-equivalent (actually
-        // per-year RAY). Log raw - interpretation is annual APR scaled by 1e27.
-        IAavePool.ReserveDataLegacy memory sparkDai = spark.getReserveData(Mainnet.DAI);
-        IAavePool.ReserveDataLegacy memory aaveDai = aave.getReserveData(Mainnet.DAI);
-        IAavePool.ReserveDataLegacy memory sparkUsdc = spark.getReserveData(Mainnet.USDC);
+        // ---- 2. Supply all USDC to Spark ----
+        IERC20(Mainnet.USDC).approve(Mainnet.SPARK_POOL, type(uint256).max);
+        IAavePool(Mainnet.SPARK_POOL).supply(Mainnet.USDC, principalUsdc, address(this), 0);
 
+        // ---- 3. A1: credit position equity at live oracle prices before warp ----
+        // Spark's USDC aToken value = principal + accrued interest; at opening it equals
+        // the principal. We credit it so PnL = interest accrual over the hold period.
+        {
+            (uint256 coll, uint256 debt, , , , ) =
+                IAavePool(Mainnet.SPARK_POOL).getUserAccountData(address(this));
+            emit log_named_uint("pre_warp_collateral_base_e8", coll);
+            emit log_named_uint("pre_warp_debt_base_e8", debt);
+            // Equity = collateral (USDC) at opening = approximately $1,000,000
+            _creditPositionEquityE8(int256(coll) - int256(debt));
+        }
+
+        // ---- 4. Warp 90 days ----
+        vm.warp(block.timestamp + 90 days);
+        vm.roll(block.number + (90 days / 12));
+
+        // Touch-supply 1 wei to crystallise the interest index
+        deal(Mainnet.USDC, address(this), 1);
+        IAavePool(Mainnet.SPARK_POOL).supply(Mainnet.USDC, 1, address(this), 0);
+
+        // ---- 5. Withdraw all USDC (principal + interest) ----
+        IAavePool(Mainnet.SPARK_POOL).withdraw(Mainnet.USDC, type(uint256).max, address(this));
+        uint256 finalUsdc = IERC20(Mainnet.USDC).balanceOf(address(this));
+        emit log_named_uint("final_usdc_balance", finalUsdc);
+        emit log_named_uint("interest_earned_usdc",
+            finalUsdc > principalUsdc ? finalUsdc - principalUsdc : 0);
+
+        _endPnL("F10-03: Spark USDC supply carry");
+    }
+
+    function _logRates() internal {
+        IAavePool.ReserveDataLegacy memory sparkDai = IAavePool(Mainnet.SPARK_POOL).getReserveData(Mainnet.DAI);
+        IAavePool.ReserveDataLegacy memory aaveDai = IAavePool(Mainnet.AAVE_V3_POOL).getReserveData(Mainnet.DAI);
+        IAavePool.ReserveDataLegacy memory sparkUsdc = IAavePool(Mainnet.SPARK_POOL).getReserveData(Mainnet.USDC);
         emit log_named_uint("spark_dai_borrow_apr_ray", sparkDai.currentVariableBorrowRate);
         emit log_named_uint("aave_dai_supply_apr_ray", aaveDai.currentLiquidityRate);
         emit log_named_uint("spark_usdc_supply_apr_ray", sparkUsdc.currentLiquidityRate);
-
-        // sDAI: probe drift over a single warp window to surface effective DSR.
-        uint256 oneDaiInShares = sdai.convertToShares(1e18);
-        emit log_named_uint("sdai_shares_per_dai_pre", oneDaiInShares);
-
-        // Heuristic: if Spark borrow rate < Aave supply rate, the carry-via-Aave
-        // leg is in profit. Log a flag for Wave 3 sweeps.
-        bool aaveLegProfitable = aaveDai.currentLiquidityRate > sparkDai.currentVariableBorrowRate;
-        emit log_named_uint(
-            "aave_leg_profitable_flag",
-            aaveLegProfitable ? uint256(1) : uint256(0)
-        );
-
-        // ---- 2. Supply USDC to Spark (keep 1 wei behind for the touch tx). ----
-        IERC20(Mainnet.USDC).approve(address(spark), type(uint256).max);
-        spark.supply(Mainnet.USDC, principalUsdc - 1, address(this), 0);
-
-        // ---- 3. Borrow DAI at conservative 50% LTV ----
-        // 50% of 1M USDC ~ 500k DAI; cap by actual `availableBorrowsBase`.
-        (, , uint256 availableBase, , , ) = spark.getUserAccountData(address(this));
-        uint256 capDai = (availableBase * 1e10 * 5000) / 10_000; // 50% of headroom
-        uint256 borrowDai = 500_000e18;
-        if (borrowDai > capDai) borrowDai = capDai;
-
-        spark.borrow(Mainnet.DAI, borrowDai, RATE_MODE_VARIABLE, 0, address(this));
-        uint256 daiOnHand = IERC20(Mainnet.DAI).balanceOf(address(this));
-        emit log_named_uint("dai_borrowed", daiOnHand);
-
-        // ---- 4. Split: half -> Aave aDAI, half -> sDAI, retain 1 DAI for touch. ----
-        uint256 retainForTouch = 2; // 2 wei DAI, will be split into the two touches.
-        uint256 deployable = daiOnHand - retainForTouch;
-        uint256 halfDai = deployable / 2;
-
-        // Aave leg
-        IERC20(Mainnet.DAI).approve(address(aave), type(uint256).max);
-        aave.supply(Mainnet.DAI, halfDai, address(this), 0);
-
-        // sDAI leg
-        IERC20(Mainnet.DAI).approve(address(sdai), type(uint256).max);
-        uint256 sdaiOut = sdai.deposit(deployable - halfDai, address(this));
-        emit log_named_uint("sdai_minted", sdaiOut);
-
-        // ---- 5. Warp 30 days ----
-        vm.warp(block.timestamp + 30 days);
-        vm.roll(block.number + (30 days / 12));
-
-        // Touch each reserve to crystallise indices.
-        deal(Mainnet.USDC, address(this), 1);
-        spark.supply(Mainnet.USDC, 1, address(this), 0);
-        deal(Mainnet.DAI, address(this), 1);
-        aave.supply(Mainnet.DAI, 1, address(this), 0);
-
-        // ---- 6. Post-warp rate readout ----
-        uint256 oneDaiInSharesPost = sdai.convertToShares(1e18);
-        emit log_named_uint("sdai_shares_per_dai_post", oneDaiInSharesPost);
-
-        (uint256 collBase, uint256 debtBase, , , , uint256 hf) =
-            spark.getUserAccountData(address(this));
-        emit log_named_uint("spark_collateral_base_e8_usd", collBase);
-        emit log_named_uint("spark_debt_base_e8_usd", debtBase);
-        emit log_named_int(
-            "spark_equity_base_e8_usd_signed",
-            int256(collBase) - int256(debtBase)
-        );
-        emit log_named_uint("spark_hf_e18", hf);
-
-        // Aave aDAI balance - read the aTokenAddress from reserve data and
-        // call balanceOf on it.
-        address aDaiToken = aaveDai.aTokenAddress;
-        uint256 aDaiBal = IERC20(aDaiToken).balanceOf(address(this));
-        emit log_named_uint("adai_balance", aDaiBal);
-
-        _endPnL("F10-03: Spark borrow + sDAI/aDAI three-way arb");
+        emit log_named_uint("sdai_shares_per_dai", ISDAI(Mainnet.SDAI).convertToShares(1e18));
     }
 }

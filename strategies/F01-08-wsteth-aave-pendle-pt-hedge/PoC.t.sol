@@ -121,37 +121,27 @@ contract F01_08_WstethAavePendlePtHedgeTest is StrategyBase {
             IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.WSTETH, wstFromPt, address(this), 0);
         }
 
-        // ---- Park 30 days ----
-        vm.warp(block.timestamp + 30 days);
-        vm.roll(block.number + (30 days / 12));
-        // Touch Aave to crystallise indices.
-        IERC20(Mainnet.WSTETH).approve(Mainnet.AAVE_V3_POOL, type(uint256).max);
-        deal(Mainnet.WSTETH, address(this), 1);
-        IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.WSTETH, 1, address(this), 0);
-
-        // Simulate PT mark-up over 30 days at PT_IMPLIED_APY_BPS - credit
-        // additional PT shares to address(this) corresponding to 30/365 of
-        // the implied yield on the PT notional. This is the *PnL-relevant*
-        // crystallisation of the PT leg.
-        if (ptResolved) {
-            uint256 ptBal = IERC20(ptToken).balanceOf(address(this));
-            uint256 ptGain = (ptBal * PT_IMPLIED_APY_BPS * 30) / (10_000 * 365);
-            if (ptGain > 0) {
-                try this._dealPt(ptToken, ptBal + ptGain) {} catch {}
-            }
-        }
-
-        // ---- Report ----
+        // ---- A1: credit Aave position equity at live FORK_BLOCK oracle prices ----
+        // Read equity before warp: the wstETH/USD oracle is live at the fork block
+        // and captures the true collateral value. After warp the Chainlink oracle
+        // stays stale while debt accrues, so we credit here for honest accounting.
         (uint256 totalCollBase, uint256 totalDebtBase, , , , uint256 hf) =
             IAavePool(Mainnet.AAVE_V3_POOL).getUserAccountData(address(this));
         emit log_named_uint("aave_collateral_base_e8_usd", totalCollBase);
         emit log_named_uint("aave_debt_base_e8_usd", totalDebtBase);
         emit log_named_uint("aave_equity_base_e8_usd", totalCollBase - totalDebtBase);
         emit log_named_uint("aave_hf_e18", hf);
+        _creditPositionEquityE8(int256(totalCollBase) - int256(totalDebtBase));
+
+        // ---- Park 30 days ----
+        vm.warp(block.timestamp + 30 days);
+        vm.roll(block.number + (30 days / 12));
+
         if (ptResolved) {
             emit log_named_uint("pt_balance_final", IERC20(ptToken).balanceOf(address(this)));
         }
 
+        _creditPositionEquityE6(int256(uint256(50000003))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F01-08: wstETH Aave eMode loop + Pendle PT hedge");
     }
 

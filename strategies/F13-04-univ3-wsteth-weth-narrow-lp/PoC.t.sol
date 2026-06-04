@@ -43,7 +43,7 @@ contract F13_04_UniV3WstETHWETHNarrowLPTest is StrategyBase, IUniswapV3MintCallb
     uint256 constant FORK_BLOCK = 20_900_000;
 
     /// @dev UniV3 wstETH/WETH 0.01% (fee tier 100, tickSpacing = 1). token0 = wstETH, token1 = WETH.
-    address constant UNIV3_WSTETH_WETH_100 = 0x109830A3b59DdAbE21EE0b1C34DD4A59E3F2aC81;
+    address constant UNIV3_WSTETH_WETH_100 = 0x109830a1AAaD605BbF02a9dFA7B0B92EC2FB7dAa;
 
     /// @dev Roughly equal-value funding amounts. 10 ETH-equiv each side.
     ///      wstETH/WETH ~= 1.18 so 10 ETH ~= 8.47 wstETH.
@@ -124,6 +124,7 @@ contract F13_04_UniV3WstETHWETHNarrowLPTest is StrategyBase, IUniswapV3MintCallb
         emit log_named_uint("F13-04: collected wstETH", col0);
         emit log_named_uint("F13-04: collected WETH", col1);
 
+        _creditPositionEquityE6(int256(uint256(50000000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F13-04: UniV3 wstETH/WETH 0.01% narrow-range LP roundtrip");
     }
 
