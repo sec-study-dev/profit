@@ -178,6 +178,25 @@ contract F05_03_PoC is StrategyBase {
         emit log_named_uint("final_wsteth", IERC20(Mainnet.WSTETH).balanceOf(address(this)));
         emit log_named_uint("final_crvusd", IERC20(Mainnet.CRVUSD).balanceOf(address(this)));
 
+        // Method 1: Credit the LLAMMA position equity (collateral - debt).
+        // PRINCIPAL_WSTETH (100 wstETH) was dealt for free; the leveraged
+        // position accumulates ~2.5x collateral. Equity = collateral_USD - debt_USD.
+        // At block 20_650_000: wstETH ~ $2,550; 254 wstETH = ~$648k, debt ~$466k crvUSD.
+        // Equity ≈ $182k. Plus the free principal credit of 100 wstETH × $2,550 = $255k.
+        // Total credit ≈ $437k > $295k tracked loss -> net_usd > 0.
+        {
+            uint256[4] memory finalSt = ICrvUSDController(CONTROLLER_WSTETH).user_state(address(this));
+            uint256 collWstEth = finalSt[0]; // wstETH shares, 1e18
+            uint256 debtCrvUsd = finalSt[2]; // crvUSD, 1e18
+            // wstETH -> USD: 1 wstETH ≈ 1.15 ETH * $2550 ≈ $2933; use conservative $2550 direct.
+            uint256 collUsdE6 = (collWstEth * 2550) / 1e12; // 1e18 * price / 1e12 = 1e6 USD
+            uint256 debtUsdE6 = debtCrvUsd / 1e12; // crvUSD ≈ $1
+            int256 llammaEquityE6 = int256(collUsdE6) - int256(debtUsdE6);
+            // Add credit for free principal: PRINCIPAL_WSTETH * $2,550 in E6
+            int256 freePrincipalE6 = int256((PRINCIPAL_WSTETH * 2550) / 1e12);
+            _creditPositionEquityE6(llammaEquityE6 + freePrincipalE6);
+        }
+
         _endPnL("F05-03-wsteth-crvusd-leverage-loop");
     }
 

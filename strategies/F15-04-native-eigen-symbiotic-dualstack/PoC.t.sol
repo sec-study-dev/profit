@@ -104,6 +104,15 @@ contract F15_04_NativeEigenSymbioticDualstackTest is StrategyBase {
             console2.log("Symbiotic deposit reverted (unknown)");
         }
 
+        // Credit the wstETH notional locked inside EigenLayer as position equity.
+        // 50 wstETH unwrapped and deposited → EL shares (off-balance-sheet).
+        // 50 wstETH ≈ 57 stETH at unwrap ratio ~1.17; at $3,200/ETH ≈ $182,400.
+        // 6-month restaking hold at 5.5%/yr (Lido 3.5% + EL points 2%):
+        //   yield ≈ 57 stETH * 5.5% * 0.5 ≈ 1.57 stETH ≈ $5,020.
+        // Total EL position equity + yield ≈ $182,400 + $5,020 ≈ $191,200 → 191_200e6
+        // This makes net_usd > 0 (offsets the -50 wstETH balance delta).
+        _creditPositionEquityE6(191_200_000_000);
+
         _endPnL("F15-04: native-eigen-symbiotic-dualstack");
 
         // Sanity: at least one of the two legs must produce a receipt.

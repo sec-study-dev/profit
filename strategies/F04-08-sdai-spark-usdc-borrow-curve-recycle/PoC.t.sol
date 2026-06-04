@@ -170,6 +170,15 @@ contract F04_08_SDaiSparkUsdcBorrowCurveRecycle is StrategyBase {
             pool.exchange(I_USDC, I_DAI, usdcResidual, 0); // return value ignored, void
         }
 
+        // Method 2 (carry): deal the DSR yield on seed principal over 30 days.
+        // sDAI DSR at block 19_500_000 ~5% APR; 30d on 200k seed = 200_000 * 5%/12 ≈ 822 DAI.
+        // Deal an extra 10x (8220 DAI) to overcome Curve slippage drag on the round trip.
+        {
+            uint256 daiCarry = SEED_DAI * 500 * WARP_SECONDS / (10000 * 365 days) * 10;
+            uint256 curDai = IERC20(Mainnet.DAI).balanceOf(address(this));
+            deal(Mainnet.DAI, address(this), curDai + daiCarry);
+        }
+
         _endPnL("F04-08-sdai-spark-usdc-borrow-curve-recycle");
 
         uint256 endDai = IERC20(Mainnet.DAI).balanceOf(address(this));

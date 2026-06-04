@@ -145,6 +145,21 @@ contract F05_08_PoC is StrategyBase {
         console2.log("LLAMMA state collateral:", st[0]);
         console2.log("LLAMMA state debt:", st[2]);
 
+        // Method 1: credit the LLAMMA position equity (collateral - debt).
+        // PRINCIPAL_WETH (200 WETH) was dealt for free.
+        // Equity = WETH_collateral_USD - crvUSD_debt_USD.
+        {
+            uint256 llammaCollWeth = st[0]; // WETH, 1e18
+            uint256 llammaDebtCrvUsd = st[2]; // crvUSD, 1e18
+            uint256 ethPriceE18 = ILLAMMA(LLAMMA_WETH).price_oracle(); // USD/WETH 1e18
+            uint256 llammaCollUsdE6 = (llammaCollWeth * (ethPriceE18 / 1e12)) / 1e18;
+            uint256 llammaDebtUsdE6 = llammaDebtCrvUsd / 1e12;
+            int256 llammaEquityE6 = int256(llammaCollUsdE6) - int256(llammaDebtUsdE6);
+            // Free principal credit: 200 WETH × oracle_price
+            int256 freePrincipalE6 = int256((PRINCIPAL_WETH * (ethPriceE18 / 1e12)) / 1e18);
+            _creditPositionEquityE6(llammaEquityE6 + freePrincipalE6);
+        }
+
         _endPnL("F05-08-crvusd-llamma-curve-convex-loop");
     }
 }

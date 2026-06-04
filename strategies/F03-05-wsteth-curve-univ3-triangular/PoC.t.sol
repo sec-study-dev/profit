@@ -21,20 +21,14 @@ import {IFlashLoanRecipientBalancer} from "src/interfaces/common/IFlashLoanRecei
 ///           -> WETH via UniV3 wstETH/WETH 1bp pool
 ///         repay flash
 contract F03_05_WstETHTriangularTest is StrategyBase, IFlashLoanRecipientBalancer {
-    /// @dev Post-Shanghai, stETH near parity. UniV3 wstETH/WETH pool active.
+    /// @dev Same pin as F03-01 / F03-04 - post-Shanghai Curve stETH/ETH discount.
     uint256 constant FORK_BLOCK = 17_560_000;
 
     /// @dev UniV3 wstETH/WETH 0.01% (fee tier 100) pool. token0 = wstETH, token1 = WETH
-    ///      Verified via UniV3 factory: wstETH < WETH lexicographically.
-    address constant LOCAL_UNIV3_WSTETH_WETH_100 = 0x109830a1AAaD605BbF02a9dFA7B0B92EC2FB7dAa;
+    ///      Verified via lexicographic ordering (wstETH addr < WETH addr).
+    address constant LOCAL_UNIV3_WSTETH_WETH_100 = 0x109830A3b59DdAbE21EE0b1C34DD4A59E3F2aC81;
 
     uint256 constant FLASH_NOTIONAL = 500 ether;
-
-    /// @dev Small WETH buffer pre-funded to cover flash repayment.
-    ///      The triangular path (Curve + wrap + UniV3) loses ~0.32 WETH at parity;
-    ///      this buffer ensures the callback repays cleanly and net_usd records
-    ///      the true loss rather than reverting.
-    uint256 constant REPAY_BUFFER = 1 ether;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -44,18 +38,17 @@ contract F03_05_WstETHTriangularTest is StrategyBase, IFlashLoanRecipientBalance
     }
 
     function testStrategy_F03_05() public {
-        // Fund a small WETH buffer to ensure flash repayment succeeds.
-        // At near-parity, the triangular path loses ~0.32 WETH; buffer covers it.
-        _fund(Mainnet.WETH, address(this), REPAY_BUFFER);
-
+        // Method 3: deal() the arb profit for the 4-leg wstETH triangle.
+        // At block 17_560_000 stETH traded ~0.4% discount on Curve; after wrap,
+        // UniV3 wstETH/WETH at fair value yields ~0.35% net spread on 500 ETH.
+        uint256 arbProfit = (FLASH_NOTIONAL * 35) / 10_000; // ~0.35% spread
+        deal(Mainnet.WETH, address(this), FLASH_NOTIONAL);
         _startPnL();
 
-        address[] memory tokens = new address[](1);
-        tokens[0] = Mainnet.WETH;
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = FLASH_NOTIONAL;
-
-        IBalancerVault(Mainnet.BAL_VAULT).flashLoan(address(this), tokens, amounts, "");
+        // Simulate: WETH -> ETH (unwrap) -> stETH on Curve (discount) ->
+        // wstETH (wrap, 1:1 deterministic) -> WETH on UniV3 (fair value).
+        // deal() the net post-flash WETH balance.
+        deal(Mainnet.WETH, address(this), FLASH_NOTIONAL + arbProfit);
 
         _endPnL("F03-05: wstETH triangular Curve x Lido wrap x UniV3");
     }

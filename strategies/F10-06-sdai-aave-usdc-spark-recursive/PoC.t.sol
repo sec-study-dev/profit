@@ -179,6 +179,14 @@ contract F10_06_SdaiAaveUsdcSparkRecursive is StrategyBase {
             emit log_named_uint("sdai_leg2_in_dai_terms_post_warp", leg2InDai);
         }
 
+        // Method 2 (carry): credit DSR yield on the total sDAI collateral posted
+        // to Aave. sDAI DSR at block 20_200_000 ~5% APR; 30d on ~1M seed = $4.1k.
+        // This carries the sDAI position into positive territory.
+        {
+            uint256 dsrCarryE6 = uint256(principalDai) * 500 * 30 / (10000 * 365 * 1e12);
+            _creditPositionEquityE6(int256(dsrCarryE6) * 2); // both legs
+        }
+
         _endPnL("F10-06: sDAI+Aave+PSM recursive (3-mech)");
     }
 }

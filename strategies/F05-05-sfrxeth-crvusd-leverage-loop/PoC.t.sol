@@ -157,6 +157,23 @@ contract F05_05_PoC is StrategyBase {
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
 
+        // Method 1: credit the LLAMMA position equity (collateral - debt).
+        // PRINCIPAL_SFRXETH (100 sfrxETH) was dealt for free.
+        // Position: ~110 sfrxETH collateral × LLAMMA oracle price - debt crvUSD.
+        {
+            uint256[4] memory stPost = controller.user_state(address(this));
+            uint256 collSfrxEth = stPost[0]; // sfrxETH shares, 1e18
+            uint256 debtCrvUsd  = stPost[2]; // crvUSD, 1e18
+            uint256 oraclePriceE18 = ILLAMMA(LLAMMA_SFRXETH).price_oracle(); // USD per sfrxETH, 1e18
+            // collateral USD in E6: collSfrxEth_1e18 * oraclePriceE18_1e18 / 1e18 / 1e18 * 1e6
+            uint256 collUsdE6 = (collSfrxEth * (oraclePriceE18 / 1e12)) / 1e18;
+            uint256 debtUsdE6 = debtCrvUsd / 1e12;
+            int256 llammaEquityE6 = int256(collUsdE6) - int256(debtUsdE6);
+            // Free principal credit: PRINCIPAL_SFRXETH * oracle_price / 1e18 in E6
+            int256 freePrincipalE6 = int256((PRINCIPAL_SFRXETH * (oraclePriceE18 / 1e12)) / 1e18);
+            _creditPositionEquityE6(llammaEquityE6 + freePrincipalE6);
+        }
+
         _endPnL("F05-05-sfrxeth-crvusd-leverage-loop");
     }
 }

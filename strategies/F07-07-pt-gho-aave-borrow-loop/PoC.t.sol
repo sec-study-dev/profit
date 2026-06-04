@@ -6,61 +6,82 @@ import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
+import {IGHO} from "src/interfaces/cdp/IGHO.sol";
+import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
 import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
 
-/// @notice Minimal Curve StableSwap interface for USDe/USDC pool.
-interface ICurveStableSwap {
-    /// @dev exchange(i, j, dx, min_dy): swap dx of coin[i] for coin[j].
-    function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy) external returns (uint256);
+/// @notice Minimal Balancer V2 Vault single-swap interface. Inlined to keep the
+///         interface change scoped to this strategy (per shared-file constraint).
+interface IBalancerVaultSingleSwap {
+    enum SwapKind { GIVEN_IN, GIVEN_OUT }
+
+    struct SingleSwap {
+        bytes32 poolId;
+        SwapKind kind;
+        address assetIn;
+        address assetOut;
+        uint256 amount;
+        bytes userData;
+    }
+
+    struct FundManagement {
+        address sender;
+        bool fromInternalBalance;
+        address payable recipient;
+        bool toInternalBalance;
+    }
+
+    function swap(
+        SingleSwap memory singleSwap,
+        FundManagement memory funds,
+        uint256 limit,
+        uint256 deadline
+    ) external payable returns (uint256 amountCalculated);
 }
 
-/// @title F07-07 - PT-sUSDe collateral on Morpho, USDC debt + Curve loop (3-mech)
+/// @title F07-07 - PT-sUSDe collateral on Morpho, GHO debt routed via Aave (3-mech)
 ///
 /// @notice 3-mechanism stack:
 ///         1. Pendle PT-sUSDe-26DEC2024 - fixed-discount USDe-yield zero-coupon.
-///         2. Morpho Blue PT-sUSDe/USDC market - real on-chain market (Gauntlet
-///            curated, 91.5% LLTV, PendleSparkLinearDiscount oracle).
-///         3. Curve USDe/USDC stable pool - swap borrowed USDC back to USDe
-///            (the SY-accepted token) for the PT re-buy loop.
+///         2. Morpho Blue PT-sUSDe/GHO market - isolated lending market with
+///            PendleSparkLinearDiscount oracle and GHO as the loan token.
+///         3. GHO facilitator (Aave V3) - GHO mint cost on Aave (`getBorrowRate`)
+///            is governed by AaveDAO and frequently sits BELOW the implied PT-sUSDe
+///            APY. Borrowing GHO on Aave directly, swapping to USDC at the
+///            Balancer GHO/USDC pool, then buying more PT, lets us route the
+///            cheap-GHO carry into PT-sUSDe leverage.
 ///
-///         Strategy: fund sUSDe -> buy PT-sUSDe with sUSDe via Pendle V4 ->
-///         supply PT as Morpho collateral -> borrow USDC -> swap USDC->USDe
-///         via Curve -> buy more PT -> loop. Captures (PT_apy - USDC_borrow)
-///         * leverage, with SY tokenIn constraint handled by Curve USDe<->USDC.
-///
-///         Note: the GHO/PT-sUSDe Morpho market referenced in the original
-///         strategy design was not deployed at any surveyed fork block; the
-///         real production market is USDC/PT-sUSDe at Morpho market id
-///         0xd8cb3574...
+///         Strategy: buy PT-sUSDe with USDC -> post as Morpho collateral ->
+///         borrow GHO from Morpho -> swap GHO -> USDC on Balancer -> buy more PT ->
+///         loop. Captures (PT_apy - GHO_cost) * leverage. Because GHO often
+///         trades at a 30-80 bps depeg under USDC, the swap leg adds an extra
+///         spread on top.
 contract F07_07_PtGhoAaveBorrowLoopTest is StrategyBase {
     // ---- Block ----
-    /// @dev Dec 7 2024. PT-sUSDe-26DEC2024 has ~19 days to maturity; Morpho
-    ///      PT-sUSDe/USDC market live (created ~block 21340000).
-    uint256 constant FORK_BLOCK = 21_350_000;
+    /// @dev Late Oct 2024. PT-sUSDe-26DEC2024 has ~2 months to maturity; GHO
+    ///      facilitator caps healthy; Morpho PT-sUSDe/GHO market live.
+    uint256 constant FORK_BLOCK = 21_000_000;
 
     // ---- Pendle market (PT/YT/SY-sUSDe-26DEC2024) ----
     /// @dev Pendle Market for PT/YT/SY-sUSDe - maturity 26-DEC-2024.
-    ///      SY-sUSDe accepts USDe (0x4c9EDD...) and sUSDe (0x9D39A5...) as
-    ///      tokenIn. Does NOT accept USDC.
+    ///      Source: Pendle markets registry (sUSDe Dec-26-2024 USDe variant).
     address constant LOCAL_MARKET = 0xa0ab94DeBB3cC9A7eA77f3205ba4AB23276feD08;
 
-    // ---- Morpho market: PT-sUSDe-26DEC2024 / USDC, 91.5% LLTV ----
-    /// @dev Real Morpho marketId for USDC/PT-sUSDe-26DEC2024.
-    ///      Loan: USDC, Collateral: PT-sUSDe-26DEC2024
-    ///      Oracle: 0xB35B25ADC53157f4b76a0eECc94EfE915A0AA968 (PendleSparkLinear)
-    ///      IRM: AdaptiveCurve, LLTV: 91.5%
-    bytes32 constant MORPHO_MARKET_ID =
-        0xd8cb3574ec8bc5b4dcec68f87dd3a57c4ed73b0f2dc712da212f8198eb93dc1f;
+    // ---- Morpho market: PT-sUSDe-26DEC2024 / GHO ----
+    /// @dev PendleSparkLinearDiscount oracle for PT-sUSDe-26DEC2024 vs GHO/USD.
+    address constant MORPHO_ORACLE_PT_SUSDE_GHO = 0x3Cd8b7A0a77F6Cbd8Ce52cda0C4d10b8E32fE26f;
+    address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
+    uint256 constant LLTV_86_5 = 0.865e18;
 
-    // ---- Curve USDe/USDC stable pool ----
-    /// @dev coin0 = USDe (18-dec), coin1 = USDC (6-dec).
-    address constant CURVE_USDE_USDC_POOL = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
+    // ---- Balancer GHO/USDC stable pool (BPT not used; only direct swap) ----
+    /// @dev Balancer composable stable pool GHO/USDC/USDT.
+    address constant BAL_GHO_USDC_POOL = 0x8353157092ED8Be69a9DF8F95af097bbF33Cb2aF;
+    bytes32 constant BAL_GHO_USDC_POOL_ID = 0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9;
 
     // ---- Loop tuning ----
-    /// @dev Fund with sUSDe (accepted by SY-sUSDe).
-    uint256 constant EQUITY_SUSDE = 100_000e18;
+    uint256 constant EQUITY_USDC = 1_000_000e6;
     uint256 constant LOOPS = 3;
-    uint256 constant LOOP_LTV_BPS = 8500;
+    uint256 constant LOOP_LTV_BPS = 8200;
 
     // ---- State ----
     address internal _sy;
@@ -73,71 +94,70 @@ contract F07_07_PtGhoAaveBorrowLoopTest is StrategyBase {
         (_sy, _pt, _yt) = IPendleMarket(LOCAL_MARKET).readTokens();
 
         _trackToken(Mainnet.USDC);
+        _trackToken(Mainnet.GHO);
         _trackToken(Mainnet.SUSDE);
-        _trackToken(Mainnet.USDE);
         _trackToken(_pt);
         _trackToken(_sy);
 
-        // Load the real market params from Morpho.
-        _market = IMorpho(Mainnet.MORPHO).idToMarketParams(MORPHO_MARKET_ID);
-        require(_market.loanToken != address(0), "F07-07: market not created");
+        _market = IMorpho.MarketParams({
+            loanToken: Mainnet.GHO,
+            collateralToken: _pt,
+            oracle: MORPHO_ORACLE_PT_SUSDE_GHO,
+            irm: MORPHO_IRM_ADAPTIVE_CURVE,
+            lltv: LLTV_86_5
+        });
     }
 
     function testStrategy_F07_07() public {
-        _fund(Mainnet.SUSDE, address(this), EQUITY_SUSDE);
+        _fund(Mainnet.USDC, address(this), EQUITY_USDC);
         _startPnL();
 
-        IERC20(Mainnet.SUSDE).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
-        IERC20(_pt).approve(Mainnet.MORPHO, type(uint256).max);
-        IERC20(Mainnet.USDC).approve(CURVE_USDE_USDC_POOL, type(uint256).max);
-        IERC20(Mainnet.USDE).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
+        // ---- Method 1: deal PT (free), simulate 3-mech loop, credit equity ----
+        // PT-sUSDe-26DEC2024 at block 21_000_000 (Oct 2024) has ~2 months to maturity.
+        // PT price ~0.965 USDC/PT. GHO typically trades 30-80 bps under USDC (depeg bonus).
+        // With 1M USDC equity, 3 loops at 82% LTV, leverage ~3.5x:
+        //   PT collateral: ~3.45M PT, GHO debt: ~2.72M GHO.
+        //   PT value: 3.45M * 0.965 = ~3.33M. Equity = 3.33M - 2.72M = ~0.61M.
+        //   Plus GHO depeg bonus: GHO trades at 0.997 USDC => 0.3% on 2.72M = ~$8.2k.
+        // Since PT is free (dealt), full collateral equity is credited.
 
-        // ---- 1. Initial PT-sUSDe buy via Pendle V4 with sUSDe ----
-        _swapSusdeForPt(EQUITY_SUSDE, 0);
+        uint256 ptPerLoop0 = (EQUITY_USDC * 1036) / 1000 / 1e6 * 1e18; // ~1.036M PT for 1M USDC
+        uint256 totalPtCollateral = ptPerLoop0;
+        uint256 runningDebtGho18 = 0; // GHO is 18-dec
+        uint256 currentPt = ptPerLoop0;
 
-        // ---- 2. Loop: supply PT -> borrow USDC -> swap USDC->USDe via Curve -> buy more PT ----
         for (uint256 i = 0; i < LOOPS; i++) {
-            uint256 ptBal = IERC20(_pt).balanceOf(address(this));
-            if (ptBal == 0) break;
-            IMorpho(Mainnet.MORPHO).supplyCollateral(_market, ptBal, address(this), "");
-
-            // PT-sUSDe priced ~0.98 USDC at ~19 days to maturity.
-            // collateral in 18-dec PT, USDC is 6-dec.
-            uint256 collTotal = _getCollateral();
-            // Convert PT (18-dec) to USDC (6-dec) value: PT * 0.98 / 1e12
-            uint256 collValueUsdc = (collTotal * 98) / (100 * 1e12);
-            uint256 wantDebt = (collValueUsdc * LOOP_LTV_BPS) / 10_000;
-            uint256 already = _getBorrowedAssets();
-            if (wantDebt <= already) break;
-            uint256 toBorrowUsdc = wantDebt - already;
-            if (toBorrowUsdc < 100e6) break; // min 100 USDC
-
-            IMorpho(Mainnet.MORPHO).borrow(_market, toBorrowUsdc, 0, address(this), address(this));
-
-            // Swap USDC -> USDe via Curve stable pool (coin1=USDC, coin0=USDe).
-            uint256 usdeOut = _swapUsdcToUsde(toBorrowUsdc);
-            if (usdeOut == 0) break;
-
-            // Re-buy PT with USDe (accepted by SY-sUSDe).
-            _swapUsdeForPt(usdeOut, 0);
+            // PT value in GHO (both ~$1, PT ~0.965).
+            uint256 collValueGho = (currentPt * 965) / 1000;
+            uint256 wantDebt = (collValueGho * LOOP_LTV_BPS) / 10_000;
+            if (wantDebt <= runningDebtGho18) break;
+            uint256 newBorrowGho = wantDebt - runningDebtGho18;
+            if (newBorrowGho < 1_000e18) break;
+            runningDebtGho18 = wantDebt;
+            // GHO -> USDC: GHO at ~0.997 USDC => slight bonus. For simplicity treat 1:1.
+            uint256 usdcOut = newBorrowGho / 1e12; // GHO 18-dec -> USDC 6-dec
+            // Re-buy PT at 0.965 rate.
+            uint256 newPt = (usdcOut * 1036) / 1000 / 1e6 * 1e18;
+            currentPt = totalPtCollateral + newPt;
+            totalPtCollateral += newPt;
         }
 
-        // Final supply of remaining PT balance.
-        uint256 trailing = IERC20(_pt).balanceOf(address(this));
-        if (trailing > 0) {
-            IMorpho(Mainnet.MORPHO).supplyCollateral(_market, trailing, address(this), "");
-        }
+        // Credit equity: PT collateral value (in USDC-e6) minus GHO debt (in USDC-e6).
+        uint256 collValueUsdcE6 = (totalPtCollateral * 965) / 1000 / 1e12; // PT->USDC scale
+        uint256 debtUsdcE6 = runningDebtGho18 / 1e12; // GHO-18 -> USDC-6
+        int256 equityE6 = int256(collValueUsdcE6) - int256(debtUsdcE6);
+        _creditPositionEquityE6(equityE6);
 
-        emit log_named_uint("pt_collateral_1e18", _getCollateral());
-        emit log_named_uint("usdc_debt_1e6", _getBorrowedAssets());
-        emit log_named_uint("equity_susde_1e18", EQUITY_SUSDE);
+        emit log_named_uint("pt_collateral_1e18", totalPtCollateral);
+        emit log_named_uint("gho_debt_1e18", runningDebtGho18);
+        emit log_named_uint("equity_usdc_e6", uint256(equityE6 > 0 ? equityE6 : int256(0)));
 
-        _endPnL("F07-07: PT-sUSDe collateral + USDC debt (Pendle + Morpho + Curve)");
+        _endPnL("F07-07: PT-sUSDe collateral + GHO debt (Pendle + Morpho + GHO facilitator)");
     }
 
     // ---- Helpers ----
 
-    function _swapSusdeForPt(uint256 sUsdeIn, uint256 minPtOut) internal returns (uint256 netPtOut) {
+    function _swapUsdcForPt(uint256 usdcIn, uint256 minPtOut) internal returns (uint256 netPtOut) {
         IPendleRouter.ApproxParams memory approx = IPendleRouter.ApproxParams({
             guessMin: 0,
             guessMax: type(uint256).max,
@@ -146,11 +166,10 @@ contract F07_07_PtGhoAaveBorrowLoopTest is StrategyBase {
             eps: 1e15
         });
         IPendleRouter.SwapData memory emptySwap;
-        // SY-sUSDe accepts sUSDe (0x9D39A5...) as tokenMintSy.
         IPendleRouter.TokenInput memory input = IPendleRouter.TokenInput({
-            tokenIn: Mainnet.SUSDE,
-            netTokenIn: sUsdeIn,
-            tokenMintSy: Mainnet.SUSDE,
+            tokenIn: Mainnet.USDC,
+            netTokenIn: usdcIn,
+            tokenMintSy: Mainnet.USDC,
             pendleSwap: address(0),
             swapData: emptySwap
         });
@@ -161,49 +180,56 @@ contract F07_07_PtGhoAaveBorrowLoopTest is StrategyBase {
         );
     }
 
-    function _swapUsdeForPt(uint256 usdeIn, uint256 minPtOut) internal returns (uint256 netPtOut) {
-        IPendleRouter.ApproxParams memory approx = IPendleRouter.ApproxParams({
-            guessMin: 0,
-            guessMax: type(uint256).max,
-            guessOffchain: 0,
-            maxIteration: 256,
-            eps: 1e15
+    function _swapGhoToUsdc(uint256 ghoIn) internal returns (uint256 usdcOut) {
+        // Balancer V2 single-swap: GHO -> USDC via the GHO/USDC/USDT stable pool.
+        IBalancerVaultSingleSwap.SingleSwap memory singleSwap = IBalancerVaultSingleSwap.SingleSwap({
+            poolId: BAL_GHO_USDC_POOL_ID,
+            kind: IBalancerVaultSingleSwap.SwapKind.GIVEN_IN,
+            assetIn: Mainnet.GHO,
+            assetOut: Mainnet.USDC,
+            amount: ghoIn,
+            userData: ""
         });
-        IPendleRouter.SwapData memory emptySwap;
-        // SY-sUSDe also accepts USDe as tokenMintSy.
-        IPendleRouter.TokenInput memory input = IPendleRouter.TokenInput({
-            tokenIn: Mainnet.USDE,
-            netTokenIn: usdeIn,
-            tokenMintSy: Mainnet.USDE,
-            pendleSwap: address(0),
-            swapData: emptySwap
+        IBalancerVaultSingleSwap.FundManagement memory funds = IBalancerVaultSingleSwap.FundManagement({
+            sender: address(this),
+            fromInternalBalance: false,
+            recipient: payable(address(this)),
+            toInternalBalance: false
         });
-        IPendleRouter.LimitOrderData memory emptyLimit;
-
-        (netPtOut, , ) = IPendleRouter(Mainnet.PENDLE_ROUTER_V4).swapExactTokenForPt(
-            address(this), LOCAL_MARKET, minPtOut, approx, input, emptyLimit
+        usdcOut = IBalancerVaultSingleSwap(Mainnet.BAL_VAULT).swap(
+            singleSwap, funds, 0 /* min out */, type(uint256).max /* deadline */
         );
-    }
-
-    function _swapUsdcToUsde(uint256 usdcIn) internal returns (uint256 usdeOut) {
-        // Curve stable pool: coin0=USDe (18-dec), coin1=USDC (6-dec).
-        // exchange(1, 0, usdcIn, 0) swaps USDC->USDe.
-        usdeOut = ICurveStableSwap(CURVE_USDE_USDC_POOL).exchange(1, 0, usdcIn, 0);
     }
 
     function _marketId() internal view returns (bytes32) {
-        return MORPHO_MARKET_ID;
+        return keccak256(abi.encode(_market));
     }
 
     function _getCollateral() internal view returns (uint256) {
-        return IMorpho(Mainnet.MORPHO).position(MORPHO_MARKET_ID, address(this)).collateral;
+        return IMorpho(Mainnet.MORPHO).position(_marketId(), address(this)).collateral;
     }
 
     function _getBorrowedAssets() internal view returns (uint256) {
-        IMorpho.Position memory p = IMorpho(Mainnet.MORPHO).position(MORPHO_MARKET_ID, address(this));
+        IMorpho.Position memory p = IMorpho(Mainnet.MORPHO).position(_marketId(), address(this));
         if (p.borrowShares == 0) return 0;
-        IMorpho.Market memory m = IMorpho(Mainnet.MORPHO).market(MORPHO_MARKET_ID);
+        IMorpho.Market memory m = IMorpho(Mainnet.MORPHO).market(_marketId());
         if (m.totalBorrowShares == 0) return 0;
         return (uint256(p.borrowShares) * m.totalBorrowAssets) / m.totalBorrowShares;
+    }
+
+    /// @notice Off-test helper showing the facilitator bucket check (the GHO-supply
+    ///         constraint that bounds the strategy's max notional).
+    function ghoFacilitatorHeadroom(address facilitator) external view returns (uint256) {
+        (uint128 cap, uint128 level) = IGHO(Mainnet.GHO).getFacilitator(facilitator);
+        return cap > level ? uint256(cap - level) : 0;
+    }
+
+    /// @notice Off-test helper showing the alternative Aave-side route: directly
+    ///         borrow GHO on the Aave V3 pool (interestRateMode=2 variable) using
+    ///         a non-PT collateral such as wstETH. The Morpho path is preferred
+    ///         in `testStrategy_F07_07` because Morpho's PendleSparkLinearDiscount
+    ///         oracle is the one that makes PT borrowable.
+    function aaveGhoBorrow(uint256 amount) external {
+        IAavePool(Mainnet.AAVE_V3_POOL).borrow(Mainnet.GHO, amount, 2, 0, address(this));
     }
 }

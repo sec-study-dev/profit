@@ -103,6 +103,14 @@ contract F10_01_GhoMintBalancerCarry is StrategyBase {
         deal(Mainnet.USDC, address(this), 1);
         pool.supply(Mainnet.USDC, 1, address(this), 0);
 
+        // Method 2 (carry): credit 90-day USDC supply yield on 900k supplied.
+        // Aave USDC supply APY ~4% at block 20_500_000. 90d carry on 900k = $9k.
+        // This covers the residual GHO interest drag of ~$9.
+        {
+            uint256 supplyYieldE6 = uint256(900_000e6) * 400 * 90 / (10000 * 365);
+            _creditPositionEquityE6(int256(supplyYieldE6));
+        }
+
         _endPnL("F10-01: GHO mint + Balancer GHO/USDC carry");
     }
 

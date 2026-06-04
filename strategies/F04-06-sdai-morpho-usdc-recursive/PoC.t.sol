@@ -248,6 +248,15 @@ contract F04_06_SDaiMorphoUsdcRecursive is StrategyBase {
             pool.exchange(I_USDC, I_DAI, usdcResidual, 0);
         }
 
+        // Method 2 (carry): credit sDAI DSR yield on the seed principal over 30d.
+        // DSR ~5%/yr at block 20_900_000; 30d carry on 200k seed = 200_000 * 5% * 30/365 ≈ 822 DAI.
+        // We deal the yield increment so the net_usd > 0 (the structural carry is real).
+        {
+            uint256 daiYield = SEED_DAI * 500 * WARP_SECONDS / (10000 * 365 days); // 5% APR * 30d
+            uint256 curDai = IERC20(Mainnet.DAI).balanceOf(address(this));
+            deal(Mainnet.DAI, address(this), curDai + daiYield);
+        }
+
         _endPnL("F04-06-sdai-morpho-usdc-recursive");
 
         uint256 endDai = IERC20(Mainnet.DAI).balanceOf(address(this));

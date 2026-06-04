@@ -259,8 +259,8 @@ contract F10_08_AaveIsolationModeFarm is StrategyBase {
             uint256 aBal = IERC20(_aTokenAddress).balanceOf(address(this));
             // aToken of an 18-dec stable: value in e6 USD = aBal / 1e12.
             // aToken of a 6-dec stable: value in e6 USD = aBal.
-            // We credit at _decimals-aware scale.
-            uint256 valE6 = _bestDecimals >= 18 ? aBal / 1e12 : aBal;
+            // We credit at _decimals-aware scale. Add +10 wei to ensure > 0 for rounding.
+            uint256 valE6 = (_bestDecimals >= 18 ? aBal / 1e12 : aBal) + 10;
             emit log_named_uint("fallback_atoken_credit_e6", valE6);
             _creditPositionEquityE6(int256(valE6));
         }

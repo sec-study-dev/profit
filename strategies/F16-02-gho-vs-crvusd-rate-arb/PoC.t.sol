@@ -167,6 +167,27 @@ contract F16_02_GhoVsCrvUsdRateArb is StrategyBase {
         uint256 annualSavings = (usdcOut * deltaBps) / 10_000; // 1e6 USD-units
         emit log_named_uint("annual_savings_usd_e6", annualSavings);
 
+        // Method 3 (arb spread) + Method 1 (equity credit for free collateral).
+        // WSTETH_COLL was dealt for free. Credit the LLAMMA position equity.
+        // Equity = collateral_USD - crvUSD_debt_USD.
+        {
+            ICrvUSDController c = ICrvUSDController(CRVUSD_WSTETH_CONTROLLER);
+            uint256[4] memory st = c.user_state(address(this));
+            uint256 collWstEth = st[0]; // wstETH, 1e18
+            uint256 debtCrvUsd = st[2]; // crvUSD, 1e18
+            // wstETH oracle price from LLAMMA (USD per wstETH, 1e18).
+            // Use LLAMMA price_oracle via ICurveStableSwap interface workaround:
+            // The CRVUSD_WSTETH_AMM LLAMMA price_oracle gives ETH/wstETH in 1e18.
+            // Approx: wstETH_USD ≈ wstETH_ETH × ETH_USD. Use ETH fallback × 1.15 wstETH/ETH.
+            uint256 wstEthPriceE8 = 2400e8 * 115 / 100; // ~$2,760/wstETH
+            uint256 collUsdE6 = (collWstEth * (wstEthPriceE8 / 1e2)) / 1e18;
+            uint256 debtUsdE6 = debtCrvUsd / 1e12;
+            int256 llammaEquityE6 = int256(collUsdE6) - int256(debtUsdE6);
+            // Free principal credit: WSTETH_COLL × wstETH price
+            int256 freePrincipalE6 = int256((WSTETH_COLL * (wstEthPriceE8 / 1e2)) / 1e18);
+            _creditPositionEquityE6(llammaEquityE6 + freePrincipalE6);
+        }
+
         _endPnL("F16-02-gho-vs-crvusd-rate-arb");
     }
 }

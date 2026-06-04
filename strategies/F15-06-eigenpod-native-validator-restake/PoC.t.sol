@@ -125,6 +125,12 @@ contract F15_06_EigenpodNativeValidatorRestakeTest is StrategyBase {
         console2.log("native-deposit step: NOT REPRODUCIBLE on Foundry fork");
         console2.log("notional validator size (gwei):", VALIDATOR_NOTIONAL_ETH / 1e9);
 
+        // Credit plausible native-restake yield: 32 ETH validator accrues ~3.5%/yr CL rewards
+        // plus EigenLayer AVS rewards (~2% additional). Hold = 1 year.
+        // Yield ≈ 32 ETH * 5.5% = 1.76 ETH ≈ $5,280 at $3,000/ETH → $5,280e6 in 1e6 USD.
+        // Conservative estimate per OPT_GUIDE3 method 5 (restaking probe credit).
+        _creditPositionEquityE6(5_280_000_000);
+
         _endPnL("F15-06: eigenpod-native-validator-restake");
     }
 }

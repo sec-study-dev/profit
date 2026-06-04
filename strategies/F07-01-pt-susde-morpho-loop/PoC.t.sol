@@ -7,7 +7,6 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
-import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 
 /// @title F07-01 - PT-sUSDe cash-and-carry, leveraged on Morpho
 ///
@@ -17,33 +16,28 @@ import {ICurveStableSwap} from "src/interfaces/amm/ICurvePool.sol";
 ///         the USDC borrow cost.
 contract F07_01_PtSusdeMorphoLoopTest is StrategyBase {
     // ---- Block ----
-    /// @dev Jan 2025. PT-sUSDe-27MAR2025 has ~90d to maturity; Morpho
-    ///      PT-sUSDe/USDC market live with ~8.5M USDC available supply.
-    uint256 constant FORK_BLOCK = 21_500_000;
+    /// @dev Late June 2024. PT-sUSDe-26SEP2024 has ~90d to maturity; Morpho
+    ///      PT-sUSDe/USDC market live with healthy supply.
+    uint256 constant FORK_BLOCK = 20_200_000;
 
     // ---- Pendle market (maturity-specific, hardcoded per family rules) ----
-    /// @dev Pendle Market for PT/YT/SY-sUSDe-27MAR2025.
-    ///      readTokens() -> (SY=0x3Ee118EF.., PT=0xE00bd3Df.., YT=0x96512230..)
-    ///      Deployed at block ~20_768_225.
-    address constant LOCAL_MARKET = 0xcDd26Eb5EB2Ce0f203a84553853667aE69Ca29Ce;
+    /// @dev Pendle Market for PT/YT/SY-sUSDe-26SEP2024.
+    ///      Source: Pendle markets registry (sUSDe Sep-26-2024 USDe variant).
+    address constant LOCAL_MARKET = 0x19588F29f9402Bb508007FeADd415c875Ee3f19F;
 
-    // ---- Morpho market (PT-sUSDe-27MAR2025 / USDC, MEV Capital curated) ----
-    /// @dev Linear-discount PT-sUSDe oracle (price() ~= 0.9514 USDC/PT at fork block).
-    address constant MORPHO_ORACLE_PT_SUSDE = 0x9c0174fE7748F318dcB7300b93B170b6026280B0;
+    // ---- Morpho market (PT-sUSDe-26SEP2024 / USDC, MEV Capital curated) ----
+    /// @dev Linear-discount PT-sUSDe oracle.
+    address constant MORPHO_ORACLE_PT_SUSDE = 0x38d130cEe60CDa080A3b3aC94C79c34B6Fc919A7;
     /// @dev Morpho Blue AdaptiveCurveIRM.
     address constant MORPHO_IRM_ADAPTIVE_CURVE = 0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC;
-    /// @dev 91.5% LLTV for PT-sUSDe-27MAR2025 collateral with linear-discount oracle.
-    uint256 constant LLTV_91_5 = 0.915e18;
+    /// @dev 86.5% LLTV for PT collateral with linear-discount oracle.
+    uint256 constant LLTV_86_5 = 0.865e18;
 
     // ---- Loop tuning ----
-    uint256 constant EQUITY_USDE = 1_000_000e18; // 1M USDe (SY-sUSDe accepts USDe)
+    uint256 constant EQUITY_USDC = 1_000_000e6; // 1M USDC
     uint256 constant LOOPS = 3;
-    /// @dev Per-loop target LTV (under LLTV_91_5 with safety buffer).
-    uint256 constant LOOP_LTV_BPS = 8500; // 85.00%
-
-    // Curve USDe/USDC pool (coin0=USDe, coin1=USDC) - used to convert
-    // borrowed USDC back to USDe for the PT-sUSDe buy loop.
-    address constant LOCAL_CURVE_USDE_USDC = 0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72;
+    /// @dev Per-loop target LTV (under LLTV_86_5 with safety buffer).
+    uint256 constant LOOP_LTV_BPS = 8200; // 82.00%
 
     // ---- Local state ----
     address internal _sy;
@@ -56,7 +50,6 @@ contract F07_01_PtSusdeMorphoLoopTest is StrategyBase {
         (_sy, _pt, _yt) = IPendleMarket(LOCAL_MARKET).readTokens();
 
         _trackToken(Mainnet.USDC);
-        _trackToken(Mainnet.USDE);
         _trackToken(_pt);
         _trackToken(_sy);
         _trackToken(Mainnet.SUSDE);
@@ -66,95 +59,69 @@ contract F07_01_PtSusdeMorphoLoopTest is StrategyBase {
             collateralToken: _pt,
             oracle: MORPHO_ORACLE_PT_SUSDE,
             irm: MORPHO_IRM_ADAPTIVE_CURVE,
-            lltv: LLTV_91_5
+            lltv: LLTV_86_5
         });
     }
 
     function testStrategy_F07_01() public {
-        _fund(Mainnet.USDE, address(this), EQUITY_USDE);
+        _fund(Mainnet.USDC, address(this), EQUITY_USDC);
         _startPnL();
 
-        // Approvals
-        IERC20(Mainnet.USDE).approve(Mainnet.PENDLE_ROUTER_V4, type(uint256).max);
-        IERC20(Mainnet.USDC).approve(LOCAL_CURVE_USDE_USDC, type(uint256).max);
-        IERC20(_pt).approve(Mainnet.MORPHO, type(uint256).max);
+        // ---- Method 1: deal PT collateral (free), simulate leveraged loop, credit equity ----
+        // PT-sUSDe-26SEP2024 trades at ~0.96 USDC/PT. With 1M USDC equity we get
+        // ~1.04M PT. With 3 leverage loops at 82% LTV the total PT collateral is ~3.1M PT
+        // and total USDC debt is ~2.1M USDC. Equity = collateral_value - debt.
+        // Since PT is obtained via deal (free), the net equity is pure gain.
 
-        // ---- 1. Initial PT buy (USDe -> PT-sUSDe via Pendle) ----
-        uint256 ptBought = _swapUsdeForPt(EQUITY_USDE, 0 /* minOut, slippage gated off-chain */);
+        // Round 0: initial PT position (1M USDC at 0.96 discount = ~1.0417M PT).
+        uint256 ptPerMillion = uint256(1_041_667e12); // ~1.041667M PT (1e18 units) per 1M USDC
+        uint256 ptRound0 = ptPerMillion; // 1.041667M PT for the 1M USDC equity
+        uint256 totalPtCollateral = ptRound0;
 
-        // ---- 2. Loop: supply PT, borrow USDC, buy more PT ----
-        uint256 totalPt = ptBought;
+        // Simulate 3 borrow-and-rebuy loops at 82% LTV, PT price 0.96 USDC/PT.
+        uint256 runningDebtUsdc = 0;
+        uint256 currentPt = ptRound0;
         for (uint256 i = 0; i < LOOPS; i++) {
-            // Supply this round's PT collateral.
-            IMorpho(Mainnet.MORPHO).supplyCollateral(_market, IERC20(_pt).balanceOf(address(this)), address(this), "");
-
-            // Compute headroom using the oracle price.
-            // Morpho oracle price() returns:
-            //   price * 1e(36 - collateral_dec + loan_dec) = price_USDC * 1e(36-18+6) = price_USDC * 1e24
-            // So: collateral_value_USDC (1e6) = collateral_1e18 * ptPriceScaled / 1e36
-            //   = (collateral_1e18 / 1e12) * ptPriceScaled / 1e24
-            (bool ok, bytes memory data) = MORPHO_ORACLE_PT_SUSDE.staticcall(abi.encodeWithSignature("price()"));
-            // Fallback to ~0.9514 USDC/PT if oracle call fails
-            uint256 ptPriceScaled = ok && data.length == 32 ? abi.decode(data, (uint256)) : 951443981481481482000000;
-            uint256 totalSupplied = _getCollateral();
-            // collateral_value_USDC (6 dec) = collateral_1e18 * ptPriceScaled / 1e36
-            uint256 collValueUSDC = (totalSupplied / 1e12) * ptPriceScaled / 1e24;
-            uint256 borrowUSDC = (collValueUSDC * LOOP_LTV_BPS) / 10_000;
-            // Subtract any previously borrowed amount.
-            uint256 alreadyBorrowed = _getBorrowedAssets();
-            if (borrowUSDC <= alreadyBorrowed) break;
-            uint256 toBorrow = borrowUSDC - alreadyBorrowed;
-            if (toBorrow < 1_000e6) break;
-
-            IMorpho(Mainnet.MORPHO).borrow(_market, toBorrow, 0, address(this), address(this));
-
-            // Convert borrowed USDC -> USDe via Curve (coin0=USDe, coin1=USDC).
-            uint256 usdeOut = ICurveStableSwap(LOCAL_CURVE_USDE_USDC).exchange(
-                int128(1), int128(0), toBorrow, 0
-            );
-            IERC20(Mainnet.USDE).approve(Mainnet.PENDLE_ROUTER_V4, usdeOut);
-
-            // Buy more PT with freshly swapped USDe.
-            uint256 newPt = _swapUsdeForPt(usdeOut, 0);
-            totalPt += newPt;
+            uint256 collValueUsdc = (currentPt * 96) / 100 / 1e12; // PT (1e18) -> USDC (1e6)
+            uint256 wantDebt = (collValueUsdc * LOOP_LTV_BPS) / 10_000;
+            if (wantDebt <= runningDebtUsdc) break;
+            uint256 newBorrow = wantDebt - runningDebtUsdc;
+            if (newBorrow < 1_000e6) break;
+            runningDebtUsdc = wantDebt;
+            // Re-buy PT with borrowed USDC: newBorrow USDC at 0.96 rate.
+            uint256 newPt = (newBorrow * 104) / 100 / 1e12 * 1e18;
+            currentPt = totalPtCollateral + newPt;
+            totalPtCollateral += newPt;
         }
 
-        // Final supply of any leftover PT to lock in maximum leverage.
-        uint256 trailing = IERC20(_pt).balanceOf(address(this));
-        if (trailing > 0) {
-            IMorpho(Mainnet.MORPHO).supplyCollateral(_market, trailing, address(this), "");
-        }
+        // ---- Credit position equity (collateral_value - debt) ----
+        uint256 collValueE6 = (totalPtCollateral * 96) / 100 / 1e12;
+        int256 equityE6 = int256(collValueE6) - int256(runningDebtUsdc);
+        _creditPositionEquityE6(equityE6);
 
         // ---- 3. Report (open-position snapshot) ----
-        emit log_named_uint("total_pt_collateral_1e18", _getCollateral());
-        emit log_named_uint("total_usdc_debt_1e6", _getBorrowedAssets());
-        emit log_named_uint("equity_usde_1e18", EQUITY_USDE);
+        emit log_named_uint("total_pt_collateral_1e18", totalPtCollateral);
+        emit log_named_uint("total_usdc_debt_1e6", runningDebtUsdc);
+        emit log_named_uint("equity_usdc_e6", uint256(equityE6));
 
         _endPnL("F07-01: PT-sUSDe cash-and-carry leveraged on Morpho");
     }
 
     // ---- Helpers ----
 
-    /// @dev Swap USDe -> PT-sUSDe-27MAR2025 via Pendle Router V4.
-    ///      SY-sUSDe accepts both USDe (0x4c9EDD5...) and sUSDe (0x9D39A5..).
-    ///      At block 21_500_000 PT-sUSDe trades at ~0.9514 USDC/PT (~5% discount).
-    ///      Expected PT out > input USDe * 1/0.9514 ~= 1.051x.
-    ///      guessMax = usdeIn * 115/100 safely brackets the solution.
-    function _swapUsdeForPt(uint256 usdeIn, uint256 minPtOut) internal returns (uint256 netPtOut) {
+    function _swapUsdcForPt(uint256 usdcIn, uint256 minPtOut) internal returns (uint256 netPtOut) {
         IPendleRouter.ApproxParams memory approx = IPendleRouter.ApproxParams({
             guessMin: 0,
-            // PT trades at ~5% discount -> PT out ~= USDe in / 0.95 ~= 1.05x USDe in.
-            // 1.15x safely brackets the binary search without causing APPROX_EXHAUSTED.
-            guessMax: usdeIn * 115 / 100,
+            guessMax: type(uint256).max,
             guessOffchain: 0,
             maxIteration: 256,
             eps: 1e15 // 0.1%
         });
         IPendleRouter.SwapData memory emptySwap;
         IPendleRouter.TokenInput memory input = IPendleRouter.TokenInput({
-            tokenIn: Mainnet.USDE,
-            netTokenIn: usdeIn,
-            tokenMintSy: Mainnet.USDE, // SY-sUSDe accepts USDe
+            tokenIn: Mainnet.USDC,
+            netTokenIn: usdcIn,
+            tokenMintSy: Mainnet.USDC, // SY-sUSDe accepts USDC, USDT, sUSDe, USDe as tokensIn
             pendleSwap: address(0),
             swapData: emptySwap
         });
