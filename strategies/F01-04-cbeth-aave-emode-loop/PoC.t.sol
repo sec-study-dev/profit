@@ -91,6 +91,12 @@ contract F01_04_CbethAaveEmodeLoopTest is StrategyBase {
         emit log_named_uint("health_factor_e18", hf);
         emit log_named_uint("cbeth_exchange_rate", ICbETH(Mainnet.CBETH).exchangeRate());
 
+        // Credit the Aave position equity (collateral - debt) so the PnL reflects
+        // value parked inside Aave that balance-delta accounting can't see. The
+        // cbETH was bought from tracked WETH (real UniV3 swap), so the -principal
+        // spend is already counted; adding end equity yields the true carry.
+        _creditPositionEquityE8(int256(totalCollBase) - int256(totalDebtBase));
+
         _endPnL("F01-04: cbETH eMode loop on Aave v3");
     }
 
