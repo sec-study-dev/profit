@@ -60,6 +60,35 @@ contract F09_02_SusdeDaiMorphoFlashloopTest is StrategyBase, IMorphoFlashLoanCal
         console2.log("Morpho position.collateral (sUSDe shares) =", pos.collateral);
         console2.log("Morpho position.borrowShares             =", pos.borrowShares);
 
+        // Warp 30 days to capture sUSDe yield accrual and DAI borrow interest.
+        // sUSDe APY ~12% (at block 21.4M) vs DAI borrow ~8%; net carry positive.
+        vm.warp(block.timestamp + 30 days);
+        vm.roll(block.number + (30 days / 12));
+
+        // A1: Credit the open Morpho sUSDe/DAI position equity.
+        // Collateral = sUSDe shares → value = convertToAssets(shares) * sUSDe_price_usd.
+        // sUSDe price ≈ $1 per USDe backing (tracked as $1 in PriceOracle), so
+        // collateral_USD_e6 ≈ convertToAssets(shares) / 1e12.
+        // DAI debt: borrowShares * totalBorrowAssets / totalBorrowShares (in DAI, 1e18).
+        {
+            IMorpho.Market memory mkt = IMorpho(Mainnet.MORPHO).market(SUSDE_DAI_MARKET_ID);
+            // Compute DAI debt from borrowShares.
+            uint256 daiDebt = mkt.totalBorrowShares > 0
+                ? (uint256(pos.borrowShares) * uint256(mkt.totalBorrowAssets)) / uint256(mkt.totalBorrowShares)
+                : 0;
+            // sUSDe collateral: convert shares to underlying USDe (1e18 USDe units).
+            uint256 collUsde = IERC4626(Mainnet.SUSDE).convertToAssets(pos.collateral);
+            // USDe ≈ $1. Collateral in 1e6 USD = collUsde / 1e12.
+            int256 collE6 = int256(collUsde / 1e12);
+            // DAI ≈ $1. Debt in 1e6 USD = daiDebt / 1e12.
+            int256 debtE6 = int256(daiDebt / 1e12);
+            int256 equityE6 = collE6 - debtE6;
+            console2.log("A1_susde_coll_e6:", uint256(collE6));
+            console2.log("A1_dai_debt_e6:", uint256(debtE6));
+            console2.log("A1_equity_e6:", equityE6);
+            _creditPositionEquityE6(equityE6);
+        }
+
         _endPnL("F09-02: sUSDe-DAI-Morpho-flashloop");
     }
 

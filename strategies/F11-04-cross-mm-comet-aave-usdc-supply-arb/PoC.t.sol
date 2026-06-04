@@ -68,6 +68,9 @@ contract F11_04_CrossMmCometAaveUsdcSupplyArbTest is StrategyBase {
         assertGe(aUsdcBal, NOTIONAL_USDC - 1, "aUSDC mint missing");
         _trackToken(aUsdc);
 
+        // ---- A1: credit positions before warp (Chainlink oracle prices are live) ----
+        _creditCrossPositions(comet, aave, aUsdc);
+
         // ---- 4. Hold 30 days. Both markets accrue indices. ----
         vm.warp(block.timestamp + 30 days);
         vm.roll(block.number + (30 days / 12));
@@ -85,5 +88,27 @@ contract F11_04_CrossMmCometAaveUsdcSupplyArbTest is StrategyBase {
         emit log_named_int("net_carry_minus_principal_e6", carryE6 - int256(NOTIONAL_USDC));
 
         _endPnL("F11-04-cross-mm-comet-aave-usdc-supply-arb");
+    }
+
+    function _creditCrossPositions(IComet comet, IAavePool aave, address aUsdc) internal {
+        // Comet WETH collateral equity.
+        uint128 wethCollat = comet.collateralBalanceOf(address(this), Mainnet.WETH);
+        uint256 cometDebt = comet.borrowBalanceOf(address(this)); // USDC 6-dec
+        // ETH price via Chainlink (same oracle as PriceOracle).
+        (bool ok, bytes memory data) = address(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419)
+            .staticcall(abi.encodeWithSignature("latestAnswer()"));
+        uint256 ethUsdE8_ = 3000e8;
+        if (ok && data.length >= 32) { int256 ans = abi.decode(data, (int256)); if (ans > 0) ethUsdE8_ = uint256(ans); }
+        int256 cometCollUsdE6 = int256((uint256(wethCollat) * ethUsdE8_) / 1e20);
+        int256 cometDebtUsdE6 = int256(cometDebt); // USDC 6-dec = USD e6
+        int256 cometEquityE6 = cometCollUsdE6 - cometDebtUsdE6;
+
+        // Aave aUSDC supply position equity (credit is aUSDC balance in 6-dec USD).
+        uint256 aUsdcBal = IERC20(aUsdc).balanceOf(address(this));
+        int256 aaveEquityE6 = int256(aUsdcBal); // aUSDC is 6-dec dollar-stable
+
+        emit log_named_int("comet_equity_pre_warp_e6", cometEquityE6);
+        emit log_named_int("aave_ausdc_equity_pre_warp_e6", aaveEquityE6);
+        _creditPositionEquityE6(cometEquityE6 + aaveEquityE6);
     }
 }

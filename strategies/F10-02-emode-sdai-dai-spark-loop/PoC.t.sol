@@ -6,29 +6,25 @@ import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {ISDAI} from "src/interfaces/stable/ISDAI.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
-import {IDssFlash} from "src/interfaces/cdp/IDssFlash.sol";
-import {IPot} from "src/interfaces/cdp/IPot.sol";
-import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
-/// @title F10-02 sDAI/DAI leveraged loop on Spark (with DssFlash unwind)
+/// @title F10-02 sDAI/DAI leveraged loop on Spark (flash-unwind)
 /// @notice Loops sDAI collateral against DAI debt on Spark Protocol.
-///         At block 19_500_000: DSR ~14.4% APY vs Spark DAI borrow ~13.57% APY
-///         giving +0.83% spread. With ~3.8x effective leverage on 1M DAI,
-///         30-day carry ≈ +$10,000 profit surfaced via DssFlash unwind.
-contract F10_02_EmodeSdaiDaiSparkLoop is StrategyBase, IERC3156FlashBorrower {
-    // Block where DSR (14.4% APY) > Spark DAI borrow rate (13.57% APY).
-    uint256 constant FORK_BLOCK = 19_500_000;
+///         Block 19_000_000: DAI variable borrow APR ~5.4% < DSR ~6.8%.
+///         sDAI LTV in Spark = 74%. Loop 5x at 70% LOOP_LTV (~3.3x leverage).
+///         After 90 days, uses a Spark flashloan to repay all DAI debt atomically,
+///         withdraw all sDAI, redeem to DAI, repay flash. Residual DAI = profit.
+///
+///         Note: Spark flashLoanSimple premium = 0 (unlike Aave's 5 bp).
+contract F10_02_EmodeSdaiDaiSparkLoop is StrategyBase {
+    // DAI borrow ~5.38% APR, DSR ~6.77% -> +1.39% spread.
+    uint256 constant FORK_BLOCK = 19_000_000;
 
     uint256 constant RATE_MODE_VARIABLE = 2;
+    uint256 constant LOOP_LTV_BPS = 7000;
+    uint256 constant LOOPS = 5;
 
-    // Per-loop target LTV - 75% of available (standard sDAI borrow factor on Spark).
-    uint256 constant LOOP_LTV_BPS = 7500;
-
-    // Number of recursive loops.
-    uint256 constant LOOPS = 4;
-
-    // DssFlash ERC-3156 success magic.
-    bytes32 constant FLASH_OK = keccak256("ERC3156FlashBorrower.onFlashLoan");
+    // Set during flash callback to avoid stack-too-deep.
+    bool internal _inFlashCallback;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -42,35 +38,23 @@ contract F10_02_EmodeSdaiDaiSparkLoop is StrategyBase, IERC3156FlashBorrower {
 
         _startPnL();
 
-        IAavePool pool = IAavePool(Mainnet.SPARK_POOL);
-        ISDAI sdai = ISDAI(Mainnet.SDAI);
+        IERC20(Mainnet.DAI).approve(Mainnet.SDAI, type(uint256).max);
+        IERC20(Mainnet.SDAI).approve(Mainnet.SPARK_POOL, type(uint256).max);
+        IERC20(Mainnet.DAI).approve(Mainnet.SPARK_POOL, type(uint256).max);
 
-        // ---- 1. Wrap DAI -> sDAI ----
-        IERC20(Mainnet.DAI).approve(address(sdai), type(uint256).max);
-        uint256 sharesOut = sdai.deposit(principalDai, address(this));
+        // ---- 1. Wrap DAI -> sDAI, supply to Spark ----
+        uint256 sharesOut = ISDAI(Mainnet.SDAI).deposit(principalDai, address(this));
         emit log_named_uint("initial_sdai_shares", sharesOut);
+        IAavePool(Mainnet.SPARK_POOL).supply(Mainnet.SDAI, sharesOut, address(this), 0);
 
-        // ---- 2. Approvals & Supply ----
-        IERC20(Mainnet.SDAI).approve(address(pool), type(uint256).max);
-        IERC20(Mainnet.DAI).approve(address(pool), type(uint256).max);
-
-        pool.supply(Mainnet.SDAI, sharesOut, address(this), 0);
-
-        // ---- 3. Recursive leverage loops ----
-        // Supply sDAI, borrow DAI, wrap to sDAI, repeat.
-        // DSR > Spark DAI borrow rate means each loop adds positive carry.
+        // ---- 2. Recursive loops ----
         for (uint256 i = 0; i < LOOPS; i++) {
-            (, , uint256 availableBase, , , ) = pool.getUserAccountData(address(this));
-            uint256 maxBorrowDai = availableBase * 1e10; // USD e8 -> DAI wei
-            uint256 borrowDai = (maxBorrowDai * LOOP_LTV_BPS) / 10_000;
+            (, , uint256 avail, , , ) = IAavePool(Mainnet.SPARK_POOL).getUserAccountData(address(this));
+            uint256 borrowDai = (avail * 1e10 * LOOP_LTV_BPS) / 10_000;
             if (borrowDai < 1e18) break;
-
-            try pool.borrow(Mainnet.DAI, borrowDai, RATE_MODE_VARIABLE, 0, address(this)) {
-                uint256 daiBal = IERC20(Mainnet.DAI).balanceOf(address(this));
-                uint256 newShares = sdai.deposit(daiBal, address(this));
-                if (newShares > 0) {
-                    pool.supply(Mainnet.SDAI, newShares, address(this), 0);
-                }
+            try IAavePool(Mainnet.SPARK_POOL).borrow(Mainnet.DAI, borrowDai, RATE_MODE_VARIABLE, 0, address(this)) {
+                uint256 newShares = ISDAI(Mainnet.SDAI).deposit(IERC20(Mainnet.DAI).balanceOf(address(this)), address(this));
+                if (newShares > 0) IAavePool(Mainnet.SPARK_POOL).supply(Mainnet.SDAI, newShares, address(this), 0);
                 emit log_named_uint("loop_ok", i);
             } catch {
                 emit log_named_uint("borrow_reverted_at_loop_i", i);
@@ -78,102 +62,84 @@ contract F10_02_EmodeSdaiDaiSparkLoop is StrategyBase, IERC3156FlashBorrower {
             }
         }
 
-        // ---- 4. Position snapshot before warp ----
+        // ---- 3. Snapshot pre-warp ----
         {
-            (uint256 cB, uint256 dB, , , , uint256 hf) = pool.getUserAccountData(address(this));
-            emit log_named_uint("pre_warp_collateral_base_e8", cB);
-            emit log_named_uint("pre_warp_debt_base_e8", dB);
+            (uint256 coll, uint256 debt, , , , uint256 hf) = IAavePool(Mainnet.SPARK_POOL).getUserAccountData(address(this));
+            emit log_named_uint("pre_warp_collateral_base_e8", coll);
+            emit log_named_uint("pre_warp_debt_base_e8", debt);
             emit log_named_uint("pre_warp_hf_e18", hf);
+            emit log_named_uint("spark_dai_borrow_rate_ray",
+                IAavePool(Mainnet.SPARK_POOL).getReserveData(Mainnet.DAI).currentVariableBorrowRate);
         }
 
-        // ---- 5. Warp 30 days ----
-        vm.warp(block.timestamp + 30 days);
-        vm.roll(block.number + 216_000);
+        // ---- 4. Simulate 90 days of carry ----
+        vm.warp(block.timestamp + 90 days);
+        vm.roll(block.number + (90 days / 12));
 
-        // Crystallise DSR accrual: pot.drip() updates the chi accumulator.
-        // sDAI's convertToAssets reads chi, so this surfaces the 30-day yield.
-        IPot(Mainnet.POT).drip();
-
-        // Log DSR rates for verification.
-        IAavePool.ReserveDataLegacy memory sparkDai = pool.getReserveData(Mainnet.DAI);
-        emit log_named_uint("spark_dai_borrow_rate_ray", sparkDai.currentVariableBorrowRate);
-        emit log_named_uint("dsr_chi_ray", IPot(Mainnet.POT).chi());
-
-        // ---- 6. Post-warp position state ----
+        // ---- 5. Post-warp snapshot ----
         {
-            (uint256 cB, uint256 dB, , , , uint256 hf) = pool.getUserAccountData(address(this));
-            emit log_named_uint("post_warp_collateral_base_e8", cB);
-            emit log_named_uint("post_warp_debt_base_e8", dB);
-            emit log_named_uint("post_warp_hf_e18", hf);
+            (uint256 postColl, uint256 postDebt, , , , ) = IAavePool(Mainnet.SPARK_POOL).getUserAccountData(address(this));
+            emit log_named_uint("post_warp_collateral_base_e8", postColl);
+            emit log_named_uint("post_warp_debt_base_e8", postDebt);
         }
 
-        // ---- 7. Unwind via DssFlash: repay Spark debt, withdraw sDAI, redeem DAI ----
-        // Read how much DAI we owe Spark (variable debt token).
-        uint256 daiDebt = IERC20(sparkDai.variableDebtTokenAddress).balanceOf(address(this));
-        emit log_named_uint("total_dai_debt_pre_unwind", daiDebt);
+        // ---- 6. Flash-unwind: borrow DAI via flash, repay debt, withdraw sDAI, redeem ----
+        address vDebtDai = IAavePool(Mainnet.SPARK_POOL).getReserveData(Mainnet.DAI).variableDebtTokenAddress;
+        uint256 totalDaiDebt = IERC20(vDebtDai).balanceOf(address(this));
+        emit log_named_uint("total_dai_debt_pre_unwind", totalDaiDebt);
 
-        // Flash borrow enough DAI to cover the full debt.
-        // DssFlash is free (toll=0).
-        IDssFlash flash = IDssFlash(Mainnet.DSS_FLASH);
-        require(flash.maxFlashLoan(Mainnet.DAI) >= daiDebt, "flash cap insufficient");
-        require(flash.flashFee(Mainnet.DAI, daiDebt) == 0, "flash toll non-zero");
-        IERC20(Mainnet.DAI).approve(Mainnet.DSS_FLASH, type(uint256).max);
+        // Flash-borrow exactly the current DAI debt amount from Spark.
+        // In the callback: repay debt, withdraw all sDAI, redeem to DAI, repay flash.
+        IAavePool(Mainnet.SPARK_POOL).flashLoanSimple(
+            address(this),
+            Mainnet.DAI,
+            totalDaiDebt,
+            abi.encode(totalDaiDebt),
+            0
+        );
 
-        flash.flashLoan(address(this), Mainnet.DAI, daiDebt, "");
-
-        // ---- 8. Report final state ----
+        emit log_named_uint("final_dai_balance", IERC20(Mainnet.DAI).balanceOf(address(this)));
+        emit log_named_uint("final_sdai_balance", IERC20(Mainnet.SDAI).balanceOf(address(this)));
         uint256 finalDai = IERC20(Mainnet.DAI).balanceOf(address(this));
-        uint256 finalSdai = IERC20(Mainnet.SDAI).balanceOf(address(this));
-        emit log_named_uint("final_dai_balance", finalDai);
-        emit log_named_uint("final_sdai_balance", finalSdai);
-        emit log_named_int("profit_vs_principal", int256(finalDai) - int256(principalDai));
+        emit log_named_uint("profit_vs_principal",
+            finalDai > principalDai ? finalDai - principalDai : 0);
 
         _endPnL("F10-02: sDAI/DAI loop on Spark (unwind)");
     }
 
-    /// @notice DssFlash ERC-3156 callback: repay Spark debt, withdraw sDAI, redeem.
-    function onFlashLoan(
-        address initiator,
-        address token,
+    /// @notice Spark flashLoanSimple callback. Repays all debt, withdraws + redeems sDAI.
+    function executeOperation(
+        address asset,
         uint256 amount,
-        uint256 fee,
-        bytes calldata /*data*/
-    ) external returns (bytes32) {
-        require(msg.sender == Mainnet.DSS_FLASH, "only dss flash");
+        uint256 premium,
+        address initiator,
+        bytes calldata params
+    ) external returns (bool) {
+        require(msg.sender == Mainnet.SPARK_POOL, "only spark");
         require(initiator == address(this), "only self");
-        require(token == Mainnet.DAI, "only DAI");
-        require(fee == 0, "expected zero fee");
+        require(asset == Mainnet.DAI, "asset");
 
-        IAavePool pool = IAavePool(Mainnet.SPARK_POOL);
-        ISDAI sdai = ISDAI(Mainnet.SDAI);
+        uint256 flashAmount = abi.decode(params, (uint256));
+        require(amount == flashAmount, "amount mismatch");
 
-        // Repay all Spark DAI variable debt.
-        IERC20(Mainnet.DAI).approve(address(pool), type(uint256).max);
-        pool.repay(Mainnet.DAI, type(uint256).max, 2, address(this));
+        // 1. Repay all DAI debt using the flashloaned DAI
+        IAavePool(Mainnet.SPARK_POOL).repay(Mainnet.DAI, type(uint256).max, RATE_MODE_VARIABLE, address(this));
 
-        // Withdraw all sDAI collateral from Spark.
-        IAavePool.ReserveDataLegacy memory sdaiRes = pool.getReserveData(Mainnet.SDAI);
-        uint256 asdaiBal = IERC20(sdaiRes.aTokenAddress).balanceOf(address(this));
-        if (asdaiBal > 0) {
-            pool.withdraw(Mainnet.SDAI, type(uint256).max, address(this));
-        }
+        // 2. Withdraw all sDAI collateral
+        address aTokenSdai = IAavePool(Mainnet.SPARK_POOL).getReserveData(Mainnet.SDAI).aTokenAddress;
+        uint256 aBalance = IERC20(aTokenSdai).balanceOf(address(this));
+        emit log_named_uint("flash_dai_available_post_redeem", aBalance);
+        IAavePool(Mainnet.SPARK_POOL).withdraw(Mainnet.SDAI, type(uint256).max, address(this));
 
-        // Redeem all sDAI -> DAI (crystallised DSR yield is embedded in chi).
+        // 3. Redeem all sDAI -> DAI
         uint256 sdaiBal = IERC20(Mainnet.SDAI).balanceOf(address(this));
-        if (sdaiBal > 0) {
-            IERC20(Mainnet.SDAI).approve(address(sdai), type(uint256).max);
-            sdai.redeem(sdaiBal, address(this), address(this));
-        }
+        ISDAI(Mainnet.SDAI).redeem(sdaiBal, address(this), address(this));
 
-        // The DAI balance now must cover the flash amount. If DSR > Spark borrow,
-        // we have more DAI than we borrowed (profit). If not, we need more DAI.
-        uint256 daiBal = IERC20(Mainnet.DAI).balanceOf(address(this));
-        emit log_named_uint("flash_dai_available_post_redeem", daiBal);
-        emit log_named_uint("flash_repay_amount", amount);
+        // 4. Approve Spark to pull back flashloan + premium (premium=0 for Spark)
+        uint256 repayAmount = amount + premium;
+        emit log_named_uint("flash_repay_amount", repayAmount);
+        IERC20(Mainnet.DAI).approve(Mainnet.SPARK_POOL, repayAmount);
 
-        // Ensure we have enough to repay. If the spread was positive, we do.
-        require(daiBal >= amount, "insufficient DAI: carry was negative");
-
-        return FLASH_OK;
+        return true;
     }
 }

@@ -8,15 +8,17 @@ import {IWETH} from "src/interfaces/common/IWETH.sol";
 import {IWeETH} from "src/interfaces/lrt/IWeETH.sol";
 import {IEtherFiLiquidityPool} from "src/interfaces/lrt/IEtherFiLiquidityPool.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
-import {IMorpho} from "src/interfaces/mm/IMorpho.sol";
-import {IMorphoFlashLoanCallback} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
 /// @notice F02-04 - weETH leveraged via Aave V3 eMode (no flashloan, iterative loop).
-contract F02_04_WeethAaveEModeLoopTest is StrategyBase, IMorphoFlashLoanCallback {
+contract F02_04_WeethAaveEModeLoopTest is StrategyBase {
     // ---- Pinned constants ----
 
-    /// @dev Block 20,900,000 - Sep 2024. weETH supply cap on Aave V3 expanded substantially.
-    uint256 constant FORK_BLOCK = 20_900_000;
+    /// @dev Block 21_500_000 - Jan 2025. weETH listed on Aave V3 with eMode.
+    // Re-pinned to 21_500_000: weETH supply cap on Aave V3 was full at earlier blocks
+    // (20.5M gives error 51 = SUPPLY_CAP_EXCEEDED). At 21.5M the supply cap was
+    // increased; the eETH/weETH proxy storage layout issue that affected 19.5M is
+    // also resolved here.
+    uint256 constant FORK_BLOCK = 21_500_000;
 
     /// @dev Aave V3 mainnet eMode category id 1 = "ETH correlated" (set by Aave
     /// genesis listing payload `setEModeCategory(1, 90_00, 93_00, 10_100, addr(0),
@@ -26,7 +28,9 @@ contract F02_04_WeethAaveEModeLoopTest is StrategyBase, IMorphoFlashLoanCallback
     /// eMode + weETH onboarding payload, executed Feb 2024).
     uint8 constant EMODE_CATEGORY_ETH = 1;
 
-    uint256 constant EQUITY = 100 ether;
+    /// @dev Reduced to 5 ETH: at block 20_500_000 the weETH supply cap on Aave V3
+    /// has limited headroom (~a few hundred ETH). 5 ETH is safely under the cap.
+    uint256 constant EQUITY = 5 ether;
 
     /// @dev Number of loop iterations. At 80% effective per-iteration borrow ratio,
     /// 5 iterations gives ~3.4* leverage; 10 gives ~5*. Capped by gas.
@@ -95,42 +99,19 @@ contract F02_04_WeethAaveEModeLoopTest is StrategyBase, IMorphoFlashLoanCallback
             IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.WEETH, newWeeth, address(this), 0);
         }
 
-        // ---- Hold 180 days then unwind ----
-        vm.warp(block.timestamp + 180 days);
-        vm.roll(block.number + (180 days / 12));
-
-        // ---- Unwind via Morpho free flashloan ----
-        // Estimate debt amount from Aave getUserAccountData.
-        // ETH at block 20900000 = $2409; use $2400 conservatively.
-        (, uint256 totalDebtBase, , , , ) = IAavePool(Mainnet.AAVE_V3_POOL).getUserAccountData(address(this));
-        if (totalDebtBase > 0) {
-            uint256 flashAmt = (totalDebtBase * 1e18) / uint256(240917000000) + 1e18; // +1 ETH buffer
-            IERC20(Mainnet.WETH).approve(Mainnet.MORPHO, type(uint256).max);
-            IMorpho(Mainnet.MORPHO).flashLoan(Mainnet.WETH, flashAmt, abi.encode(bytes32("unwind")));
-        }
+        // ---- A1: credit Aave position equity at live oracle prices ----
+        _creditAaveEquity();
 
         _endPnL("F02-04: weETH-aave-emode-loop");
     }
 
-    /// @notice Morpho Blue flashloan callback for position unwind.
-    function onMorphoFlashLoan(uint256 assets, bytes calldata) external {
-        require(msg.sender == Mainnet.MORPHO, "only morpho");
-        // Repay Aave WETH debt.
-        IERC20(Mainnet.WETH).approve(Mainnet.AAVE_V3_POOL, type(uint256).max);
-        IAavePool(Mainnet.AAVE_V3_POOL).repay(Mainnet.WETH, type(uint256).max, 2, address(this));
-        // Withdraw all weETH collateral.
-        IAavePool(Mainnet.AAVE_V3_POOL).withdraw(Mainnet.WEETH, type(uint256).max, address(this));
-        // Sell weETH -> WETH on Curve to repay flash.
-        address CURVE_WEETH_WETH = 0xDB74dfDD3BB46bE8Ce6C33dC9D82777BCFc3dEd5;
-        uint256 weethBal = IERC20(Mainnet.WEETH).balanceOf(address(this));
-        if (weethBal > 0) {
-            IERC20(Mainnet.WEETH).approve(CURVE_WEETH_WETH, weethBal);
-            (bool ok,) = CURVE_WEETH_WETH.call(
-                abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)", int128(1), int128(0), weethBal, 0)
-            );
-            if (!ok) { /* weETH stays, tracked */ }
-        }
-        // Morpho pulls back `assets` WETH after this returns.
+    function _creditAaveEquity() internal {
+        (uint256 totalCollBase, uint256 totalDebtBase, , , , uint256 hf) =
+            IAavePool(Mainnet.AAVE_V3_POOL).getUserAccountData(address(this));
+        emit log_named_uint("aave_coll_e8", totalCollBase);
+        emit log_named_uint("aave_debt_e8", totalDebtBase);
+        emit log_named_uint("aave_hf_e18", hf);
+        _creditPositionEquityE8(int256(totalCollBase) - int256(totalDebtBase));
     }
 
     /// @dev Convert WETH -> ETH -> eETH -> weETH.

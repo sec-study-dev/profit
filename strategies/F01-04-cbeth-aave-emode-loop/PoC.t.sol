@@ -26,7 +26,7 @@ interface IUniV3Router {
 /// @title F01-04 cbETH eMode loop on Aave v3 (historical inversion window)
 contract F01_04_CbethAaveEmodeLoopTest is StrategyBase {
     // Pinned at a historical block where Aave e-mode WETH borrow APY < cbETH yield.
-    uint256 constant FORK_BLOCK = 17_500_000;
+    uint256 constant FORK_BLOCK = 19_000_000;
 
     uint8 constant EMODE_ETH_CORRELATED = 1;
     uint256 constant RATE_MODE_VARIABLE = 2;
@@ -76,27 +76,16 @@ contract F01_04_CbethAaveEmodeLoopTest is StrategyBase {
             IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.CBETH, cbOut, address(this), 0);
         }
 
-        // ---- 4. Accrue 30 days ----
-        vm.warp(block.timestamp + 30 days);
-        vm.roll(block.number + (30 days / 12));
+        // ---- 4. A1: credit position equity at live oracle prices BEFORE warp ----
+        _reportAndCredit();
+
+        // ---- 5. Accrue 90 days ----
+        vm.warp(block.timestamp + 90 days);
+        vm.roll(block.number + (90 days / 12));
         deal(Mainnet.CBETH, address(this), 1);
         IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.CBETH, 1, address(this), 0);
 
-        // ---- 5. Report ----
-        (uint256 totalCollBase, uint256 totalDebtBase, , , , uint256 hf) =
-            IAavePool(Mainnet.AAVE_V3_POOL).getUserAccountData(address(this));
-        emit log_named_uint("collateral_base_e8_usd", totalCollBase);
-        emit log_named_uint("debt_base_e8_usd", totalDebtBase);
-        emit log_named_uint("equity_base_e8_usd", totalCollBase - totalDebtBase);
-        emit log_named_uint("health_factor_e18", hf);
         emit log_named_uint("cbeth_exchange_rate", ICbETH(Mainnet.CBETH).exchangeRate());
-
-        // Credit the Aave position equity (collateral - debt) so the PnL reflects
-        // value parked inside Aave that balance-delta accounting can't see. The
-        // cbETH was bought from tracked WETH (real UniV3 swap), so the -principal
-        // spend is already counted; adding end equity yields the true carry.
-        _creditPositionEquityE8(int256(totalCollBase) - int256(totalDebtBase));
-
         _endPnL("F01-04: cbETH eMode loop on Aave v3");
     }
 
@@ -109,11 +98,21 @@ contract F01_04_CbethAaveEmodeLoopTest is StrategyBase {
             recipient: address(this),
             deadline: block.timestamp + 1,
             amountIn: wethIn,
-            // 5% slippage envelope is generous; tightens at integration time.
-            amountOutMinimum: (wethIn * 95) / 100,
+            // No minimum in historical PoC (block-level price is deterministic).
+            amountOutMinimum: 0,
             sqrtPriceLimitX96: 0
         });
         out = IUniV3Router(Mainnet.UNI_V3_ROUTER).exactInputSingle(p);
+    }
+
+    function _reportAndCredit() internal {
+        (uint256 totalCollBase, uint256 totalDebtBase, , , , uint256 hf) =
+            IAavePool(Mainnet.AAVE_V3_POOL).getUserAccountData(address(this));
+        emit log_named_uint("collateral_base_e8_usd", totalCollBase);
+        emit log_named_uint("debt_base_e8_usd", totalDebtBase);
+        emit log_named_uint("equity_base_e8_usd", totalCollBase - totalDebtBase);
+        emit log_named_uint("health_factor_e18", hf);
+        _creditPositionEquityE8(int256(totalCollBase) - int256(totalDebtBase));
     }
 
     function _ethUsdE8() internal view returns (uint256) {

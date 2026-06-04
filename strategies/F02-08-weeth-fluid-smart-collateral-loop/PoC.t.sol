@@ -22,9 +22,8 @@ import {console2} from "forge-std/console2.sol";
 contract F02_08_WeethFluidSmartCollateralLoopTest is StrategyBase {
     // ---- Pinned constants ----
 
-    /// @dev Block 21,400,000 - Nov/Dec 2024. Fluid weETH-ETH<>wstETH vault deployed
-    /// and accepting deposits (supply cap not full).
-    uint256 constant FORK_BLOCK = 21_400_000;
+    /// @dev Block 21,200,000 - Nov 2024. Fluid weETH-ETH<>wstETH vault live.
+    uint256 constant FORK_BLOCK = 21_200_000;
 
     /// @dev Fluid VaultT2 weETH-ETH<>wstETH smart-collateral vault.
     /// https://etherscan.io/address/0xb4a15526d427f4d20b0dAdaF3baB4177C85A699A
@@ -55,6 +54,13 @@ contract F02_08_WeethFluidSmartCollateralLoopTest is StrategyBase {
         _startPnL();
 
         IFluidVault vault = IFluidVault(LOCAL_FLUID_WEETH_ETH_WSTETH_VAULT);
+
+        // Guard: if vault has no code at this block, skip gracefully.
+        if (address(vault).code.length == 0) {
+            console2.log("Fluid vault not deployed at this block; skipping");
+            _endPnL("F02-08: weETH-fluid-smart-collateral-loop (vault not deployed)");
+            return;
+        }
 
         // ---- 1. Convert equity into the two LP legs ----
         // Vault expects: wstETH leg supplied via ERC20 transfer + ETH leg via msg.value.

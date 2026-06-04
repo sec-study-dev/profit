@@ -99,6 +99,27 @@ contract F09_04_MorphoCrossMarketRateArbTest is StrategyBase {
         // The matching borrow leg on market B would require wstETH collateral on
         // contract; we leave it as a documented extension in the README.
 
+        // Warp 30 days to capture the Morpho supply interest on market A.
+        // sUSDe/USDC 91.5% LLTV market at ~92.5% utilisation → supply APY ~7.4%
+        // (rate * util). 30 days carry on $100k ~= ~$609.
+        vm.warp(block.timestamp + 30 days);
+        vm.roll(block.number + (30 days / 12));
+
+        // A1: Credit the Morpho supply position in market A after accruing interest.
+        // accrueInterest() triggers on-chain interest state update so totalSupplyAssets
+        // reflects the 30-day carry.
+        morpho.accrueInterest(_marketA);
+        {
+            IMorpho.Market memory mAFinal = morpho.market(SUSDE_USDC_MARKET_ID);
+            uint256 redeemableUsdc = mAFinal.totalSupplyShares > 0
+                ? (sharesSupplied * uint256(mAFinal.totalSupplyAssets)) / uint256(mAFinal.totalSupplyShares)
+                : SUPPLY_AMOUNT;
+            // USDC is 1e6-decimals. equityE6 = redeemableUsdc directly.
+            int256 equityE6 = int256(redeemableUsdc);
+            console2.log("A1_supply_redeemable_usdc_e6:", redeemableUsdc);
+            _creditPositionEquityE6(equityE6);
+        }
+
         _endPnL("F09-04: Morpho-cross-market-rate-arb (supply leg)");
     }
 }

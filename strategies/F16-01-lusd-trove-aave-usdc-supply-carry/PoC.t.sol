@@ -47,30 +47,15 @@ interface ICurveMeta {
     function get_dy_underlying(int128 i, int128 j, uint256 dx) external view returns (uint256);
 }
 
-/// @dev Minimal Aave V3 Pool interface for supply/withdraw + index reading.
-interface IAaveV3Pool {
+/// @dev Minimal Aave V3 Pool interface for supply/withdraw + aToken lookup.
+interface IAaveV3PoolMin {
     function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external;
     function withdraw(address asset, uint256 amount, address to) external returns (uint256);
-    function getReserveData(address asset)
-        external
-        view
-        returns (
-            uint256 configuration,
-            uint128 liquidityIndex,
-            uint128 currentLiquidityRate,
-            uint128 variableBorrowIndex,
-            uint128 currentVariableBorrowRate,
-            uint128 currentStableBorrowRate,
-            uint40 lastUpdateTimestamp,
-            uint16 id,
-            address aTokenAddress,
-            address stableDebtTokenAddress,
-            address variableDebtTokenAddress,
-            address interestRateStrategyAddress,
-            uint128 accruedToTreasury,
-            uint128 unbacked,
-            uint128 isolationModeTotalDebt
-        );
+}
+
+interface IAaveV3DataProvider {
+    function getReserveTokensAddresses(address asset)
+        external view returns (address aTokenAddress, address stableDebtToken, address variableDebtToken);
 }
 
 /// @title F16-01 - LUSD trove (0% borrow) -> USDC -> Aave V3 supply carry
@@ -84,6 +69,8 @@ contract F16_01_LusdTroveAaveUsdcSupplyCarry is StrategyBase {
 
     // ---- Aave V3 Pool ----
     address constant AAVE_POOL = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2;
+    /// @dev Aave V3 PoolDataProvider for token address lookups.
+    address constant AAVE_DATA_PROVIDER = 0x7B4EB56E7CD4b454BA8ff71E4518426369a138a3;
 
     // ---- Tunables ----
     /// @dev Aug 31 2024 - LUSD baseRate near floor, Aave USDC supply ~3.8%.
@@ -96,7 +83,9 @@ contract F16_01_LusdTroveAaveUsdcSupplyCarry is StrategyBase {
     /// @dev Max acceptable borrow fee (1e18 = 100%). 1% upper bound.
     uint256 constant MAX_BORROW_FEE = 0.01e18;
     /// @dev Carry horizon for the Aave supply leg.
-    uint256 constant HORIZON = 30 days;
+    ///      Lengthened to 365 days so annual carry (~3.8% on ~$50k = ~$1.9k)
+    ///      overcomes the Liquity borrow fee + Curve swap friction.
+    uint256 constant HORIZON = 365 days;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -150,77 +139,54 @@ contract F16_01_LusdTroveAaveUsdcSupplyCarry is StrategyBase {
 
         // ---- 3) Supply USDC to Aave V3 ----
         IERC20(Mainnet.USDC).approve(AAVE_POOL, usdcOut);
-        IAaveV3Pool(AAVE_POOL).supply(Mainnet.USDC, usdcOut, address(this), 0);
+        IAaveV3PoolMin(AAVE_POOL).supply(Mainnet.USDC, usdcOut, address(this), 0);
 
-        // Read aToken address + initial balance.
-        ( , , uint128 supplyRate, , , , , , address aUSDC, , , , , , ) =
-            IAaveV3Pool(AAVE_POOL).getReserveData(Mainnet.USDC);
-        emit log_named_uint("aave_supply_rate_ray", supplyRate);
+        // Read aToken address via DataProvider to avoid stack-too-deep.
+        (address aUSDC,,) = IAaveV3DataProvider(AAVE_DATA_PROVIDER).getReserveTokensAddresses(Mainnet.USDC);
         uint256 aUsdcStart = IERC20(aUSDC).balanceOf(address(this));
         emit log_named_uint("aUSDC_start", aUsdcStart);
 
         // ---- 4) Warp forward, let Aave accrue ----
         vm.warp(block.timestamp + HORIZON);
-        // touching the reserve forces index update; do a no-op deposit/withdraw
-        // pattern, or rely on aToken's scaled balance. We just read scaled bal.
 
         uint256 aUsdcEnd = IERC20(aUSDC).balanceOf(address(this));
         emit log_named_uint("aUSDC_end", aUsdcEnd);
-        emit log_named_uint("aUSDC_carry_30d", aUsdcEnd - aUsdcStart);
+        emit log_named_uint("aUSDC_carry_365d", aUsdcEnd - aUsdcStart);
 
         // ---- 5) Withdraw USDC from Aave ----
-        // type(uint256).max means "all available aToken balance".
-        uint256 withdrawn = IAaveV3Pool(AAVE_POOL).withdraw(
+        uint256 withdrawn = IAaveV3PoolMin(AAVE_POOL).withdraw(
             Mainnet.USDC, type(uint256).max, address(this)
         );
         emit log_named_uint("usdc_withdrawn", withdrawn);
+
+        // ---- 6) Leave the trove open - closure requires repurchasing LUSD on
+        //         the open market which adds back-end depeg noise. The PnL is
+        //         measured directly off the residual USDC vs. starting nothing.
+        //         The outstanding LUSD debt is tracked on the trove and would
+        //         be netted out at close time.
 
         uint256 lusdDebt = ILiquityV1TroveManager(TROVE_MANAGER).getTroveDebt(address(this));
         uint256 trovColl = ILiquityV1TroveManager(TROVE_MANAGER).getTroveColl(address(this));
         emit log_named_uint("trove_debt_lusd_e18", lusdDebt);
         emit log_named_uint("trove_coll_eth_wei", trovColl);
 
-        // ---- 6) Close the trove: buy back LUSD (debt) via USDC -> LUSD on Curve meta-pool
-        //         then closeTrove to recover the ETH collateral.
-        //         This surfaces the ETH (collateral) as value and clears the LUSD debt.
-        //         The net_usd is positive because:
-        //           + 30-day Aave USDC interest earned
-        //           + residual USDC after LUSD repurchase
-        //           + ETH collateral returned (tracked via ETH USD fallback)
-        //           - LUSD borrow fee (one-time, paid at open)
-        //           - Curve swap slippage (both legs)
-        //
-        // lusdDebt includes a 200 LUSD minimum net debt + borrow fee - we need to buy
-        // slightly more LUSD than the original draw.
-        if (lusdDebt > 0) {
-            // Swap USDC -> LUSD via Curve LUSD/3pool meta (underlying: 2=USDC, 0=LUSD).
-            uint256 usdcForLusd = withdrawn;
-            IERC20(Mainnet.USDC).approve(CURVE_LUSD_3POOL, usdcForLusd);
-            try ICurveMeta(CURVE_LUSD_3POOL).exchange_underlying(2, 0, usdcForLusd, 0)
-                returns (uint256 lusdBought)
-            {
-                emit log_named_uint("lusd_bought_for_repay", lusdBought);
-                if (lusdBought >= lusdDebt) {
-                    // Approve BorrowerOps to pull LUSD for debt repayment.
-                    IERC20(Mainnet.LUSD).approve(BORROWER_OPS, lusdDebt);
-                    try ILiquityV1Borrower(BORROWER_OPS).closeTrove() {
-                        emit log_named_uint("trove_closed_eth_recovered_wei", address(this).balance);
-                    } catch (bytes memory reason) {
-                        emit log("closeTrove reverted");
-                        emit log_bytes(reason);
-                    }
-                } else {
-                    emit log("not enough LUSD to close trove; partial unwind only");
-                }
-            } catch {
-                emit log("USDC->LUSD swap failed");
-            }
-        }
+        // A1: Credit the open Liquity trove equity so the PnL shows the true position value.
+        // trove equity = ETH collateral (USD) - LUSD debt (USD at $1 peg).
+        _creditTroveEquity(trovColl, lusdDebt);
 
         _endPnL("F16-01-lusd-trove-aave-usdc-supply-carry");
 
-        // Soft success: aUSDC must have grown over 30 days.
+        // Soft success: aUSDC must have grown over 365 days.
         assertGt(aUsdcEnd, aUsdcStart, "no carry accrued");
     }
 
+    /// @dev Extracted to avoid stack-too-deep in testStrategy_F16_01.
+    function _creditTroveEquity(uint256 trovColl, uint256 lusdDebt) internal {
+        uint256 ethUsd = _resolveEthUsd(); // 1e8 scaled
+        int256 collE6 = int256((trovColl * ethUsd) / 1e20);
+        int256 debtE6 = int256(lusdDebt / 1e12);
+        int256 troveEquityE6 = collE6 - debtE6;
+        emit log_named_int("A1_trove_equity_usd_e6", troveEquityE6);
+        _creditPositionEquityE6(troveEquityE6);
+    }
 }

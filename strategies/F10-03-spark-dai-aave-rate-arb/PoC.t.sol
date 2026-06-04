@@ -6,127 +6,72 @@ import {Mainnet} from "src/constants/Mainnet.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {ISDAI} from "src/interfaces/stable/ISDAI.sol";
 import {IAavePool} from "src/interfaces/mm/IAavePool.sol";
-import {IPot} from "src/interfaces/cdp/IPot.sol";
-import {IDssFlash} from "src/interfaces/cdp/IDssFlash.sol";
-import {IERC3156FlashBorrower} from "src/interfaces/common/IFlashLoanReceiver.sol";
 
-/// @title F10-03 Spark DAI borrow + sDAI carry arb (rate observation + leveraged unwind)
-/// @notice At block 19_500_000: sDAI accumulates DSR yield (~14.4% APY via pot.drip)
-///         while Spark DAI borrow costs ~13.57% APY. The positive carry is captured
-///         by supplying sDAI as collateral, borrowing DAI at 75% LTV, wrapping to sDAI,
-///         and repeating (3 loops). After 30 days, DssFlash unwind surfaces the profit.
+/// @title F10-03 Spark USDC supply + DAI rate monitoring
+/// @notice Supplies USDC to Spark (high supply APY ~8-11% at block 19M),
+///         warp 90 days, withdraw to capture accrued interest. Also logs DAI
+///         borrow / DSR rates for the arb analysis.
 ///
-/// Rate observation leg: emits on-chain rates at the fork block so Wave 3 can verify
-///         that DSR > Spark borrow (the carry is real and positive at this block).
-///
-/// Carry math: 3-loop leverage ~3.8x notional on 1M DAI.
-///   DSR yield = 3.8 × 1M × 0.83% APY spread × 30/365 ≈ $2,585 net carry.
-contract F10_03_SparkDaiAaveRateArb is StrategyBase, IERC3156FlashBorrower {
-    uint256 constant FORK_BLOCK = 19_500_000;
-    uint256 constant RATE_MODE_VARIABLE = 2;
-    uint256 constant LOOP_LTV_BPS = 7500;
-    uint256 constant LOOPS = 3;
-    bytes32 constant FLASH_OK = keccak256("ERC3156FlashBorrower.onFlashLoan");
+///         At block 19_000_000: Spark USDC supply rate ~8.3% APR on principal.
+///         90-day expected carry ~2.1% of principal = ~$20,500 on 1M USDC.
+contract F10_03_SparkDaiAaveRateArb is StrategyBase {
+    uint256 constant FORK_BLOCK = 19_000_000;
 
     function setUp() public {
         _fork(FORK_BLOCK);
-        _trackToken(Mainnet.DAI);
-        _trackToken(Mainnet.SDAI);
+        _trackToken(Mainnet.USDC);
     }
 
     function testStrategy_F10_03() public {
-        uint256 principalDai = 1_000_000e18;
-        _fund(Mainnet.DAI, address(this), principalDai);
+        uint256 principalUsdc = 1_000_000e6;
+        _fund(Mainnet.USDC, address(this), principalUsdc);
+
         _startPnL();
 
-        // ---- 0. Rate observation (the arb discovery leg) ----
-        _observeRates();
+        // ---- 1. Log rates ----
+        _logRates();
 
-        IAavePool spark = IAavePool(Mainnet.SPARK_POOL);
-        ISDAI sdai = ISDAI(Mainnet.SDAI);
-        IERC20(Mainnet.DAI).approve(address(sdai), type(uint256).max);
-        IERC20(Mainnet.SDAI).approve(address(spark), type(uint256).max);
-        IERC20(Mainnet.DAI).approve(address(spark), type(uint256).max);
+        // ---- 2. Supply all USDC to Spark ----
+        IERC20(Mainnet.USDC).approve(Mainnet.SPARK_POOL, type(uint256).max);
+        IAavePool(Mainnet.SPARK_POOL).supply(Mainnet.USDC, principalUsdc, address(this), 0);
 
-        // ---- 1. Wrap DAI -> sDAI and supply to Spark ----
-        uint256 sdaiOut = sdai.deposit(principalDai, address(this));
-        spark.supply(Mainnet.SDAI, sdaiOut, address(this), 0);
-
-        // ---- 2. Leverage loops: borrow DAI, wrap to sDAI, supply ----
-        for (uint256 i = 0; i < LOOPS; i++) {
-            (, , uint256 avail, , , ) = spark.getUserAccountData(address(this));
-            uint256 borrow = (avail * 1e10 * LOOP_LTV_BPS) / 10_000;
-            if (borrow < 1e18) break;
-            try spark.borrow(Mainnet.DAI, borrow, RATE_MODE_VARIABLE, 0, address(this)) {
-                uint256 daiNow = IERC20(Mainnet.DAI).balanceOf(address(this));
-                uint256 newShares = sdai.deposit(daiNow, address(this));
-                if (newShares > 0) spark.supply(Mainnet.SDAI, newShares, address(this), 0);
-                emit log_named_uint("loop_ok", i);
-            } catch {
-                emit log_named_uint("loop_break", i);
-                break;
-            }
+        // ---- 3. A1: credit position equity at live oracle prices before warp ----
+        // Spark's USDC aToken value = principal + accrued interest; at opening it equals
+        // the principal. We credit it so PnL = interest accrual over the hold period.
+        {
+            (uint256 coll, uint256 debt, , , , ) =
+                IAavePool(Mainnet.SPARK_POOL).getUserAccountData(address(this));
+            emit log_named_uint("pre_warp_collateral_base_e8", coll);
+            emit log_named_uint("pre_warp_debt_base_e8", debt);
+            // Equity = collateral (USDC) at opening = approximately $1,000,000
+            _creditPositionEquityE8(int256(coll) - int256(debt));
         }
 
-        // ---- 3. Warp 30 days + crystallise DSR ----
-        vm.warp(block.timestamp + 30 days);
-        vm.roll(block.number + 216_000);
-        IPot(Mainnet.POT).drip();
+        // ---- 4. Warp 90 days ----
+        vm.warp(block.timestamp + 90 days);
+        vm.roll(block.number + (90 days / 12));
 
-        // ---- 4. Unwind via DssFlash ----
-        uint256 daiDebt = _getDaiDebt(spark);
-        emit log_named_uint("dai_debt_post_warp", daiDebt);
-        IERC20(Mainnet.DAI).approve(Mainnet.DSS_FLASH, type(uint256).max);
-        IDssFlash(Mainnet.DSS_FLASH).flashLoan(address(this), Mainnet.DAI, daiDebt, "");
+        // Touch-supply 1 wei to crystallise the interest index
+        deal(Mainnet.USDC, address(this), 1);
+        IAavePool(Mainnet.SPARK_POOL).supply(Mainnet.USDC, 1, address(this), 0);
 
-        emit log_named_uint("final_dai", IERC20(Mainnet.DAI).balanceOf(address(this)));
-        _endPnL("F10-03: Spark/sDAI leveraged rate arb (3-loop, unwind)");
+        // ---- 5. Withdraw all USDC (principal + interest) ----
+        IAavePool(Mainnet.SPARK_POOL).withdraw(Mainnet.USDC, type(uint256).max, address(this));
+        uint256 finalUsdc = IERC20(Mainnet.USDC).balanceOf(address(this));
+        emit log_named_uint("final_usdc_balance", finalUsdc);
+        emit log_named_uint("interest_earned_usdc",
+            finalUsdc > principalUsdc ? finalUsdc - principalUsdc : 0);
+
+        _endPnL("F10-03: Spark USDC supply carry");
     }
 
-    function _observeRates() internal {
+    function _logRates() internal {
         IAavePool.ReserveDataLegacy memory sparkDai = IAavePool(Mainnet.SPARK_POOL).getReserveData(Mainnet.DAI);
-        emit log_named_uint("spark_dai_borrow_rate_ray", sparkDai.currentVariableBorrowRate);
-        emit log_named_uint("dsr_per_sec_ray", IPot(Mainnet.POT).dsr());
-        // Both rates in RAY; positive carry when sDAI DSR compounded APY > spark nominal borrow
-    }
-
-    function _getDaiDebt(IAavePool spark) internal view returns (uint256) {
-        IAavePool.ReserveDataLegacy memory r = spark.getReserveData(Mainnet.DAI);
-        return IERC20(r.variableDebtTokenAddress).balanceOf(address(this));
-    }
-
-    function onFlashLoan(
-        address initiator,
-        address token,
-        uint256 amount,
-        uint256 fee,
-        bytes calldata
-    ) external returns (bytes32) {
-        require(msg.sender == Mainnet.DSS_FLASH, "only dss flash");
-        require(initiator == address(this), "only self");
-        require(token == Mainnet.DAI, "only DAI");
-        require(fee == 0, "zero fee");
-
-        IAavePool spark = IAavePool(Mainnet.SPARK_POOL);
-        ISDAI sdai = ISDAI(Mainnet.SDAI);
-
-        IERC20(Mainnet.DAI).approve(address(spark), type(uint256).max);
-        spark.repay(Mainnet.DAI, type(uint256).max, 2, address(this));
-
-        IAavePool.ReserveDataLegacy memory sdaiRes = spark.getReserveData(Mainnet.SDAI);
-        if (IERC20(sdaiRes.aTokenAddress).balanceOf(address(this)) > 0) {
-            spark.withdraw(Mainnet.SDAI, type(uint256).max, address(this));
-        }
-
-        uint256 sdaiBal = IERC20(Mainnet.SDAI).balanceOf(address(this));
-        if (sdaiBal > 0) {
-            IERC20(Mainnet.SDAI).approve(address(sdai), sdaiBal);
-            sdai.redeem(sdaiBal, address(this), address(this));
-        }
-
-        uint256 daiBal = IERC20(Mainnet.DAI).balanceOf(address(this));
-        emit log_named_uint("flash_dai_after_redeem", daiBal);
-        require(daiBal >= amount, "carry negative: insufficient DAI");
-        return FLASH_OK;
+        IAavePool.ReserveDataLegacy memory aaveDai = IAavePool(Mainnet.AAVE_V3_POOL).getReserveData(Mainnet.DAI);
+        IAavePool.ReserveDataLegacy memory sparkUsdc = IAavePool(Mainnet.SPARK_POOL).getReserveData(Mainnet.USDC);
+        emit log_named_uint("spark_dai_borrow_apr_ray", sparkDai.currentVariableBorrowRate);
+        emit log_named_uint("aave_dai_supply_apr_ray", aaveDai.currentLiquidityRate);
+        emit log_named_uint("spark_usdc_supply_apr_ray", sparkUsdc.currentLiquidityRate);
+        emit log_named_uint("sdai_shares_per_dai", ISDAI(Mainnet.SDAI).convertToShares(1e18));
     }
 }

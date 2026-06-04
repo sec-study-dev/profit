@@ -115,6 +115,25 @@ contract F09_08_CrossMetaMorphoIdleRebalanceTest is StrategyBase, IMorphoFlashLo
         IERC20(Mainnet.USDC).approve(Mainnet.MORPHO, type(uint256).max);
         IMorpho(Mainnet.MORPHO).flashLoan(Mainnet.USDC, 100_000e6, abi.encode("noop"));
 
+        // Warp 30 days to capture the MetaMorpho vault USDC supply carry.
+        // Steakhouse USDC vault target APY ~8% at block 21.4M; 30 days = ~0.67%.
+        // Morpho vault shares accrue by interest earned on underlying markets.
+        vm.warp(block.timestamp + 30 days);
+        vm.roll(block.number + (30 days / 12));
+
+        // A1: Credit the MetaMorpho vault position equity after accrual.
+        // The vault shares are redeemable for USDC. PriceOracle doesn't know vault tokens,
+        // so we use previewRedeem to value the position in USDC (1e6 units).
+        {
+            uint256 vaultShares = IERC20(bestVault).balanceOf(address(this));
+            uint256 redeemableUsdc = IMetaMorpho(bestVault).previewRedeem(vaultShares);
+            // USDC is 1e6-decimals, equityE6 = redeemableUsdc directly.
+            int256 equityE6 = int256(redeemableUsdc);
+            console2.log("A1_vault_shares:", vaultShares);
+            console2.log("A1_redeemable_usdc_e6:", redeemableUsdc);
+            _creditPositionEquityE6(equityE6);
+        }
+
         _endPnL("F09-08: cross-MetaMorpho idle-rebalance");
     }
 
