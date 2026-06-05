@@ -10,28 +10,28 @@ import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {IPancakeV3Pool, IPancakeV3FlashCallback} from "src/interfaces/bsc/amm/IPancakeV3Pool.sol";
 import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 
-/// @title B05-06 PoC: USDe collateral on Venus + borrow USDT + PCS v3 flash — 3-mech atomic
+/// @title B05-06 PoC: USDe collateral on Venus + borrow USDT + PCS v3 flash - 3-mech atomic
 /// @notice Atomic single-tx 3-mechanism position-builder:
-///         (a) **PCS v3 flash** — borrow USDT (no upfront capital) from
+///         (a) **PCS v3 flash** - borrow USDT (no upfront capital) from
 ///             the USDC/USDT 5bp pool.
-///         (b) **PCS v3 swap** — convert USDT → USDe at the prevailing
+///         (b) **PCS v3 swap** - convert USDT -> USDe at the prevailing
 ///             discount (BSC USDe trades 50-150 bp under peg).
-///         (c) **Venus** — deposit USDe as collateral, borrow USDT against
+///         (c) **Venus** - deposit USDe as collateral, borrow USDT against
 ///             it; repay the flash with the borrowed USDT.
 /// @dev    The trick: because USDe is discounted on PCS v3 vs $1, the
-///         flash's USDT → USDe step *over-funds* the Venus collateral leg
+///         flash's USDT -> USDe step *over-funds* the Venus collateral leg
 ///         vs the USDT needed to repay the flash. The residual USDe stays
 ///         in the position as free equity, earning sUSDe APY going forward
 ///         (if optionally re-staked) while the synthetic carry runs.
 ///         This is the BSC analogue of the Eth-mainnet "discount-mining"
-///         flash trade — three independent venues in one tx, no upfront
+///         flash trade - three independent venues in one tx, no upfront
 ///         principal. Dual-mode (forked + offline).
 contract B05_06_PoC is BSCStrategyBase, IPancakeV3FlashCallback {
     // ---- Inlined pool / vToken addresses ----
     /// @dev PCS v3 USDC/USDT 5bp (flash source). Reused from B05-02.
     address constant LOCAL_PCS_V3_USDC_USDT_5BP = 0x000000000000000000000000000000000000B521;
     /// @dev Venus vUSDe (Core or V4 isolated). // TODO verify.
-    address constant LOCAL_VUSDE = 0x000000000000000000000000000000000000B561;
+    address constant LOCAL_VUSDE = 0x000000000000000000000000000000000000b561;
 
     // ---- Sizing / model ----
     uint256 constant FLASH_NOTIONAL = 1_000_000e18; // USDT, 18 dec on BSC
@@ -66,7 +66,7 @@ contract B05_06_PoC is BSCStrategyBase, IPancakeV3FlashCallback {
     }
 
     // ----------------------------------------------------------------
-    // Forked branch — atomic 3-mech flash
+    // Forked branch - atomic 3-mech flash
     // ----------------------------------------------------------------
     function _runForkedFlash() internal {
         _flashed = FLASH_NOTIONAL;
@@ -108,7 +108,7 @@ contract B05_06_PoC is BSCStrategyBase, IPancakeV3FlashCallback {
         IERC20(BSC.USDe).approve(LOCAL_VUSDE, usdeOut);
         try IVToken(LOCAL_VUSDE).mint(usdeOut) returns (uint256) {
             // Leg 3: Borrow USDT to repay flash.
-            // Use USDe USD value × CF × safety as borrow ceiling.
+            // Use USDe USD value x CF x safety as borrow ceiling.
             uint256 usdeUsdValue = (usdeOut * _priceE8[BSC.USDe]) / 1e8; // 1e18-scaled
             uint256 usdtBorrow = (usdeUsdValue * USDE_CF_BPS * SAFETY_BPS) / (10_000 * 10_000);
             IVToken(BSC.vUSDT).borrow(usdtBorrow);
@@ -124,7 +124,7 @@ contract B05_06_PoC is BSCStrategyBase, IPancakeV3FlashCallback {
     }
 
     // ----------------------------------------------------------------
-    // Offline projection — closed-form atomic PnL
+    // Offline projection - closed-form atomic PnL
     // ----------------------------------------------------------------
     function _runOfflineProjection() internal {
         uint256 X = FLASH_NOTIONAL;
@@ -142,7 +142,7 @@ contract B05_06_PoC is BSCStrategyBase, IPancakeV3FlashCallback {
         // The trade is profitable iff `usdtBorrow >= owed`, with the residual
         // USDe (= usdeOut * (1 - USDE_CF_BPS * SAFETY_BPS / 1e8)) remaining
         // as free equity. Note: this is a *position-building* arb, not a
-        // pure cash arb — the residual USDe stays parked on Venus.
+        // pure cash arb - the residual USDe stays parked on Venus.
         if (usdtBorrow < owed) {
             // Trade is unprofitable atomically; the residual USDe value
             // must cover the gap on a hold-to-realise basis.

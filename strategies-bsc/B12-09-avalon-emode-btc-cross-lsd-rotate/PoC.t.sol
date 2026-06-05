@@ -36,7 +36,7 @@ contract B12_09_AvalonEMode_BTC_CrossLSD_Rotate is BSCStrategyBase {
     uint8 internal constant BTC_EMODE_CATEGORY = 2;
 
     address internal constant LOCAL_USDX = 0xf3527ef8dE265eAa3716FB312c12847bFBA66Cef;
-    address internal constant LOCAL_SOLV_BBN_MINTER = 0x0000000000000000000000000000000000B12091;
+    address internal constant LOCAL_SOLV_BBN_MINTER = 0x0000000000000000000000000000000000b12091;
 
     uint256 internal constant RATE_MODE_VARIABLE = 2;
 

@@ -15,21 +15,21 @@ import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 ///         local interface; calls are wrapped in try/catch to handle the
 ///         (likely) case that the on-chain method names differ from the guess.
 interface IAstherusStakeManagerLocal {
-    /// @notice BNB → asBNB. Mirrors the Lista pattern.
+    /// @notice BNB -> asBNB. Mirrors the Lista pattern.
     function deposit() external payable;
     /// @notice Alt name some restake protocols use.
     function stake() external payable;
-    /// @notice 1 asBNB → BNB exchange rate (1e18 scaled). TODO verify.
+    /// @notice 1 asBNB -> BNB exchange rate (1e18 scaled). TODO verify.
     function convertToAssets(uint256 shares) external view returns (uint256);
 }
 
-/// @title B11-01 asBNB → Venus → borrow BNB → Astherus re-stake loop
+/// @title B11-01 asBNB -> Venus -> borrow BNB -> Astherus re-stake loop
 /// @notice Recursive restake loop on top of Astherus asBNB. Each iteration:
-///         BNB → asBNB (Astherus StakeManager) → supply asBNB to Venus as
-///         collateral → borrow BNB via vBNB → feed back into Astherus.
-///         Layered alpha vs the canonical slisBNB×Venus loop:
+///         BNB -> asBNB (Astherus StakeManager) -> supply asBNB to Venus as
+///         collateral -> borrow BNB via vBNB -> feed back into Astherus.
+///         Layered alpha vs the canonical slisBNBxVenus loop:
 ///           1. Underlying validator staking yield (~3-4% BNB APY)
-///           2. Astherus "restake" / AVS rewards (early bird → assume
+///           2. Astherus "restake" / AVS rewards (early bird -> assume
 ///              0% USD-realised but accumulate points)
 ///           3. Venus borrow APR is the only outflow.
 ///         Asymmetric exit: redeem path uses Astherus delayed-withdraw queue;
@@ -39,7 +39,7 @@ interface IAstherusStakeManagerLocal {
 ///         either contract has no code at the pinned block we fall back to a
 ///         documented-rates simulation and still emit the standard PnL block.
 contract B11_01_AsBNBVenusRestakeLoop is BSCStrategyBase {
-    /// @dev Pinned block — TODO re-pin once Astherus is verified live on BSC.
+    /// @dev Pinned block - TODO re-pin once Astherus is verified live on BSC.
     uint256 internal constant FORK_BLOCK = 45_500_000;
 
     /// @dev Venus vasBNB market (Core or isolated pool). No verified address
@@ -51,7 +51,7 @@ contract B11_01_AsBNBVenusRestakeLoop is BSCStrategyBase {
     uint256 internal constant ITERATIONS = 4;
     /// @dev Safety haircut applied to liquidity (95%).
     uint256 internal constant SAFETY_BPS = 9_500;
-    /// @dev Hold horizon — 60 days to give Astherus points + stake APY a
+    /// @dev Hold horizon - 60 days to give Astherus points + stake APY a
     ///      meaningful window.
     uint256 internal constant HOLD_DAYS = 60;
 
@@ -116,7 +116,7 @@ contract B11_01_AsBNBVenusRestakeLoop is BSCStrategyBase {
         uint256 bnbToStake = address(this).balance;
 
         for (uint256 i = 0; i < ITERATIONS; i++) {
-            // 1. BNB → asBNB through Astherus stake manager. Try both common
+            // 1. BNB -> asBNB through Astherus stake manager. Try both common
             //    selector names; fall through to offline if neither works.
             bool minted = _tryAstherusDeposit(bnbToStake);
             if (!minted) {
@@ -148,7 +148,7 @@ contract B11_01_AsBNBVenusRestakeLoop is BSCStrategyBase {
             if (bnbToStake == 0) break;
         }
 
-        // Last drip → final asBNB → supply.
+        // Last drip -> final asBNB -> supply.
         if (address(this).balance > 0) {
             if (_tryAstherusDeposit(address(this).balance)) {
                 uint256 finalBal = asBnb.balanceOf(address(this));
@@ -158,7 +158,7 @@ contract B11_01_AsBNBVenusRestakeLoop is BSCStrategyBase {
             }
         }
 
-        // 4. Hold horizon — Astherus rate drifts up, Venus debt accrues.
+        // 4. Hold horizon - Astherus rate drifts up, Venus debt accrues.
         vm.warp(block.timestamp + HOLD_DAYS * 1 days);
         vm.roll(block.number + (HOLD_DAYS * 1 days) / 3); // BSC ~3 s blocks
         vBnb.borrowBalanceCurrent(address(this));
@@ -190,7 +190,7 @@ contract B11_01_AsBNBVenusRestakeLoop is BSCStrategyBase {
     }
 
     /// @dev Try both `deposit()` and `stake()` selectors against the stake
-    ///      manager — Astherus' public method name is not yet verified.
+    ///      manager - Astherus' public method name is not yet verified.
     function _tryAstherusDeposit(uint256 bnbAmt) internal returns (bool) {
         if (bnbAmt == 0) return false;
         IAstherusStakeManagerLocal sm = IAstherusStakeManagerLocal(BSC.ASTHERUS_STAKE_MANAGER);
@@ -210,12 +210,12 @@ contract B11_01_AsBNBVenusRestakeLoop is BSCStrategyBase {
     function _offlinePnLCheck() internal {
         // Model parameters (documented):
         //   asBNB stake APY:   3.8 %  (BNB validator yield, on the levered base)
-        //   asBNB points APY:  1.0 %  (assumed USD-equivalent — see README)
+        //   asBNB points APY:  1.0 %  (assumed USD-equivalent - see README)
         //   vBNB borrow APR:   2.4 %
         //   Venus asBNB CF:    0.65   (likely conservative for a new collateral)
         //   safety haircut:    0.95
         //   per-step LTV:      0.65 * 0.95 = 0.6175
-        //   4-iter leverage:   1 + 0.6175 + 0.381 + 0.235 + 0.145 = 2.379×
+        //   4-iter leverage:   1 + 0.6175 + 0.381 + 0.235 + 0.145 = 2.379x
         //
         //   net APR =  (L * 3.8%)  - ((L-1) * 2.4%) + (L * 1.0%)
         //          =   2.379*3.8 - 1.379*2.4 + 2.379*1.0
@@ -223,8 +223,8 @@ contract B11_01_AsBNBVenusRestakeLoop is BSCStrategyBase {
         //   60d yield = 8.11 * 60/365 = 1.33 % on principal
         //
         // Modelled deltas on 100 BNB principal:
-        //   • asBNB held (BNB-equiv) increase = +1.33 BNB
-        //   • debt accrual already netted into the APR above
+        //   * asBNB held (BNB-equiv) increase = +1.33 BNB
+        //   * debt accrual already netted into the APR above
         // We materialise this by funding ourselves +1.33 BNB-equivalent in asBNB
         // (i.e. +1.33 / 1.025 = 1.298 asBNB priced at $615/share = $798.3) and
         // subtracting the principal flow.

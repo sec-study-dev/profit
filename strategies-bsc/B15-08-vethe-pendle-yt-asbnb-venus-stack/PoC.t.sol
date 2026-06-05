@@ -11,17 +11,17 @@ import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {IListaStakeManager} from "src/interfaces/bsc/lst/IListaStakeManager.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B15-08 — veTHE bribe vote + Pendle YT-asBNB + Venus credit stack
+/// @title B15-08 - veTHE bribe vote + Pendle YT-asBNB + Venus credit stack
 ///
 /// @notice Triple-mechanism *ve(3,3) + tokenized-yield + lending* stack:
-///         1. **veTHE** — lock THE for veTHE; vote on the asBNB/WBNB Thena
+///         1. **veTHE** - lock THE for veTHE; vote on the asBNB/WBNB Thena
 ///            pool to direct emissions and harvest weekly bribe baskets
 ///            (Lista, Astherus and BTCB-side gauges historically bribe in
 ///            USDT + lisUSD + asBNB).
-///         2. **Pendle YT-asBNB** — use harvested bribe USDT to buy
+///         2. **Pendle YT-asBNB** - use harvested bribe USDT to buy
 ///            YT-asBNB for *points + restake yield* exposure (decays to
 ///            zero at maturity but accrues Astherus / Babylon points).
-///         3. **Venus collateral** — supply seed asBNB + harvested
+///         3. **Venus collateral** - supply seed asBNB + harvested
 ///            asBNB-side bribes as Venus collateral (proxy vBNB until
 ///            vAsBNB lists), borrow USDT for the next YT purchase cycle.
 ///
@@ -73,8 +73,8 @@ contract B15_08_VetheePendleYtAsBnbVenusStackTest is BSCStrategyBase {
         _fund(BSC.THE, address(this), SEED_THE);
         _startPnL();
 
-        // ---- Leg A: Lock THE → veTHE → vote on asBNB pool ----
-        // We don't import the veTHE NFT interface — but the lock-and-vote
+        // ---- Leg A: Lock THE -> veTHE -> vote on asBNB pool ----
+        // We don't import the veTHE NFT interface - but the lock-and-vote
         // shape is well-known.  We attempt the canonical createLock /
         // vote ABI by raw call, and otherwise model the locked THE as
         // sent to the veTHE address.
@@ -91,7 +91,7 @@ contract B15_08_VetheePendleYtAsBnbVenusStackTest is BSCStrategyBase {
             console2.log("vethe_lock_live_THE_1e18=", SEED_THE);
         }
 
-        // Vote the asBNB/WBNB gauge — try the canonical voter ABI.
+        // Vote the asBNB/WBNB gauge - try the canonical voter ABI.
         address[] memory pools = new address[](1);
         pools[0] = LOCAL_ASBNB_WBNB_POOL;
         uint256[] memory weights = new uint256[](1);
@@ -147,13 +147,13 @@ contract B15_08_VetheePendleYtAsBnbVenusStackTest is BSCStrategyBase {
         // ---- 90-day carry projection ----
         // Vote bribes: 40 % APR on the locked THE notional, paid in
         // USDT + lisUSD + asBNB (we split equally).
-        uint256 lockUsd = SEED_THE / 10; // assume $0.10 / THE → $500 locked
+        uint256 lockUsd = SEED_THE / 10; // assume $0.10 / THE -> $500 locked
         uint256 bribeUsd = (lockUsd * THE_VOTE_BRIBE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
         _fund(BSC.USDT, address(this), bribeUsd / 3);
         _fund(BSC.lisUSD, address(this), bribeUsd / 3);
         _fund(BSC.asBNB, address(this), (bribeUsd / 3) / 600);
 
-        // Venus carry cost — borrow side.
+        // Venus carry cost - borrow side.
         uint256 venusCost = (usdtBorrow * VENUS_USDT_BORROW_BPS * HOLD_DAYS) / (10_000 * 365);
         // asBNB collateral keeps earning Astherus restake.
         uint256 asBnbYield = (asBnbHeld * ASBNB_RESTAKE_APR_BPS * HOLD_DAYS) / (10_000 * 365);

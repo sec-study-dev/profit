@@ -10,7 +10,7 @@ import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IPYieldToken} from "src/interfaces/pendle/IPYieldToken.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B04-03 — YT-slisBNB points speculation (PY split → sell PT, keep YT)
+/// @title B04-03 - YT-slisBNB points speculation (PY split -> sell PT, keep YT)
 ///
 /// @notice Atomically mint PT+YT-slisBNB via Pendle's `mintPyFromToken`,
 ///         immediately sell the PT back to BNB, and retain the YT as a
@@ -140,7 +140,7 @@ contract B04_03_YtSlisbnbPointsSplitTest is BSCStrategyBase {
             uint256 ytCost = EQUITY_BNB - totalBnbEquity;
             console2.log("net_yt_cost_bnb_1e18=", ytCost);
             if (ytCost > 0) {
-                // Point leverage in basis points (×1e4).
+                // Point leverage in basis points (x1e4).
                 uint256 leverageE4 = (finalYt * 1e4) / ytCost;
                 console2.log("points_leverage_x_1e4=", leverageE4);
             }

@@ -10,7 +10,7 @@ import {IPancakeV3Pool, IPancakeV3FlashCallback} from "src/interfaces/bsc/amm/IP
 // Interfaces referenced in commented live-call sketches:
 //   IPancakeV3Router, IWombatPool
 
-/// @title B03-04 lisUSD PCS v3 ↔ Wombat StableSwap atomic arb
+/// @title B03-04 lisUSD PCS v3 <-> Wombat StableSwap atomic arb
 /// @notice Single-tx PoC:
 ///         1. PCS v3 flash USDT from USDT/USDC 1bp pool.
 ///         2. PCS v3 swap USDT -> lisUSD at the *lower* price.
@@ -25,13 +25,13 @@ import {IPancakeV3Pool, IPancakeV3FlashCallback} from "src/interfaces/bsc/amm/IP
 contract B03_04_LisUSDPCSWombatStableArbTest is BSCStrategyBase, IPancakeV3FlashCallback {
     uint256 constant FORK_BLOCK = 42_500_000;
 
-    /// @dev PCS v3 USDT/USDC 1bp pool — primary flash source.
+    /// @dev PCS v3 USDT/USDC 1bp pool - primary flash source.
     uint24 constant USDT_USDC_FEE = 100;
     /// @dev PCS v3 lisUSD/USDT pool fee.
     uint24 constant LISUSD_USDT_FEE = 100;
 
     /// @dev Wombat lisUSD-side pool. // TODO verify against Wombat's pool
-    ///      registry — the main pool likely does NOT include lisUSD.
+    ///      registry - the main pool likely does NOT include lisUSD.
     address constant WOMBAT_LIS_POOL = BSC.WOMBAT_MAIN_POOL;
 
     uint256 constant FLASH_NOTIONAL = 1_000_000 * 1e18;

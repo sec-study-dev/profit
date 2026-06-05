@@ -33,14 +33,14 @@ interface IPendleMarketMin {
 /// @title B08-06 veTHE lock + Pendle YT-THE points + Thena LP gauge (3-mech)
 /// @notice Three Thena/ve(3,3) yield sources stacked on a single THE
 ///         token treasury:
-///           1) **ve(3,3) governance**: lock 50 % of THE → veTHE → vote +
+///           1) **ve(3,3) governance**: lock 50 % of THE -> veTHE -> vote +
 ///              claim bribes ($/vote).
 ///           2) **Pendle YT-THE points split**: another 30 % of THE is
 ///              SY-wrapped then PT/YT split via Pendle; sell PT for USD
 ///              keep YT for veTHE-yield speculation (YT-veTHE accrues real
 ///              veTHE-claim rewards through to expiry).
 ///           3) **Thena LP gauge stake**: remaining 20 % of THE paired
-///              with WBNB → Thena THE/WBNB volatile LP → gauge → THE
+///              with WBNB -> Thena THE/WBNB volatile LP -> gauge -> THE
 ///              emissions (compounds the same token).
 ///         Combined, the THE treasury earns: voter bribes + YT carry
 ///         + LP fees + LP emissions on different sub-allocations.
@@ -52,7 +52,7 @@ contract B08_06_VetheYtTheLpComboTest is BSCStrategyBase {
     address internal constant LOCAL_THENA_VOTER = 0x374cc2276b842fEcD65af36D7C60A5B78373EdE1;
     /// @dev Hypothetical Pendle YT-THE / SY-veTHE market on BSC.
     ///      Penpie/Equilibria pattern: SY wraps voter-claim cashflow.
-    ///      Address is a placeholder — Pendle does NOT have a veTHE market
+    ///      Address is a placeholder - Pendle does NOT have a veTHE market
     ///      at pinned block, so the YT leg is fully modeled. TODO verify.
     address internal constant LOCAL_PENDLE_YT_THE_MARKET =
         0x000000000000000000000000000000000000B086;
@@ -73,7 +73,7 @@ contract B08_06_VetheYtTheLpComboTest is BSCStrategyBase {
     uint256 internal constant THE_PRICE_E8 = 0.30e8;
     uint256 internal constant DOLLAR_PER_VOTE_1E18 = 12e15; // $0.012/vote
     /// @dev Implied YT-veTHE carry: bribes are paid weekly. If YT-veTHE
-    ///      runs 90 days (≈ 13 epochs), each YT earns 13 × bribe events.
+    ///      runs 90 days (~ 13 epochs), each YT earns 13 x bribe events.
     ///      Pendle prices YT roughly at half of nominal carry; we sell PT
     ///      at par and **keep YT** to capture residual.
     uint256 internal constant YT_WEEKLY_BRIBE_USD_PER_THE_E18 = 6e15; // $0.006/THE/wk
@@ -125,10 +125,10 @@ contract B08_06_VetheYtTheLpComboTest is BSCStrategyBase {
         // ============ Leg 2: Pendle YT-THE (modeled) ============
         // We "burn" ytAlloc THE from wallet to represent the SY wrap; then
         // model PT sale and YT retention. PT is sold for USDC at par
-        // (Pendle's implied yield ≈ 0 % over 90 days for veTHE points →
+        // (Pendle's implied yield ~ 0 % over 90 days for veTHE points ->
         // PT trades close to par).
         _fund(BSC.THE, address(this), IERC20(BSC.THE).balanceOf(address(this)) - ytAlloc);
-        // Sell PT: credit USDC = ytAlloc * THE_PRICE × (1 - SLIP).
+        // Sell PT: credit USDC = ytAlloc * THE_PRICE x (1 - SLIP).
         uint256 ptUsdcOut =
             (ytAlloc * THE_PRICE_E8 * (10_000 - SLIP_BPS)) / (1e8 * 10_000) / 1; // 1e18 USDC
         _fund(BSC.USDC, address(this), IERC20(BSC.USDC).balanceOf(address(this)) + ptUsdcOut);
@@ -200,7 +200,7 @@ contract B08_06_VetheYtTheLpComboTest is BSCStrategyBase {
             try IThenaGauge(lpGauge).getReward(address(this), rwd) {} catch {}
         }
 
-        // Modeled THE emission top-up: notional ≈ 2 × lpAlloc × $0.30.
+        // Modeled THE emission top-up: notional ~ 2 x lpAlloc x $0.30.
         uint256 lpNotionalUsdE6 = (2 * lpAlloc * uint256(THE_PRICE_E8)) / 1e20;
         uint256 lpEmissionUsdE6 =
             (lpNotionalUsdE6 * THE_LP_GAUGE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
@@ -224,7 +224,7 @@ contract B08_06_VetheYtTheLpComboTest is BSCStrategyBase {
         // veTHE leg principal restoration.
         _fund(BSC.THE, address(this), IERC20(BSC.THE).balanceOf(address(this)) + veTheAlloc);
         // YT leg: PT was already sold at par; remaining YT decays to ~0 at expiry.
-        // We do NOT credit ytAlloc back — PT proceeds + YT carry replaces it.
+        // We do NOT credit ytAlloc back - PT proceeds + YT carry replaces it.
 
         emit log_named_uint("tokenId", tokenId);
         emit log_named_uint("votes_1e18", votes);

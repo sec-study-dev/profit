@@ -24,9 +24,9 @@ contract B12_05_PumpBTC_Avalon_PendlePT is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 47_800_000;
 
     /// @dev pumpBTC ERC20 on BSC (rumored canonical mint). TODO verify.
-    address internal constant LOCAL_PUMPBTC = 0xF9CB4a9C9a3e3a4cFc89b8F9D6Aa9C4Bd2bF1d11;
+    address internal constant LOCAL_PUMPBTC = 0xf9CB4a9C9a3E3A4CfC89B8f9D6aa9C4bD2bF1d11;
     /// @dev pumpBTC minter (BTCB -> pumpBTC). TODO verify.
-    address internal constant LOCAL_PUMPBTC_MINTER = 0x0000000000000000000000000000000000B12051;
+    address internal constant LOCAL_PUMPBTC_MINTER = 0x0000000000000000000000000000000000b12051;
     /// @dev Pendle PT-pumpBTC market on BSC. TODO verify.
     address internal constant LOCAL_PENDLE_MARKET_PUMPBTC = 0x0000000000000000000000000000000000B12052;
     /// @dev Avalon USDX stable. TODO verify.
@@ -63,7 +63,7 @@ contract B12_05_PumpBTC_Avalon_PendlePT is BSCStrategyBase {
         _trackToken(LOCAL_USDX);
 
         _setOraclePrice(LOCAL_USDX, 1e8);
-        // pumpBTC priced ~ BTC with a small native premium (1.01x ≈ $65.65k).
+        // pumpBTC priced ~ BTC with a small native premium (1.01x ~ $65.65k).
         _setOraclePrice(LOCAL_PUMPBTC, 65_650e8);
     }
 

@@ -18,7 +18,7 @@ interface IveTHE {
 /// @title B08-02 veTHE lock + vote + bribe claim
 /// @notice Pure voter strategy. Lock THE, direct vote to highest-bribe pool,
 ///         warp one epoch, claim USDC + lisUSD bribes. Models a single
-///         Thursday→Thursday epoch.
+///         Thursday->Thursday epoch.
 contract B08_02_VeTheVoteBribeTest is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 40_000_000;
 
@@ -93,13 +93,13 @@ contract B08_02_VeTheVoteBribeTest is BSCStrategyBase {
         try voter.claimBribes(bribesArr, tokens, tokenId) {
             // ok
         } catch {
-            // No on-chain bribes at this pinned block — fall through to the
+            // No on-chain bribes at this pinned block - fall through to the
             // modeled credit below.
         }
 
         // ---- 7. Modeled bribe credit (so PoC PnL = strategy thesis) ----
-        // votes = balanceOfNFT (immediately after lock, decay ≈ 0 in epoch 0).
-        // Use a stable proxy: votes ≈ LOCK_THE * lockDur / 4y_max. For PoC
+        // votes = balanceOfNFT (immediately after lock, decay ~ 0 in epoch 0).
+        // Use a stable proxy: votes ~ LOCK_THE * lockDur / 4y_max. For PoC
         // we use full nominal LOCK_THE as voting weight (1:1 lock value).
         uint256 votes = ve.balanceOfNFT(tokenId);
         if (votes == 0) {
@@ -123,7 +123,7 @@ contract B08_02_VeTheVoteBribeTest is BSCStrategyBase {
         _fund(BSC.USDC, address(this), IERC20(BSC.USDC).balanceOf(address(this)) + usdcAmt);
         _fund(BSC.lisUSD, address(this), IERC20(BSC.lisUSD).balanceOf(address(this)) + lisUSDAmt);
 
-        // ---- 8. THE is locked in NFT — wallet THE balance is zero. The
+        // ---- 8. THE is locked in NFT - wallet THE balance is zero. The
         //         locked value still belongs to us economically. We mark the
         //         strategy as `THE` price * LOCK_THE worth of un-realized
         //         principal; net PnL = bribes - gas - any lock-discount. ----

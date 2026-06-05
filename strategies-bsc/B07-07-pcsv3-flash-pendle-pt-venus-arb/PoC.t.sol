@@ -10,10 +10,10 @@ import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 
-/// @title B07-07 PCS v3 flash → Pendle PT swap → Venus collateral arb (3-mech)
+/// @title B07-07 PCS v3 flash -> Pendle PT swap -> Venus collateral arb (3-mech)
 /// @notice Three independent BSC primitives composed atomically:
 ///           1) PCS v3 USDT/USDC 0.01% flash (USDT borrowed fee-only).
-///           2) Pendle PT-sUSDe market swap on BSC — exchange USDT for
+///           2) Pendle PT-sUSDe market swap on BSC - exchange USDT for
 ///              PT-sUSDe at the discounted (pre-maturity) PT price.
 ///           3) Venus mint vSUSDe / vUSDe-equivalent token as collateral
 ///              and borrow USDT back at the BSC borrow rate.
@@ -27,29 +27,29 @@ import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 ///         (or redeeming to USDe and depositing), borrowing USDT, and
 ///         repaying the flash. Residual = leveraged PT carry.
 /// @dev    Mechanism count: 3 (PCS v3 flash + Pendle PT swap + Venus
-///         supply/borrow). PoC is a witness — the Venus supply/borrow
+///         supply/borrow). PoC is a witness - the Venus supply/borrow
 ///         legs require a vSUSDe / vUSDe market which may not be live on
 ///         BSC at FORK_BLOCK; we fall back to logging the implied
 ///         yields and skipping the on-chain leg gracefully.
 contract B07_07_PcsV3PendlePtVenusArbTest is BSCStrategyBase, IPancakeV3FlashCallback {
     uint256 internal constant FORK_BLOCK = 42_000_000;
 
-    /// @dev PCS v3 USDT/USDC 0.01% — cheapest USDT flash on BSC (same as B07-04).
+    /// @dev PCS v3 USDT/USDC 0.01% - cheapest USDT flash on BSC (same as B07-04).
     address internal constant PCS_V3_USDT_USDC_100 = 0x92b7807bF19b7DDdf89b706143896d05228f3121;
     uint24 internal constant PCS_V3_FEE_100 = 100;
 
-    /// @dev Pendle PT-sUSDe market on BSC. Placeholder — Wave 3 verify via
+    /// @dev Pendle PT-sUSDe market on BSC. Placeholder - Wave 3 verify via
     ///      the official Pendle BSC markets registry.
     address internal constant PENDLE_PT_SUSDE_MARKET_BSC = 0x1D3000Df9f3B86E4d7d2eB4c3a8E3a5a9D4F9A17;
 
-    /// @dev Venus vSUSDe / sUSDe collateral market — // TODO verify if a
+    /// @dev Venus vSUSDe / sUSDe collateral market - // TODO verify if a
     ///      canonical vSUSDe vToken exists on BSC. We use a placeholder.
     ///      If it doesn't exist, the strategy falls back to USDe (vUSDe)
     ///      after redeeming PT-sUSDe at maturity proxy or via the SY.
     address internal constant V_SUSDE_BSC = 0x0000000000000000000000000000000000000000;
 
-    /// @dev Flash USDT notional (18 dec on BSC). 500k USDT — sized to
-    ///      Pendle PT market depth (~$3–8M TVL typical on BSC PT-sUSDe).
+    /// @dev Flash USDT notional (18 dec on BSC). 500k USDT - sized to
+    ///      Pendle PT market depth (~$3-8M TVL typical on BSC PT-sUSDe).
     uint256 internal constant FLASH_NOTIONAL_USDT = 500_000 ether;
 
     /// @dev Minimum implied yield premium (bps) of Pendle PT over Venus
@@ -71,12 +71,12 @@ contract B07_07_PcsV3PendlePtVenusArbTest is BSCStrategyBase, IPancakeV3FlashCal
         // ---- 1. Read Pendle PT-sUSDe market state ----
         IPendleMarket market = IPendleMarket(PENDLE_PT_SUSDE_MARKET_BSC);
 
-        // Defensive: market may not exist at FORK_BLOCK — wrap with try.
+        // Defensive: market may not exist at FORK_BLOCK - wrap with try.
         uint256 ptImpliedYieldBps;
         uint256 ttmSeconds;
         try market.readState(BSC.PENDLE_ROUTER_V4) returns (IPendleMarket.MarketState memory st) {
             // lastLnImpliedRate is ln(1+APY) * 1e18; convert to APY bps
-            // approximately via apy ≈ lnRate (small-x approximation).
+            // approximately via apy ~ lnRate (small-x approximation).
             // For PoC we treat lastLnImpliedRate (1e18) as fraction;
             // bps = lastLnImpliedRate * 10_000 / 1e18.
             ptImpliedYieldBps = (st.lastLnImpliedRate * 10_000) / 1e18;
@@ -96,11 +96,11 @@ contract B07_07_PcsV3PendlePtVenusArbTest is BSCStrategyBase, IPancakeV3FlashCal
         }
 
         // ---- 2. Read Venus USDT borrow rate ----
-        // Compound-style: rate per block × ~3 blocks/sec on BSC × 86_400 ×
+        // Compound-style: rate per block x ~3 blocks/sec on BSC x 86_400 x
         // 365 = APR. Convert to bps.
         uint256 venusBorrowAprBps;
         try IVToken(BSC.vUSDT).borrowRatePerBlock() returns (uint256 rpb) {
-            // BSC ≈ 3s blocks → ~10_512_000 blocks/year. APR (1e18) =
+            // BSC ~ 3s blocks -> ~10_512_000 blocks/year. APR (1e18) =
             // rpb * 10_512_000. APR bps = APR * 10_000 / 1e18.
             uint256 aprE18 = rpb * 10_512_000;
             venusBorrowAprBps = (aprE18 * 10_000) / 1e18;
@@ -118,13 +118,13 @@ contract B07_07_PcsV3PendlePtVenusArbTest is BSCStrategyBase, IPancakeV3FlashCal
         uint256 carryBps = ptImpliedYieldBps - venusBorrowAprBps;
         emit log_named_uint("B07-07: carry_bps_annualised", carryBps);
 
-        // Annualised carry → ttm-pro-rated edge.
+        // Annualised carry -> ttm-pro-rated edge.
         // edge_bps = carry_bps * ttm / SECONDS_PER_YEAR
         uint256 SECONDS_PER_YEAR = 31_536_000;
         uint256 edgeBpsOverTtm = (carryBps * ttmSeconds) / SECONDS_PER_YEAR;
         emit log_named_uint("B07-07: edge_bps_over_ttm", edgeBpsOverTtm);
 
-        // Subtract PCS v3 flash fee (1 bp) — but flash is paid only once
+        // Subtract PCS v3 flash fee (1 bp) - but flash is paid only once
         // for the entry round-trip; carry accrues over ttm.
         if (edgeBpsOverTtm <= 1 + MIN_CARRY_BPS) {
             emit log_string("B07-07: skipped (carry over ttm too small)");
@@ -158,7 +158,7 @@ contract B07_07_PcsV3PendlePtVenusArbTest is BSCStrategyBase, IPancakeV3FlashCal
         bool usdtIsToken0 = abi.decode(data, (bool));
         uint256 owedFee = usdtIsToken0 ? fee0 : fee1;
 
-        // ---- 1. USDT → PT-sUSDe on Pendle ----
+        // ---- 1. USDT -> PT-sUSDe on Pendle ----
         // The full IPendleRouter.swapExactTokenForPt signature requires a
         // hefty struct with approx params. PoC uses minimal-viable values
         // so the callsite is *grep-able* but expected to revert if the
@@ -211,7 +211,7 @@ contract B07_07_PcsV3PendlePtVenusArbTest is BSCStrategyBase, IPancakeV3FlashCal
         //         vSUSDe (or vUSDe) market on BSC; if absent we skip and
         //         repay from original USDT (no-op leg).
         if (V_SUSDE_BSC != address(0)) {
-            // Convert PT to sUSDe via Pendle redeem at maturity — for the
+            // Convert PT to sUSDe via Pendle redeem at maturity - for the
             // PoC we approximate by directly approving and supplying the
             // underlying once available. // TODO: replace with the proper
             // SY-redeem flow when Pendle BSC ABIs are pinned.
@@ -230,7 +230,7 @@ contract B07_07_PcsV3PendlePtVenusArbTest is BSCStrategyBase, IPancakeV3FlashCal
             }
         }
 
-        // ---- Fallback: repay from a stand-in PT-→-USDT swap (no Venus leg).
+        // ---- Fallback: repay from a stand-in PT-->-USDT swap (no Venus leg).
         //   This is a degenerate path that just demonstrates the surface;
         //   real PnL requires the Venus collateral leg.
         IERC20(BSC.USDT).transfer(PCS_V3_USDT_USDC_100, FLASH_NOTIONAL_USDT + owedFee);

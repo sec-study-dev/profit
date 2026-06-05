@@ -11,9 +11,9 @@ import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 /// @title B12-07 solvBTC in Wombat BTC pool + Avalon collateral 3-mech
 /// @notice Three-mechanism BTC carry that captures three independent
 ///         BSC yield sources from a single asset (solvBTC):
-///         1) Wombat BTC LP (solvBTC/BTCB stable-style AMM) — earn LP
+///         1) Wombat BTC LP (solvBTC/BTCB stable-style AMM) - earn LP
 ///            fees + WOM emissions.
-///         2) Avalon Lending Pool — supply solvBTC as collateral, borrow
+///         2) Avalon Lending Pool - supply solvBTC as collateral, borrow
 ///            USDX.
 ///         3) Recycle USDX -> USDT -> BTCB -> Wombat (deposit), looping
 ///            the BTC exposure across both AMM LP and lending.

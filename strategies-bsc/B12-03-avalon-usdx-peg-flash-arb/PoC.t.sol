@@ -177,7 +177,7 @@ contract B12_03_AvalonUSDXPegFlashArb is BSCStrategyBase, IPancakeV3FlashCallbac
         try IAvalonLendingPool(BSC.AVALON_LENDING_POOL).withdraw(
             LOCAL_USDX, usdxBought, address(this)
         ) returns (uint256) {
-            // Avalon's `withdraw` returns the underlying — here USDX. If
+            // Avalon's `withdraw` returns the underlying - here USDX. If
             // Avalon ships a PSM that returns USDT directly, change accordingly.
             // We then sell USDX back to USDT at near-par via PCS v3 if needed.
         } catch {

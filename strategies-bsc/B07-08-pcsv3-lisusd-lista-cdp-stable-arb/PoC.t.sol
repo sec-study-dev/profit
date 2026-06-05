@@ -9,16 +9,16 @@ import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 import {IListaInteraction} from "src/interfaces/bsc/cdp/IListaInteraction.sol";
 import {IPancakeStableRouter} from "src/interfaces/bsc/amm/IPancakeStableRouter.sol";
 
-/// @title B07-08 PCS v3 USDC flash → Lista lisUSD mint → PCS StableSwap exit (3-mech)
+/// @title B07-08 PCS v3 USDC flash -> Lista lisUSD mint -> PCS StableSwap exit (3-mech)
 /// @notice Three orthogonal BSC primitives composed atomically:
 ///           1) PCS v3 USDC/USDT 0.01% flash (USDC fee-only @ 1 bp).
-///           2) Lista DAO CDP — deposit USDC as collateral (if the
-///              market accepts it) OR swap USDC→USDT→deposit USDT, then
+///           2) Lista DAO CDP - deposit USDC as collateral (if the
+///              market accepts it) OR swap USDC->USDT->deposit USDT, then
 ///              mint lisUSD against it.
-///           3) PCS StableSwap (Curve fork) — swap lisUSD → USDC at the
+///           3) PCS StableSwap (Curve fork) - swap lisUSD -> USDC at the
 ///              StableSwap mid, repay the flash.
 ///
-///         Edge exists when lisUSD trades ABOVE peg (≥ $1.005) on the
+///         Edge exists when lisUSD trades ABOVE peg (>= $1.005) on the
 ///         AMM venue. We mint lisUSD at par (per Lista's CDP math), sell
 ///         it on PCS StableSwap at the above-peg price, redeem the USDC
 ///         delta as profit, and repay the flash. The CDP debt remains
@@ -32,23 +32,23 @@ import {IPancakeStableRouter} from "src/interfaces/bsc/amm/IPancakeStableRouter.
 contract B07_08_PcsV3LisUsdListaCdpStableArbTest is BSCStrategyBase, IPancakeV3FlashCallback {
     uint256 internal constant FORK_BLOCK = 42_000_000;
 
-    /// @dev PCS v3 USDC/USDT 0.01% — flash source for USDC.
+    /// @dev PCS v3 USDC/USDT 0.01% - flash source for USDC.
     address internal constant PCS_V3_USDT_USDC_100 = 0x92b7807bF19b7DDdf89b706143896d05228f3121;
     uint24 internal constant PCS_V3_FEE_100 = 100;
 
-    /// @dev Lista Interaction contract — handles CDP open/deposit/borrow.
+    /// @dev Lista Interaction contract - handles CDP open/deposit/borrow.
     address internal constant LISTA_INTERACTION = BSC.LISTA_INTERACTION;
 
     /// @dev PCS StableSwap pool containing lisUSD (paired with USDC/USDT/BUSD).
-    /// @dev Placeholder — Wave 3 verify against the PCS StableSwap
+    /// @dev Placeholder - Wave 3 verify against the PCS StableSwap
     ///      factory; expect a lisUSD/USDT or lisUSD/3-pool pool.
     address internal constant PCS_STABLE_LISUSD_POOL = 0x1aD97D5a1d2deD80A0d2a13d0E0D20A93B5A4b00;
 
     /// @dev Lista collateral token used in this PoC. Lista's CDP normally
     ///      accepts BNB-LSTs (slisBNB) as collateral, not raw USDC. So
-    ///      the realistic path is: flash USDC → swap USDC→slisBNB on
-    ///      a PCS v3 cycle → deposit slisBNB → mint lisUSD → sell
-    ///      lisUSD → USDC. For the PoC witness we use USDC directly as
+    ///      the realistic path is: flash USDC -> swap USDC->slisBNB on
+    ///      a PCS v3 cycle -> deposit slisBNB -> mint lisUSD -> sell
+    ///      lisUSD -> USDC. For the PoC witness we use USDC directly as
     ///      the collateral key; Wave 3 must replace with the canonical
     ///      slisBNB path once IL/collateral-factor are pinned.
     address internal constant LISTA_COLLATERAL = BSC.slisBNB;
@@ -60,7 +60,7 @@ contract B07_08_PcsV3LisUsdListaCdpStableArbTest is BSCStrategyBase, IPancakeV3F
     /// @dev Required lisUSD above-peg premium in bps to fire.
     ///      Total fee load: PCS v3 flash 1bp + PCS StableSwap 4bp +
     ///      Lista stability fee (per-second; amortised ~0 over single
-    ///      block) + slippage. ≈ 10 bps total.
+    ///      block) + slippage. ~ 10 bps total.
     uint256 internal constant MIN_PREMIUM_BPS = 12;
 
     bool internal _flashActive;
@@ -74,7 +74,7 @@ contract B07_08_PcsV3LisUsdListaCdpStableArbTest is BSCStrategyBase, IPancakeV3F
     }
 
     function testStrategy_B07_08() public {
-        // ---- 1. Quote lisUSD → USDC on PCS StableSwap (gives premium) ----
+        // ---- 1. Quote lisUSD -> USDC on PCS StableSwap (gives premium) ----
         // Curve indices: assume lisUSD = 0, USDC = 1 on the pool.
         // // TODO verify against `coins(i)` getters on pinned pool.
         uint256 stableSwapUsdcOut;
@@ -122,8 +122,8 @@ contract B07_08_PcsV3LisUsdListaCdpStableArbTest is BSCStrategyBase, IPancakeV3F
         bool usdcIsToken0 = abi.decode(data, (bool));
         uint256 owedFee = usdcIsToken0 ? fee0 : fee1;
 
-        // ---- 1. Convert USDC → slisBNB (Lista collateral) via PCS v3 ----
-        //         Two-hop (USDC → WBNB → slisBNB) since direct USDC/slisBNB
+        // ---- 1. Convert USDC -> slisBNB (Lista collateral) via PCS v3 ----
+        //         Two-hop (USDC -> WBNB -> slisBNB) since direct USDC/slisBNB
         //         is shallow. PoC uses two single-hop calls.
         IERC20(BSC.USDC).approve(BSC.PCS_V3_ROUTER, type(uint256).max);
         uint256 wbnbMid = IPancakeV3Router(BSC.PCS_V3_ROUTER).exactInputSingle(
@@ -164,7 +164,7 @@ contract B07_08_PcsV3LisUsdListaCdpStableArbTest is BSCStrategyBase, IPancakeV3F
             // slisBNB has volatile price; in production read priceFeed.
             uint256 lisUsdToMint = (FLASH_NOTIONAL_USDC * 60) / 100;
             try IListaInteraction(LISTA_INTERACTION).borrow(BSC.slisBNB, lisUsdToMint) {
-                // ---- 3. Sell lisUSD → USDC on PCS StableSwap ----
+                // ---- 3. Sell lisUSD -> USDC on PCS StableSwap ----
                 IERC20(BSC.lisUSD).approve(PCS_STABLE_LISUSD_POOL, type(uint256).max);
                 try IPancakeStableRouter(PCS_STABLE_LISUSD_POOL).exchange(0, 1, lisUsdToMint, 1)
                     returns (uint256 usdcOut)
@@ -172,7 +172,7 @@ contract B07_08_PcsV3LisUsdListaCdpStableArbTest is BSCStrategyBase, IPancakeV3F
                     require(usdcOut > 0, "stableswap: zero out");
                     // ---- 4. Repay flash ----
                     // Total USDC on hand = original collateral path returned ~0 USDC
-                    // (we converted it to slisBNB → still deposited). The lisUSD
+                    // (we converted it to slisBNB -> still deposited). The lisUSD
                     // sale produces `usdcOut`. To repay we need notional + fee.
                     // PoC: top up shortfall by transferring USDC from this
                     // contract (which was funded externally if needed).
@@ -188,7 +188,7 @@ contract B07_08_PcsV3LisUsdListaCdpStableArbTest is BSCStrategyBase, IPancakeV3F
             emit log_string("B07-08: Lista deposit slisBNB failed");
         }
 
-        // ---- Fallback: unwind slisBNB → WBNB → USDC and repay ----
+        // ---- Fallback: unwind slisBNB -> WBNB -> USDC and repay ----
         IERC20(BSC.slisBNB).approve(BSC.PCS_V3_ROUTER, type(uint256).max);
         uint256 wbnbBack = IPancakeV3Router(BSC.PCS_V3_ROUTER).exactInputSingle(
             IPancakeV3Router.ExactInputSingleParams({

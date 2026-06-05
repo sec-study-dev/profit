@@ -12,7 +12,7 @@ import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 import {IWombatRouter} from "src/interfaces/bsc/amm/IWombatRouter.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B04-09 — Pendle BSC market PT/SY vs Wombat/PCS spot arb (3-mechanism)
+/// @title B04-09 - Pendle BSC market PT/SY vs Wombat/PCS spot arb (3-mechanism)
 ///
 /// @notice Spot-vs-implied-rate basis trade. PT-slisBNB on Pendle implies a
 ///         BNB-denominated future slisBNB price. The Wombat slisBNB/BNB and
@@ -116,8 +116,8 @@ contract B04_09_PendleMarketAmmSpotArbTest is BSCStrategyBase {
         console2.log("probe_slisbnb_per_wbnb_1e18=", probeSlisFromWombat);
 
         // Implied PT-vs-spot delta in bps (relative to PT).
-        // PT ≥ slisBNB-equivalent → arb sells PT on Pendle, buys slisBNB on AMM
-        // PT < slisBNB-equivalent → arb buys PT on Pendle, sells slisBNB on AMM
+        // PT >= slisBNB-equivalent -> arb sells PT on Pendle, buys slisBNB on AMM
+        // PT < slisBNB-equivalent -> arb buys PT on Pendle, sells slisBNB on AMM
         bool ptOverpriced = probePtOut > probeSlisFromWombat;
         uint256 deltaBps;
         if (ptOverpriced) {
@@ -142,16 +142,16 @@ contract B04_09_PendleMarketAmmSpotArbTest is BSCStrategyBase {
 
         if (ptOverpriced) {
             // Sell PT on Pendle, replace with slisBNB on AMM.
-            // a) Mint PT via mintPyFromToken then sell, or buy and sell —
+            // a) Mint PT via mintPyFromToken then sell, or buy and sell -
             //    cleaner shape: buy slisBNB on AMM first, then short the PT
             //    spread by selling PT for WBNB. PoC version: swap half BNB ->
             //    PT, half BNB -> slisBNB on AMM; redeem PT after waiting.
             // Approximation: just buy slisBNB on the AMM with all WBNB and
-            // keep — sell PT separately when slisBNB > PT (off-chain hedge
+            // keep - sell PT separately when slisBNB > PT (off-chain hedge
             // omitted).
             _swapWbnbToSlisBest(sizeBnb);
         } else {
-            // PT is cheap → buy PT on Pendle with WBNB.
+            // PT is cheap -> buy PT on Pendle with WBNB.
             uint256 ptOut = _swapWbnbForPt(sizeBnb);
             console2.log("pt_acquired_1e18=", ptOut);
         }
@@ -299,5 +299,4 @@ contract B04_09_PendleMarketAmmSpotArbTest is BSCStrategyBase {
         }
     }
 
-    receive() external payable {}
 }

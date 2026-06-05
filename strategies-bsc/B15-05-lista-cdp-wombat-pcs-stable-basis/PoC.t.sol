@@ -9,20 +9,20 @@ import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
 import {IPancakeStableRouter} from "src/interfaces/bsc/amm/IPancakeStableRouter.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B15-05 — Lista CDP × Wombat × PCS StableSwap cross-stable basis
+/// @title B15-05 - Lista CDP x Wombat x PCS StableSwap cross-stable basis
 ///
 /// @notice Triple-protocol cross-invariant basis carry:
-///         1. Lista CDP: deposit slisBNB → mint lisUSD.
-///         2. Wombat: lisUSD ↔ USDC (asymmetric-weight curve).
-///         3. PCS StableSwap: USDC ↔ USDT (Curve-style).
-///         Loop closes via Wombat USDT ↔ lisUSD then Lista.payback.
+///         1. Lista CDP: deposit slisBNB -> mint lisUSD.
+///         2. Wombat: lisUSD <-> USDC (asymmetric-weight curve).
+///         3. PCS StableSwap: USDC <-> USDT (Curve-style).
+///         Loop closes via Wombat USDT <-> lisUSD then Lista.payback.
 contract B15_05_ListaCdpWombatPcsStableBasisTest is BSCStrategyBase {
     uint256 constant FORK_BLOCK = 42_550_000;
 
     uint256 constant SEED_SLIS_BNB = 100 ether;
     uint256 constant CDP_LTV_BPS = 5000; // 50%
     uint256 constant ROUNDS = 30; // 1 / day for 30 d
-    /// @dev Net basis target per round in bps (10 bp ≈ $30 per 30k notional).
+    /// @dev Net basis target per round in bps (10 bp ~ $30 per 30k notional).
     uint256 constant TARGET_NET_BPS = 10;
     uint256 constant SLIS_APR_BPS = 320;
     uint256 constant LISUSD_FEE_BPS = 200;

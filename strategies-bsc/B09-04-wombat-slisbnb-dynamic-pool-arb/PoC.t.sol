@@ -99,7 +99,7 @@ contract B09_04_Wombat_slisBNB_DynamicPool_Arb is BSCStrategyBase {
     function _offlinePnLCheck() internal {
         // At cov_BNB=0.88: pool over-pays BNB depositors by 12 bp gross.
         // After 5 bp Wombat haircut, net bonus is 7 bp on slisBNB output
-        // *priced in BNB*. So slisBNB_out * internalRate ≈ N * 1.0007 BNB.
+        // *priced in BNB*. So slisBNB_out * internalRate ~ N * 1.0007 BNB.
         uint256 fairSlis = (NOTIONAL * 1e18) / INTERNAL_RATE_E18; // ~927.6 slisBNB
         uint256 bonusSlis = (fairSlis * 7) / 10000;               // +7 bp slisBNB
         slisBnbReceived = fairSlis + bonusSlis;

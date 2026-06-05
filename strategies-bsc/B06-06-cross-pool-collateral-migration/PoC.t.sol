@@ -11,12 +11,12 @@ import {IVenusFlashLoan, IVenusFlashLoanReceiver} from "src/interfaces/bsc/mm/IV
 import {IslisBNB} from "src/interfaces/bsc/lst/IslisBNB.sol";
 import {IListaStakeManager} from "src/interfaces/bsc/lst/IListaStakeManager.sol";
 
-/// @title B06-06 Cross isolated-pool collateral migration (Core → LST pool)
+/// @title B06-06 Cross isolated-pool collateral migration (Core -> LST pool)
 /// @notice 3-mechanism stack: an existing Core-pool slisBNB-collateralised
 ///         USDT loan is migrated atomically to the LST isolated pool, which
-///         offers a higher slisBNB collateralFactor (≈ 80 % vs Core's ≈ 65 %)
+///         offers a higher slisBNB collateralFactor (~ 80 % vs Core's ~ 65 %)
 ///         AND a lower USDT borrow APR. Mechanisms:
-///         1. Venus V4 `flashLoan` on Core vUSDT — supplies the temporary
+///         1. Venus V4 `flashLoan` on Core vUSDT - supplies the temporary
 ///            cash to redeem the user's USDT debt on Core.
 ///         2. Cross-Comptroller redeem of seized vSlisBNB (Core) and
 ///            re-supply into the LST pool's vSlisBNB.
@@ -147,7 +147,7 @@ contract B06_06_CrossPoolCollateralMigrationTest is BSCStrategyBase, IVenusFlash
         mk[0] = LOCAL_VSLISBNB_CORE;
         mk[1] = BSC.vUSDT;
         // try/catch for offline runs where the Core slisBNB market is not
-        // yet listed at the pinned block — degrade to a no-position state.
+        // yet listed at the pinned block - degrade to a no-position state.
         try comp.enterMarkets(mk) {} catch {}
 
         IERC20(BSC.slisBNB).approve(LOCAL_VSLISBNB_CORE, type(uint256).max);

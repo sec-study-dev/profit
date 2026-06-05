@@ -17,24 +17,24 @@ import {console2} from "forge-std/console2.sol";
 /// @title B01-06 slisBNB Venus loop + PT-slisBNB rate hedge (3-mechanism)
 ///
 /// @notice Three-mechanism stack:
-///         1. **Lista**   — slisBNB mint (LST stake-rate carry leg).
-///         2. **Venus**   — vslisBNB collateral, borrow BNB, recursive loop
+///         1. **Lista**   - slisBNB mint (LST stake-rate carry leg).
+///         2. **Venus**   - vslisBNB collateral, borrow BNB, recursive loop
 ///                          (leverage on the carry).
-///         3. **Pendle**  — buy PT-slisBNB at fixed discount with a small
+///         3. **Pendle**  - buy PT-slisBNB at fixed discount with a small
 ///                          slice of the borrowed BNB. PT locks in the
 ///                          slisBNB stake-rate that the recursive loop is
 ///                          *betting on*. If the Lista stake rate compresses
 ///                          mid-position the PT mark-up makes up the
-///                          differential — the position becomes
+///                          differential - the position becomes
 ///                          rate-hedged instead of pure-directional.
 ///
 /// @dev    The hedge slice is sized so that the PT leg covers the
-///         "borrow APR > stake APR" tail: i.e. PT P&L ≈ −Venus borrow
+///         "borrow APR > stake APR" tail: i.e. PT P&L ~ -Venus borrow
 ///         marginal cost when rates converge. This is a positional, not
-///         atomic, strategy — the PT is held to maturity (or sold early if
+///         atomic, strategy - the PT is held to maturity (or sold early if
 ///         the slisBNB SY rate spikes).
 contract B01_06_SlisBNBPendlePTVenusHedgeLoopTest is BSCStrategyBase {
-    /// @dev Pinned block — need both Venus slisBNB listing AND an active
+    /// @dev Pinned block - need both Venus slisBNB listing AND an active
     ///      Pendle PT-slisBNB market. Re-pin once Pendle BSC subgraph is
     ///      verified.
     uint256 internal constant FORK_BLOCK = 42_000_000;
@@ -104,7 +104,7 @@ contract B01_06_SlisBNBPendlePTVenusHedgeLoopTest is BSCStrategyBase {
         uint256 totalHedgeBnb;
 
         for (uint256 i = 0; i < ITERATIONS; i++) {
-            // 1. BNB → slisBNB.
+            // 1. BNB -> slisBNB.
             sm.deposit{value: bnbToStake}();
             uint256 slisBal = slis.balanceOf(address(this));
 
@@ -158,10 +158,10 @@ contract B01_06_SlisBNBPendlePTVenusHedgeLoopTest is BSCStrategyBase {
         uint256 bnbPerSlis = sm.convertSnBnbToBnb(1e18);
         _setOraclePrice(BSC.slisBNB, (600e8 * bnbPerSlis) / 1e18);
 
-        // Re-mark PT price = slisBNB rate × pull-to-par factor. As maturity
-        // approaches, PT price converges to 1 SY unit (≈ 1 slisBNB worth).
+        // Re-mark PT price = slisBNB rate x pull-to-par factor. As maturity
+        // approaches, PT price converges to 1 SY unit (~ 1 slisBNB worth).
         // For PnL purposes, mark PT at slisBNB-implied value at the
-        // re-mark block (worst-case conservative; PT will be ≥ this).
+        // re-mark block (worst-case conservative; PT will be >= this).
         if (_hedgeLive && _pt != address(0)) {
             uint256 ptPriceE8 = (600e8 * bnbPerSlis) / 1e18;
             _setOraclePrice(_pt, ptPriceE8);

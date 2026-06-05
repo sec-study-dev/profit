@@ -9,7 +9,7 @@ import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
 import {IThenaVoter} from "src/interfaces/bsc/amm/IThenaVoter.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B15-02 — slisBNB · Wombat dynamic LP · Thena gauge stack
+/// @title B15-02 - slisBNB . Wombat dynamic LP . Thena gauge stack
 ///
 /// @notice Triple-protocol stack:
 ///         1. Lista StakeManager: BNB -> slisBNB at canonical rate.
@@ -21,7 +21,7 @@ contract B15_02_SlisBnbWombatThenaGaugeStackTest is BSCStrategyBase {
     // ---- Pinned block ----
     uint256 constant FORK_BLOCK = 42_600_000;
 
-    /// @notice Thena Voter — // TODO verify. Placeholder derived from public
+    /// @notice Thena Voter - // TODO verify. Placeholder derived from public
     ///         BscScan listings (some forks expose this via PairFactory).
     address constant LOCAL_THENA_VOTER = 0x374cc2276b842fEcD65af36D7C60A5B78373EdE1;
 
@@ -113,7 +113,7 @@ contract B15_02_SlisBnbWombatThenaGaugeStackTest is BSCStrategyBase {
         uint256 slisYieldUsd = (seedUsd * SLIS_STAKE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
         uint256 bribeUsd = (seedUsd * BRIBE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
 
-        // WOM at ~$0.04, THE at ~$0.30 — for PnL purposes we set their override
+        // WOM at ~$0.04, THE at ~$0.30 - for PnL purposes we set their override
         // prices to $1 each so the yield projection lines up with USD numbers;
         // the absolute price would just rescale the token-balance side.
         _setOraclePrice(BSC.WOM, 1e8);

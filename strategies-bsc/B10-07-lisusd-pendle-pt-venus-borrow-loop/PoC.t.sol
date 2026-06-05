@@ -58,10 +58,10 @@ interface IPendleRouterV4 {
 ///         - Venus USDT borrow cost (variable, capped by the IRM kink).
 ///
 /// Mechanism stack (3 distinct):
-///  1. Pendle PT — buy PT-lisUSD at discount; redeems 1:1 lisUSD at maturity.
-///  2. Venus borrow — supply PT collateral (via lisUSD), borrow USDT at the
+///  1. Pendle PT - buy PT-lisUSD at discount; redeems 1:1 lisUSD at maturity.
+///  2. Venus borrow - supply PT collateral (via lisUSD), borrow USDT at the
 ///     supply-side IRM rate.
-///  3. Lista CDP / PCS — close-out leg at maturity: PT->lisUSD->USDT->Venus
+///  3. Lista CDP / PCS - close-out leg at maturity: PT->lisUSD->USDT->Venus
 ///     repay, then withdraw collateral.
 contract B10_07_LisUsdPendlePtVenusBorrowLoopTest is BSCStrategyBase {
     /// @dev TODO: pin a block where PT-lisUSD has a tradable BSC market and
@@ -126,7 +126,7 @@ contract B10_07_LisUsdPendlePtVenusBorrowLoopTest is BSCStrategyBase {
     /// @dev Three-mechanism PnL:
     ///  - Step A: lisUSD -> PT-lisUSD swap accrues the implied yield to maturity.
     ///  - Step B: borrowing USDT on Venus generates a leverage carry =
-    ///            (PT_yield − Venus_borrow) × borrowed_notional × T.
+    ///            (PT_yield - Venus_borrow) x borrowed_notional x T.
     ///  - Step C: borrowed USDT is parked at the lisUSD supply yield (the
     ///            sink income while waiting for maturity).
     function _offlinePnLCheck() internal {
@@ -136,7 +136,7 @@ contract B10_07_LisUsdPendlePtVenusBorrowLoopTest is BSCStrategyBase {
         // --- Step A: buy PT-lisUSD at the implied discount ---------------
         // PT entry fee.
         uint256 lisAfterPendleFee = (LISUSD_NOTIONAL * (10_000 - PENDLE_FEE_BPS)) / 10_000;
-        // PT face value at maturity = lisAfterPendleFee × (1 + implied × T).
+        // PT face value at maturity = lisAfterPendleFee x (1 + implied x T).
         uint256 ptFaceAtMat = lisAfterPendleFee
             + (lisAfterPendleFee * PT_IMPLIED_BPS * MATURITY_DAYS) / (10_000 * 365);
         emit log_named_uint("pt_face_at_maturity", ptFaceAtMat);
@@ -147,7 +147,7 @@ contract B10_07_LisUsdPendlePtVenusBorrowLoopTest is BSCStrategyBase {
         // that an isolated Venus market accepts. We approximate by
         // supplying a fraction of the entry lisUSD directly to vUSDT).
         //
-        // Borrowed USDT = LTV × lis_after_fee.
+        // Borrowed USDT = LTV x lis_after_fee.
         uint256 borrowUsdt = (lisAfterPendleFee * BORROW_LTV_BPS) / 10_000;
         // Borrow cost over MATURITY_DAYS.
         uint256 borrowCost = (borrowUsdt * VENUS_USDT_BORROW_BPS * MATURITY_DAYS) / (10_000 * 365);

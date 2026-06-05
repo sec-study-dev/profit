@@ -45,14 +45,14 @@ contract B05_01_PoC is BSCStrategyBase {
         _trackToken(BSC.USDe);
         _trackToken(BSC.sUSDe);
         _trackToken(BSC.USDT);
-        // Set sUSDe per-share USD ≈ $1.05 to reflect accrued yield at pin.
+        // Set sUSDe per-share USD ~ $1.05 to reflect accrued yield at pin.
         _setOraclePrice(BSC.sUSDe, 1_05_000_000); // 1.05e8 -> $1.05
         // Tighten USDe oracle to $0.9990 (10 bp discount) to mirror BSC peg.
         _setOraclePrice(BSC.USDe, 99_900_000);
     }
 
     // ----------------------------------------------------------------
-    // Public entrypoint — offline (default) or fork.
+    // Public entrypoint - offline (default) or fork.
     // ----------------------------------------------------------------
     function testSusdeVenusUsdtLoopCarry() public {
         bool live = _tryFork();
@@ -66,7 +66,7 @@ contract B05_01_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Forked branch — only reached when BSC_RPC_URL is configured
+    // Forked branch - only reached when BSC_RPC_URL is configured
     // *and* Venus has listed vsUSDe at the pinned block.
     // ----------------------------------------------------------------
     function _runOnchainLoop() internal {
@@ -94,7 +94,7 @@ contract B05_01_PoC is BSCStrategyBase {
             IVToken(LOCAL_VSUSDE).mint(sBal);
 
             // Borrow USDT against the new collateral. Compute headroom from
-            // Venus' liquidity check rather than a static CF — the PoC keeps
+            // Venus' liquidity check rather than a static CF - the PoC keeps
             // it simple with the static CF * safety haircut.
             uint256 sUsdValue = (sBal * _priceE8[BSC.sUSDe]) / 1e8; // sUSDe USD value (1e18 scaled)
             uint256 usdtBorrow = (sUsdValue * CF_BPS * SAFETY_BPS) / (10_000 * 10_000);
@@ -131,7 +131,7 @@ contract B05_01_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Offline branch — closed-form projection in USD.
+    // Offline branch - closed-form projection in USD.
     // We use a virtual ERC20 mint into address(this) to push the
     // tracked-token deltas through `_endPnL`.
     // ----------------------------------------------------------------
@@ -167,12 +167,12 @@ contract B05_01_PoC is BSCStrategyBase {
             _fund(BSC.USDT, address(this), uint256(pnlUsd1e18));
         }
         // Negative branch is unreachable at the modelled rates; if hit, we'd
-        // burn USDT via a transfer to address(0) — skipped to keep this PoC
+        // burn USDT via a transfer to address(0) - skipped to keep this PoC
         // monotone in the offline branch.
     }
 
     // ----------------------------------------------------------------
-    // Fork helper — swallow missing RPC env so the offline path runs.
+    // Fork helper - swallow missing RPC env so the offline path runs.
     // ----------------------------------------------------------------
     function _tryFork() internal returns (bool) {
         try vm.envString("BSC_RPC_URL") returns (string memory rpc) {

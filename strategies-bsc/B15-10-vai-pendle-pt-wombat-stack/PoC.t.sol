@@ -10,13 +10,13 @@ import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B15-10 — Venus VAI mint + Pendle PT-USDT/USDe + Wombat stable LP stack
+/// @title B15-10 - Venus VAI mint + Pendle PT-USDT/USDe + Wombat stable LP stack
 ///
 /// @notice Triple-protocol *Venus + Pendle + Wombat* stable yield stack:
 ///         1. **Venus**: supply USDC, mint VAI (Venus's native stablecoin
-///            CDP — distinct from any borrow, VAI uses a separate mint
+///            CDP - distinct from any borrow, VAI uses a separate mint
 ///            module against any Venus collateral).
-///         2. **Pendle BSC**: swap VAI → USDT (PCS stable hop) →
+///         2. **Pendle BSC**: swap VAI -> USDT (PCS stable hop) ->
 ///            PT-USDT-26JUN2025 for a fixed-yield stable carry.
 ///         3. **Wombat**: deposit half the position's USDT-equivalent
 ///            into the main Wombat 3-stable pool for LP fees + WOM
@@ -38,14 +38,14 @@ contract B15_10_VaiPendlePtWombatStackTest is BSCStrategyBase {
     /// @notice Venus VAIController (mints VAI against any Venus account).
     /// @dev    Placeholder; actual address depends on Venus deployment.
     ///         Most BscScan deployments expose VAIController at
-    ///         0x0...004B17 — we proxy here and try/catch.
+    ///         0x0...004B17 - we proxy here and try/catch.
     // TODO: verify exact VAIController address; using a stand-in.
     address constant LOCAL_VAI_CONTROLLER = 0x004CCc0B0dFf18E8c6a73aB1F8eaCC59F0f6Cd45;
 
     uint256 constant SEED_USDC = 200_000e18;
     uint256 constant VENUS_VAI_MINT_BPS = 6000; // 60 % of USDC collateral value
-    uint256 constant PT_ALLOC_BPS = 6000;       // 60 % of VAI proceeds → PT-USDT
-    uint256 constant LP_ALLOC_BPS = 4000;       // 40 % → Wombat LP
+    uint256 constant PT_ALLOC_BPS = 6000;       // 60 % of VAI proceeds -> PT-USDT
+    uint256 constant LP_ALLOC_BPS = 4000;       // 40 % -> Wombat LP
     uint256 constant HOLD_DAYS = 180;
 
     // ---- Carry assumptions ----
@@ -81,7 +81,7 @@ contract B15_10_VaiPendlePtWombatStackTest is BSCStrategyBase {
         }
         if (!venusSupplyLive) {
             // Offline: keep USDC, model the supply by send-to-vUSDC stub.
-            // We don't actually burn — the PnL leg below counts USDC delta.
+            // We don't actually burn - the PnL leg below counts USDC delta.
             console2.log("venus_supply_offline_keep_USDC");
         } else {
             console2.log("venus_supply_live_USDC_1e18=", SEED_USDC);
@@ -116,7 +116,7 @@ contract B15_10_VaiPendlePtWombatStackTest is BSCStrategyBase {
             // Offline: model PT-USDT at a 4 % entry discount.
             ptOut = (ptInUsdt * (10_000 - 400)) / 10_000;
             IERC20(BSC.USDT).transfer(address(0xdEaD), ptInUsdt);
-            // We can't track PT (no constant in BSC.sol) — credit it as
+            // We can't track PT (no constant in BSC.sol) - credit it as
             // USDT held at the PT's locked value at maturity.
             _fund(BSC.USDT, address(this), ptOut);
             console2.log("pendle_offline_pt_proxy_USDT_1e18=", ptOut);

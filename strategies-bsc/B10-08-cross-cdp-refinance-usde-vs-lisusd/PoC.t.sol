@@ -5,7 +5,7 @@ import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 
-/// @title B10-08 Cross-CDP refinance — USDe short-term borrow vs lisUSD long-term debt
+/// @title B10-08 Cross-CDP refinance - USDe short-term borrow vs lisUSD long-term debt
 /// @notice A user already holds an open Lista lisUSD CDP (long-dated debt at
 ///         a stickily high stability fee). Venus, meanwhile, lists USDe as a
 ///         supply / borrow market at an instantaneous IRM rate that
@@ -15,7 +15,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 ///         B10-08 *refinances* a slice of the Lista debt by:
 ///         1. depositing slisBNB into Venus as Venus-side collateral,
 ///         2. borrowing USDe on Venus at the (cheap) Venus rate,
-///         3. swapping USDe → lisUSD via PCS StableSwap,
+///         3. swapping USDe -> lisUSD via PCS StableSwap,
 ///         4. paying down the Lista lisUSD debt by the swapped notional.
 ///
 ///         The position is held while `Venus_USDe_borrow_rate < Lista_SF`,
@@ -23,10 +23,10 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 ///         crosses.
 ///
 /// Mechanism stack (3 distinct):
-///  1. Lista CDP — `payback(slisBNB, lisUSD)` against an existing debt.
-///  2. Venus borrow — slisBNB collateral, USDe debt (separate
+///  1. Lista CDP - `payback(slisBNB, lisUSD)` against an existing debt.
+///  2. Venus borrow - slisBNB collateral, USDe debt (separate
 ///     market / different rate than VAI mint).
-///  3. PCS StableSwap — USDe -> lisUSD bridge so the Venus debt can be
+///  3. PCS StableSwap - USDe -> lisUSD bridge so the Venus debt can be
 ///     applied as Lista debt reduction.
 contract B10_08_CrossCdpRefinanceUsdeVsLisusdTest is BSCStrategyBase {
     /// @dev TODO: pin a block where Venus USDe borrow APR < Lista SF by >= 100 bp.
@@ -53,7 +53,7 @@ contract B10_08_CrossCdpRefinanceUsdeVsLisusdTest is BSCStrategyBase {
     uint256 internal constant LISTA_PAYBACK_FEE_BPS = 0;   // Lista has no payback fee
 
     /// @dev Mock isolated market for USDe on Venus (selector promotion TODO).
-    address internal constant LOCAL_VUSDE = 0x000000000000000000000000000000000000bAbE;
+    address internal constant LOCAL_VUSDE = 0x000000000000000000000000000000000000baBe;
 
     bool internal _haveFork;
 
@@ -107,7 +107,7 @@ contract B10_08_CrossCdpRefinanceUsdeVsLisusdTest is BSCStrategyBase {
         // --- Step 3: Pay down Lista lisUSD debt by `lisFromSwap` ---------
         // The user's wallet lisUSD doesn't decrease (Lista CDP "absorbs" the
         // payback by reducing debt liability, not their hand). For accounting
-        // we model the debt reduction as off-balance — credit `lisFromSwap`
+        // we model the debt reduction as off-balance - credit `lisFromSwap`
         // as future interest avoided.
         uint256 listaPaybackFee =
             (lisFromSwap * LISTA_PAYBACK_FEE_BPS) / 10_000;
@@ -115,7 +115,7 @@ contract B10_08_CrossCdpRefinanceUsdeVsLisusdTest is BSCStrategyBase {
 
         // --- Step 4: Hold for HOLD_DAYS ---------------------------------
         // Funding spread saved on REFINANCE_SLICE:
-        //   (LISTA_SF − VENUS_USDe_borrow) × HOLD_DAYS / 365.
+        //   (LISTA_SF - VENUS_USDe_borrow) x HOLD_DAYS / 365.
         uint256 spreadBps = LISTA_SF_BPS > VENUS_USDE_BORROW_BPS
             ? LISTA_SF_BPS - VENUS_USDE_BORROW_BPS : 0;
         uint256 fundingSaved =
@@ -130,7 +130,7 @@ contract B10_08_CrossCdpRefinanceUsdeVsLisusdTest is BSCStrategyBase {
         // repay Venus USDe borrow.
         // (a) Mint lisUSD against the same slisBNB on Lista. For accounting
         //     we credit lisUSD back at par minus a tiny Lista mint fee
-        //     (modeled as zero — Lista typically has no mint fee, just SF).
+        //     (modeled as zero - Lista typically has no mint fee, just SF).
         _fund(BSC.lisUSD, address(this), IERC20(BSC.lisUSD).balanceOf(address(this)) + REFINANCE_SLICE);
 
         // (b) Swap lisUSD -> USDe via PCS Stable.
@@ -138,12 +138,12 @@ contract B10_08_CrossCdpRefinanceUsdeVsLisusdTest is BSCStrategyBase {
         IERC20(BSC.lisUSD).transfer(address(0xdead), REFINANCE_SLICE);
         _fund(BSC.USDe, address(this), usdeForRepay);
 
-        // (c) Repay Venus USDe debt — debt = principal + accrued cost.
+        // (c) Repay Venus USDe debt - debt = principal + accrued cost.
         uint256 venusCost =
             (venusBorrowUsde * VENUS_USDE_BORROW_BPS * HOLD_DAYS) / (10_000 * 365);
         uint256 venusOwed = venusBorrowUsde + venusCost;
         // If the swap yielded less USDe than owed, we cover the gap with a
-        // top-up swap (cost = top-up × stable fee).
+        // top-up swap (cost = top-up x stable fee).
         int256 usdeShortfall = int256(venusOwed) - int256(usdeForRepay);
         IERC20(BSC.USDe).transfer(address(0xdead), usdeForRepay);
         if (usdeShortfall > 0) {

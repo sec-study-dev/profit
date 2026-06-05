@@ -8,11 +8,11 @@ import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 
-/// @title B14-05 PoC — sUSDX (Lista savings) + Pendle PT lock + Venus borrow (3-mech)
+/// @title B14-05 PoC - sUSDX (Lista savings) + Pendle PT lock + Venus borrow (3-mech)
 /// @notice Three independent yield mechanisms stacked on a stable principal:
-///         (1) **sUSDX** — Lista savings wrapper paying ~6% real yield;
-///         (2) **Pendle PT-sUSDX** lock — fix the savings APR at a discount;
-///         (3) **Venus borrow** — use PT-sUSDX as collateral inside the
+///         (1) **sUSDX** - Lista savings wrapper paying ~6% real yield;
+///         (2) **Pendle PT-sUSDX** lock - fix the savings APR at a discount;
+///         (3) **Venus borrow** - use PT-sUSDX as collateral inside the
 ///         Venus isolated pool (or use plain USDT collateral after a Pendle
 ///         router exit) to borrow USDT and recycle into a second sUSDX
 ///         deposit, doubling the carry leg.
@@ -22,11 +22,11 @@ import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 contract B14_05_PoC is BSCStrategyBase {
     // ---- Inlined addresses not yet in BSC.sol ----
     /// @dev Lista sUSDX savings wrapper. // TODO verify on BscScan.
-    address constant LOCAL_SUSDX = 0x0000000000000000000000000000000000B14051;
+    address constant LOCAL_SUSDX = 0x0000000000000000000000000000000000b14051;
     /// @dev Pendle PT-sUSDX-26JUN2025 market on BSC. // TODO verify.
     address constant LOCAL_PT_SUSDX_MARKET = 0x0000000000000000000000000000000000B14052;
     /// @dev PT-sUSDX principal token. // TODO verify.
-    address constant LOCAL_PT_SUSDX = 0x0000000000000000000000000000000000B14053;
+    address constant LOCAL_PT_SUSDX = 0x0000000000000000000000000000000000b14053;
     /// @dev Venus XVS governance token. // TODO verify.
     address constant LOCAL_XVS = 0x0000000000000000000000000000000000B14054;
 
@@ -75,7 +75,7 @@ contract B14_05_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Forked branch — degrades to no-op on missing markets.
+    // Forked branch - degrades to no-op on missing markets.
     // ----------------------------------------------------------------
     function _runOnchainStack() internal {
         _fund(BSC.USDT, address(this), PRINCIPAL_USDT);
@@ -111,7 +111,7 @@ contract B14_05_PoC is BSCStrategyBase {
             uint256 ptBal = IERC20(LOCAL_PT_SUSDX).balanceOf(address(this));
             if (ptBal == 0) break;
             // Supply PT-sUSDX as collateral (placeholder: real PoC would use the
-            // isolated-pool vToken for PT, not vUSDT — tolerated by try/catch).
+            // isolated-pool vToken for PT, not vUSDT - tolerated by try/catch).
             (ok,) = BSC.vUSDT.call(abi.encodeWithSignature("mint(uint256)", ptBal));
             if (!ok) break;
             uint256 toBorrow = (ptBal * CF_BPS * SAFETY_BPS) / (10_000 * 10_000);
@@ -131,7 +131,7 @@ contract B14_05_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Offline branch — closed-form 3-mechanism projection.
+    // Offline branch - closed-form 3-mechanism projection.
     // Carry split:
     //   - PT leg: PT_LOCKED_APR_BPS on half principal.
     //   - Spot leg: SUSDX_APR_BPS on half principal.

@@ -10,12 +10,12 @@ import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B15-04 — Astherus asBNB · Venus collateral · Pendle YT-asBNB stack
+/// @title B15-04 - Astherus asBNB . Venus collateral . Pendle YT-asBNB stack
 ///
 /// @notice Triple-protocol points-class stack:
 ///         1. Astherus stake: BNB -> asBNB.
 ///         2. Venus: supply asBNB (fallback BNB), borrow USDT.
-///         3. Pendle YT: USDT -> YT-asBNB → leveraged points exposure.
+///         3. Pendle YT: USDT -> YT-asBNB -> leveraged points exposure.
 contract B15_04_AsBnbVenusPendleYtStackTest is BSCStrategyBase {
     uint256 constant FORK_BLOCK = 42_800_000;
 

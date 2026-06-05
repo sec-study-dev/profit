@@ -13,18 +13,18 @@ import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
 /// @title B10-05 VAI + lisUSD + USDe triangular atomic arb (PCS v3 flash)
 /// @notice Three CDP-class / synthetic stables, three different venues, one
 ///         atomic loop. When the directed triangle product
-///         `p(USDT→VAI) · p(VAI→lisUSD) · p(lisUSD→USDe) · p(USDe→USDT)` (net
+///         `p(USDT->VAI) . p(VAI->lisUSD) . p(lisUSD->USDe) . p(USDe->USDT)` (net
 ///         of fees) exceeds zero, we flash USDT, run the four-hop cycle, and
 ///         return the flash with the captured spread.
 ///
 /// Mechanism stack (3 distinct):
 ///  1. PCS v3 flash (USDT loan)
-///  2. PCS v2 / v3 spot swap (VAI leg — lagging CDP stable)
-///  3. Wombat StableSwap (lisUSD <-> USDe leg — dynamic-weight pool, the
-///     only venue where lisUSD↔USDe has meaningful depth).
+///  2. PCS v2 / v3 spot swap (VAI leg - lagging CDP stable)
+///  3. Wombat StableSwap (lisUSD <-> USDe leg - dynamic-weight pool, the
+///     only venue where lisUSD<->USDe has meaningful depth).
 contract B10_05_VaiLisUsdUsdeTriangleFlashTest is BSCStrategyBase, IPancakeV3FlashCallback {
     /// @dev TODO: pin a block where (a) PCS v2 VAI/USDT has > $200k depth,
-    ///      (b) Wombat lisUSD↔USDe imbalance is at least 5 bp, and
+    ///      (b) Wombat lisUSD<->USDe imbalance is at least 5 bp, and
     ///      (c) PCS v3 USDC/USDT 1bp flash pool has reserves > $5m.
     uint256 internal constant FORK_BLOCK = 47_500_000;
 

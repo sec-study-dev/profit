@@ -11,13 +11,13 @@ import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B15-01 — Lista CDP + Pendle PT-USDe + Venus collateral stack
+/// @title B15-01 - Lista CDP + Pendle PT-USDe + Venus collateral stack
 ///
 /// @notice Triple-protocol mechanism stack:
-///         1. Lista CDP: deposit slisBNB → mint lisUSD.
-///         2. Pendle BSC: lisUSD → USDe → PT-USDe (fixed yield to maturity).
+///         1. Lista CDP: deposit slisBNB -> mint lisUSD.
+///         2. Pendle BSC: lisUSD -> USDe -> PT-USDe (fixed yield to maturity).
 ///         3. Venus Core: supply PT (or USDe fallback), borrow USDT, recycle
-///            USDT → lisUSD → Lista.payback to free CDP headroom.
+///            USDT -> lisUSD -> Lista.payback to free CDP headroom.
 ///
 /// @dev Offline-first PoC: all external interactions are wrapped in `try/catch`
 ///      so the PoC degrades to a logged no-op + projected PnL when a BSC fork
@@ -31,9 +31,9 @@ contract B15_01_ListaCdpPendlePtVenusStackTest is BSCStrategyBase {
     address constant LOCAL_PT_USDE_MARKET = 0x9eC4c502D989F04FfA9312C9D6E3F872EC91A0F9;
 
     // ---- Equity & sizing ----
-    /// @dev 100 slisBNB ≈ $60,000 at $600/BNB.
+    /// @dev 100 slisBNB ~ $60,000 at $600/BNB.
     uint256 constant SEED_SLIS_BNB = 100 ether;
-    /// @dev Target CDP LTV — conservative below the ~80% liquidation threshold.
+    /// @dev Target CDP LTV - conservative below the ~80% liquidation threshold.
     uint256 constant TARGET_CDP_LTV_BPS = 6500;
     /// @dev Venus collateral factor target for the PT/USDe leg.
     uint256 constant VENUS_CF_BPS = 5000;
@@ -61,9 +61,9 @@ contract B15_01_ListaCdpPendlePtVenusStackTest is BSCStrategyBase {
         _fund(BSC.slisBNB, address(this), SEED_SLIS_BNB);
         _startPnL();
 
-        // ---- Leg A: Lista CDP — deposit slisBNB, mint lisUSD ----
+        // ---- Leg A: Lista CDP - deposit slisBNB, mint lisUSD ----
         IERC20(BSC.slisBNB).approve(BSC.LISTA_INTERACTION, SEED_SLIS_BNB);
-        uint256 slisUsdValue = SEED_SLIS_BNB * 600; // 1 slisBNB ≈ $600 (default)
+        uint256 slisUsdValue = SEED_SLIS_BNB * 600; // 1 slisBNB ~ $600 (default)
         uint256 lisUsdToMint = (slisUsdValue * TARGET_CDP_LTV_BPS) / 10_000;
         console2.log("cdp_mint_lisUSD_usd1e18=", lisUsdToMint);
 
@@ -187,7 +187,7 @@ contract B15_01_ListaCdpPendlePtVenusStackTest is BSCStrategyBase {
         try IVenusComptroller(BSC.VENUS_COMPTROLLER).enterMarkets(mkts) returns (uint256[] memory) {
             // ok
         } catch {
-            // ignore — offline
+            // ignore - offline
         }
     }
 

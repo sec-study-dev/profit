@@ -8,7 +8,7 @@ import {IPancakeV3Pool, IPancakeV3FlashCallback} from "src/interfaces/bsc/amm/IP
 import {IPancakeV3Factory} from "src/interfaces/bsc/amm/IPancakeV3Factory.sol";
 import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 
-/// @title B12-02 solvBTC ↔ solvBTC.BBN cross-BTC-LSD PCS v3 flash basis arb
+/// @title B12-02 solvBTC <-> solvBTC.BBN cross-BTC-LSD PCS v3 flash basis arb
 /// @notice Atomic premium-direction trade:
 ///         1. flash(solvBTC) from PCS v3 solvBTC/WBNB pool
 ///         2. callback: mint solvBTC.BBN at intrinsic via Solv stake()
@@ -18,7 +18,7 @@ import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 ///         The PoC uses try/catch and falls back to an offline accounting
 ///         branch when fork / pool / minter is unavailable.
 contract B12_02_SolvBTC_CrossLSD_FlashBasis is BSCStrategyBase, IPancakeV3FlashCallback {
-    /// @dev Pinned block — Babylon incentive cliff -> BBN premium spike.
+    /// @dev Pinned block - Babylon incentive cliff -> BBN premium spike.
     uint256 internal constant FORK_BLOCK = 47_200_000;
 
     /// @dev Solv stake/unstake router. TODO verify.
@@ -35,7 +35,7 @@ contract B12_02_SolvBTC_CrossLSD_FlashBasis is BSCStrategyBase, IPancakeV3FlashC
     uint24 internal constant SWAP_FEE_TIER = 3_000;
 
     /// @dev Documented intrinsic rate at the pinned block:
-    ///      1 solvBTC.BBN ≈ 1.012 solvBTC.
+    ///      1 solvBTC.BBN ~ 1.012 solvBTC.
     uint256 internal constant INTRINSIC_NUM = 1_012;
     uint256 internal constant INTRINSIC_DEN = 1_000;
     /// @dev Documented market premium: 1.0155 solvBTC per solvBTC.BBN.
@@ -159,8 +159,8 @@ contract B12_02_SolvBTC_CrossLSD_FlashBasis is BSCStrategyBase, IPancakeV3FlashC
     /// @dev Offline-first: simulate a 35 bp premium against documented basis.
     function _offlinePnLCheck() internal {
         uint256 notional = FLASH_NOTIONAL;
-        uint256 simBbnMinted = (notional * INTRINSIC_DEN) / INTRINSIC_NUM; // ≈ 988.14
-        uint256 simSolvBack = (simBbnMinted * MARKET_NUM) / MARKET_DEN;    // ≈ 1003.45
+        uint256 simBbnMinted = (notional * INTRINSIC_DEN) / INTRINSIC_NUM; // ~ 988.14
+        uint256 simSolvBack = (simBbnMinted * MARKET_NUM) / MARKET_DEN;    // ~ 1003.45
         uint256 simFlashFee = (notional * 5) / 10_000;                     // 5 bp
         uint256 simSwapFee = (simBbnMinted * 5) / 10_000;                  // 5 bp on the BBN sold
         uint256 simSlip   = (notional * 10) / 10_000;                      // 10 bp drag

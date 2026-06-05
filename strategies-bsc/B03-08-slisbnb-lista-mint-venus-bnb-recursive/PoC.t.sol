@@ -9,11 +9,11 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 //   IListaInteraction, IListaStakeManager, IPancakeV3Router,
 //   IVenusComptroller, IVToken, IWBNB
 
-/// @title B03-08 slisBNB → Lista mint lisUSD → Venus borrow BNB → recursive restake
+/// @title B03-08 slisBNB -> Lista mint lisUSD -> Venus borrow BNB -> recursive restake
 /// @notice 3-mechanism recursive PoC. Each round stacks:
-///         1. **Lista CDP** — slisBNB collateral mints lisUSD.
-///         2. **PCS v3 swap** — lisUSD → WBNB (intermediate liquidity hop).
-///         3. **Venus borrow** — same WBNB also re-collateralised on Venus
+///         1. **Lista CDP** - slisBNB collateral mints lisUSD.
+///         2. **PCS v3 swap** - lisUSD -> WBNB (intermediate liquidity hop).
+///         3. **Venus borrow** - same WBNB also re-collateralised on Venus
 ///            to borrow *more* BNB (independent debt market), which is
 ///            re-staked to slisBNB.
 ///
@@ -24,7 +24,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 ///         utilisation), so the operator effectively double-uses each
 ///         dollar of slisBNB collateral.
 ///
-///         The recursion is bounded — each round borrows on a tighter
+///         The recursion is bounded - each round borrows on a tighter
 ///         marginal LTV, so we converge geometrically.
 contract B03_08_SlisBnbListaMintVenusBnbRecursiveTest is BSCStrategyBase {
     uint256 constant FORK_BLOCK = 42_500_000;
@@ -68,7 +68,7 @@ contract B03_08_SlisBnbListaMintVenusBnbRecursiveTest is BSCStrategyBase {
         uint256 roundSlisBnb = SEED_SLIS_BNB;
 
         for (uint256 i = 0; i < ROUNDS; i++) {
-            // ===== Mechanism 1: Lista CDP — deposit slisBNB, mint lisUSD ====
+            // ===== Mechanism 1: Lista CDP - deposit slisBNB, mint lisUSD ====
             //
             //   IERC20(BSC.slisBNB).approve(BSC.LISTA_INTERACTION, roundSlisBnb);
             //   IListaInteraction(BSC.LISTA_INTERACTION).deposit(
@@ -96,7 +96,7 @@ contract B03_08_SlisBnbListaMintVenusBnbRecursiveTest is BSCStrategyBase {
             uint256 wbnbFromLisUsd = (mintLisUsd * (10_000 - 5)) / 10_000 / 600;
             _fund(BSC.WBNB, address(this), wbnbFromLisUsd);
 
-            // ===== Mechanism 2: Venus — collateralise WBNB, borrow more BNB ===
+            // ===== Mechanism 2: Venus - collateralise WBNB, borrow more BNB ===
             //
             //   IWBNB(BSC.WBNB).withdraw(wbnbFromLisUsd);
             //   IVToken(BSC.vBNB).mint{value: wbnbFromLisUsd}();
@@ -111,7 +111,7 @@ contract B03_08_SlisBnbListaMintVenusBnbRecursiveTest is BSCStrategyBase {
             _fund(BSC.WBNB, address(this), venusBorrowBnb);
             totalBnbDebt += venusBorrowBnb;
 
-            // ===== Mechanism 3: Lista StakeManager — restake BNB -> slisBNB ====
+            // ===== Mechanism 3: Lista StakeManager - restake BNB -> slisBNB ====
             //
             //   IWBNB(BSC.WBNB).withdraw(venusBorrowBnb);
             //   IListaStakeManager(BSC.LISTA_STAKE_MANAGER).deposit{value: venusBorrowBnb}();

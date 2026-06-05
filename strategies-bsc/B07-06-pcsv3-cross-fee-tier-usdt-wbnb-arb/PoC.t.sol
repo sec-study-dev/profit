@@ -19,45 +19,45 @@ import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 ///           - The 0.25% pool is shallow but still receives long-tail flow
 ///             and accumulates micro-deviations between arbed re-syncs.
 ///         When all three diverge, a single-direction round-trip across
-///         two tiers can capture 2–10 bps of spread net of the SUM of
-///         their fees. Edge condition: |mid_a − mid_b| > fee_a + fee_b +
+///         two tiers can capture 2-10 bps of spread net of the SUM of
+///         their fees. Edge condition: |mid_a - mid_b| > fee_a + fee_b +
 ///         flash_fee.
 /// @dev    Mechanism count: 2 (PCS v3 flash + PCS v3 swap on a different
 ///         fee tier). Note: this is the SAME protocol on both legs, but
 ///         the two pools are independent AMMs (different `sqrtPriceX96`).
 ///         Same-DEX cross-tier arb is conceptually distinct from
-///         cross-DEX arb because there's no THE/CAKE governance lag —
+///         cross-DEX arb because there's no THE/CAKE governance lag -
 ///         only LP-positioning-curve lag.
 contract B07_06_PcsV3CrossFeeTierArbTest is BSCStrategyBase, IPancakeV3FlashCallback {
     uint256 internal constant FORK_BLOCK = 42_000_000;
 
     /// @dev PCS v3 USDT/WBNB pools at three fee tiers. WBNB (0xbb4C...) <
-    ///      USDT (0x55d3...)? — actually 0x55 < 0xbb, so USDT < WBNB by
+    ///      USDT (0x55d3...)? - actually 0x55 < 0xbb, so USDT < WBNB by
     ///      hex; pool sets token0 = USDT, token1 = WBNB? No: lex order in
     ///      hex puts 0x55d3 < 0xbb4C, so token0 = USDT. But B07-01 sets
-    ///      token0 = WBNB for the 0.01% pool — verified there empirically
+    ///      token0 = WBNB for the 0.01% pool - verified there empirically
     ///      against BscScan. So token0 = WBNB, token1 = USDT for the
     ///      canonical PCS v3 USDT/WBNB pools (matching B07-01).
     address internal constant PCS_V3_WBNB_USDT_100 = 0x172fcD41E0913e95784454622d1c3724f546f849;
-    /// @dev Placeholder — Wave 3 verify via `IPancakeV3Factory.getPool(WBNB, USDT, 500)`.
+    /// @dev Placeholder - Wave 3 verify via `IPancakeV3Factory.getPool(WBNB, USDT, 500)`.
     address internal constant PCS_V3_WBNB_USDT_500 = 0x36696169C63e42cd08ce11f5deeBbCeBae652050;
-    /// @dev Placeholder — Wave 3 verify via `IPancakeV3Factory.getPool(WBNB, USDT, 2500)`.
+    /// @dev Placeholder - Wave 3 verify via `IPancakeV3Factory.getPool(WBNB, USDT, 2500)`.
     address internal constant PCS_V3_WBNB_USDT_2500 = 0x85FAac652b707FDf6907EF726751087F9E0b6687;
 
     uint24 internal constant FEE_100 = 100;
     uint24 internal constant FEE_500 = 500;
     uint24 internal constant FEE_2500 = 2500;
 
-    /// @dev Flash WBNB notional. 100 WBNB ≈ $60k @ $600/BNB; sized so a
+    /// @dev Flash WBNB notional. 100 WBNB ~ $60k @ $600/BNB; sized so a
     ///      micro-spread of 5 bps still yields a meaningful absolute PnL.
     uint256 internal constant FLASH_NOTIONAL_WBNB = 100 ether;
 
     /// @dev Minimum net spread after summed swap fees + flash fee, in bps.
-    ///      For the 100 ↔ 500 tier pair: flash 1bp + return-swap fee tier
+    ///      For the 100 <-> 500 tier pair: flash 1bp + return-swap fee tier
     ///      adds to the routed-leg fee. We compute MIN as defensive floor.
     uint256 internal constant MIN_NET_EDGE_BPS = 2;
 
-    /// @dev Encode which pair of tiers we're arbing — picked dynamically
+    /// @dev Encode which pair of tiers we're arbing - picked dynamically
     ///      based on the largest spread at quote time.
     struct Route {
         address flashPool;     // pool we flash WBNB from
@@ -65,7 +65,7 @@ contract B07_06_PcsV3CrossFeeTierArbTest is BSCStrategyBase, IPancakeV3FlashCall
         address swapPool;      // pool we round-trip WBNB through
         uint24  swapFeeTier;   // its swap-fee tier
         bool    flashWbnbIsToken0; // ordering on flashPool
-        bool    sellLegOnSwapPool; // direction: true => WBNB→USDT on swap pool first
+        bool    sellLegOnSwapPool; // direction: true => WBNB->USDT on swap pool first
     }
 
     bool internal _flashActive;
@@ -89,7 +89,7 @@ contract B07_06_PcsV3CrossFeeTierArbTest is BSCStrategyBase, IPancakeV3FlashCall
 
         // Find the largest spread across the three tier pairs. We arb the
         // (low_pool, high_pool) ordered pair; flash from the LOW (cheap-WBNB)
-        // tier means we'd sell WBNB cheap and buy back high → unprofitable.
+        // tier means we'd sell WBNB cheap and buy back high -> unprofitable.
         // Correct direction: sell WBNB on the pool that PAYS MORE USDT (high
         // mid), buy it back on the pool that's CHEAPER (low mid).
         // Flash source = pool we sell INTO = high-mid pool. Return-swap pool
@@ -144,7 +144,7 @@ contract B07_06_PcsV3CrossFeeTierArbTest is BSCStrategyBase, IPancakeV3FlashCall
 
         uint256 owedFee = r.flashWbnbIsToken0 ? fee0 : fee1;
 
-        // ---- 1. Sell WBNB → USDT on the HIGH-mid pool (the same flash pool,
+        // ---- 1. Sell WBNB -> USDT on the HIGH-mid pool (the same flash pool,
         //         going through the canonical SwapRouter using its fee tier).
         IERC20(BSC.WBNB).approve(BSC.PCS_V3_ROUTER, type(uint256).max);
         uint256 usdtOut = IPancakeV3Router(BSC.PCS_V3_ROUTER).exactInputSingle(

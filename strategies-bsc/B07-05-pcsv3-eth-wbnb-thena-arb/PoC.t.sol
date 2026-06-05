@@ -9,45 +9,45 @@ import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 import {IThenaRouter} from "src/interfaces/bsc/amm/IThenaRouter.sol";
 import {IThenaPair} from "src/interfaces/bsc/amm/IThenaPair.sol";
 
-/// @title B07-05 PCS v3 ETH/WBNB 0.05% flash → Thena ETH/BNB volatile pair arb
+/// @title B07-05 PCS v3 ETH/WBNB 0.05% flash -> Thena ETH/BNB volatile pair arb
 /// @notice Binance-Peg ETH (BSC.WETH, 0x2170...) trades on BSC as a cross-rate
 ///         of ETH/USD against BNB/USD; the on-chain ETH/BNB pair is a
 ///         secondary market because most flow goes through ETH/USDT or
 ///         WBNB/USDT independently. PCS v3 hosts the canonical 0.05%
-///         ETH/WBNB pool with ~$3–8M TVL; Thena's volatile ETH/BNB pair
-///         has ~$0.3–0.8M and lags by 15–60 bps during ETH-relative-to-BNB
+///         ETH/WBNB pool with ~$3-8M TVL; Thena's volatile ETH/BNB pair
+///         has ~$0.3-0.8M and lags by 15-60 bps during ETH-relative-to-BNB
 ///         moves because its LPs farm THE rewards rather than rebalance.
 ///         The strategy borrows WBNB from the PCS v3 ETH/WBNB 0.05% pool,
 ///         buys ETH on Thena at the lagged price, sells ETH for WBNB on
-///         PCS v3 at the fresh price, repays. Net edge requires ≥ ~35 bps
+///         PCS v3 at the fresh price, repays. Net edge requires >= ~35 bps
 ///         gross to cover 0.20% Thena + 0.05% PCS swap + 0.05% PCS flash.
 /// @dev    Mechanism count: 2 (PCS v3 flash + Thena vAMM). Same shape as
 ///         B07-01/02/03 but on a cross-rate (ETH/BNB) instead of a quote-
 ///         token pair, which gives a different mispricing distribution
 ///         driven by the ETH/BNB ratio rather than absolute BNB price.
 contract B07_05_PcsV3EthWbnbThenaArbTest is BSCStrategyBase, IPancakeV3FlashCallback {
-    /// @dev Pinned block — Wave 3: re-pin to the first block after an
-    ///      ETH/BNB cross-rate move ≥ 0.5% where Thena pair has not synced.
+    /// @dev Pinned block - Wave 3: re-pin to the first block after an
+    ///      ETH/BNB cross-rate move >= 0.5% where Thena pair has not synced.
     uint256 internal constant FORK_BLOCK = 42_000_000;
 
     /// @dev PCS v3 ETH/WBNB 0.05% pool (fee tier 500). ETH (0x2170...) <
     ///      WBNB (0xbb4C...) lexicographically, so token0 = ETH, token1 = WBNB.
-    /// @dev Placeholder — Wave 3 verify via
+    /// @dev Placeholder - Wave 3 verify via
     ///      `IPancakeV3Factory(BSC.PCS_V3_FACTORY).getPool(ETH, WBNB, 500)`.
     address internal constant PCS_V3_ETH_WBNB_500 = 0x9FCec0d29ad9c9b6C7Dda51Aa2cE1Db5fEDE9777;
     uint24 internal constant PCS_V3_FEE_500 = 500;
 
-    /// @dev Thena ETH/WBNB volatile pair. Placeholder — Wave 3 verify via
+    /// @dev Thena ETH/WBNB volatile pair. Placeholder - Wave 3 verify via
     ///      `IThenaRouter.pairFor(BSC.WETH, BSC.WBNB, false)` at pin block.
     address internal constant THENA_ETH_WBNB_VOLATILE = 0x4bBa1018b967e59220B22cA03B68BB1FD72A371C;
 
-    /// @dev Flash notional in WBNB (18 dec). 500 WBNB ≈ $300k @ $600/BNB.
-    ///      Sized so 0.05% flash fee = 0.25 WBNB ≈ $150 and impact on a
+    /// @dev Flash notional in WBNB (18 dec). 500 WBNB ~ $300k @ $600/BNB.
+    ///      Sized so 0.05% flash fee = 0.25 WBNB ~ $150 and impact on a
     ///      $0.5M Thena pool stays within ~10%.
     uint256 internal constant FLASH_NOTIONAL_WBNB = 500 ether;
 
-    /// @dev Required gross spread (bps) — must cover Thena 0.20% + PCS v3
-    ///      0.05% swap + PCS v3 0.05% flash + slip ≈ 35 bps.
+    /// @dev Required gross spread (bps) - must cover Thena 0.20% + PCS v3
+    ///      0.05% swap + PCS v3 0.05% flash + slip ~ 35 bps.
     uint256 internal constant MIN_SPREAD_BPS = 35;
 
     bool internal _flashActive;
@@ -85,7 +85,7 @@ contract B07_05_PcsV3EthWbnbThenaArbTest is BSCStrategyBase, IPancakeV3FlashCall
         emit log_named_uint("B07-05: thena_wbnb_per_eth_1e18", thenaWbnbPerEthE18);
 
         // Profit direction: Thena CHARGES LESS WBNB per ETH (cheaper ETH
-        // there) → buy ETH on Thena, sell on PCS v3. Equivalently:
+        // there) -> buy ETH on Thena, sell on PCS v3. Equivalently:
         //   thena_wbnb_per_eth < pcs_wbnb_per_eth.
         if (thenaWbnbPerEthE18 >= pcsWbnbPerEthE18) {
             emit log_string("B07-05: skipped (no profitable direction at this block)");
@@ -101,7 +101,7 @@ contract B07_05_PcsV3EthWbnbThenaArbTest is BSCStrategyBase, IPancakeV3FlashCall
         _startPnL();
 
         _flashActive = true;
-        // Borrow WBNB. If WBNB is token1 → amount1 = N.
+        // Borrow WBNB. If WBNB is token1 -> amount1 = N.
         if (wbnbIsToken0) {
             pool.flash(address(this), FLASH_NOTIONAL_WBNB, 0, abi.encode(true));
         } else {

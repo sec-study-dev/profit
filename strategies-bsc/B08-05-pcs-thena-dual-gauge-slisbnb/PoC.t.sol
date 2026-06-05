@@ -42,8 +42,8 @@ interface IMasterChefV2Min {
 ///         live gauges. We split principal across both pools and farm both
 ///         gauges in parallel. Combines:
 ///           1) Lista LST staking (slisBNB exchange-rate accrual)
-///           2) Thena gauge — THE emissions
-///           3) PCS v2 MasterChefV2 — CAKE emissions
+///           2) Thena gauge - THE emissions
+///           3) PCS v2 MasterChefV2 - CAKE emissions
 /// @dev    3-mechanism: LST + Thena-gauge + PCS-gauge stacking.
 contract B08_05_PcsThenaDualGaugeTest is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 40_000_000;
@@ -54,7 +54,7 @@ contract B08_05_PcsThenaDualGaugeTest is BSCStrategyBase {
     address internal constant LOCAL_PCS_MCV2 = 0xa5f8C5Dbd5F286960b9d90548680aE5ebFf07652;
     /// @dev Modeled PCS v2 slisBNB/WBNB LP token. Resolved via factory at runtime;
     ///      LOCAL_ placeholder retained for documentation.
-    address internal constant LOCAL_PCS_SLISBNB_LP = 0x000000000000000000000000000000000000B085;
+    address internal constant LOCAL_PCS_SLISBNB_LP = 0x000000000000000000000000000000000000b085;
     /// @dev Assumed PCS pid for slisBNB/WBNB v2 farm.
     uint256 internal constant LOCAL_PCS_PID = 175;
 
@@ -89,7 +89,7 @@ contract B08_05_PcsThenaDualGaugeTest is BSCStrategyBase {
         vm.deal(address(this), PRINCIPAL_BNB);
         _startPnL();
 
-        // ---- 1. Split principal: 100 BNB → Thena leg, 100 BNB → PCS leg.
+        // ---- 1. Split principal: 100 BNB -> Thena leg, 100 BNB -> PCS leg.
         //         Each leg becomes 50/50 slisBNB / WBNB.
         uint256 perLeg = PRINCIPAL_BNB / 2;
         IListaStakeManagerMin sm = IListaStakeManagerMin(BSC.LISTA_STAKE_MANAGER);
@@ -117,7 +117,7 @@ contract B08_05_PcsThenaDualGaugeTest is BSCStrategyBase {
         require(okApp, "thena lp approve");
         IThenaGauge(thenaGauge).deposit(thenaLp);
 
-        // ---- 3. PCS leg (modeled — resolved LP at runtime would need factory call) ----
+        // ---- 3. PCS leg (modeled - resolved LP at runtime would need factory call) ----
         // For PoC we treat the half-half remainder as deposited into PCS v2.
         // We do NOT mint a PCS v2 LP on-chain (factory address may drift at
         // this block); instead burn the underlyings and credit modeled PCS LP
@@ -146,13 +146,13 @@ contract B08_05_PcsThenaDualGaugeTest is BSCStrategyBase {
         uint256 theAmt = (thenaUsdE6 * 1e16) / THE_PRICE_E8; // 1e18
         _fund(BSC.THE, address(this), IERC20(BSC.THE).balanceOf(address(this)) + theAmt);
 
-        // Sell THE → WBNB at HARVEST_SLIPPAGE_BPS.
+        // Sell THE -> WBNB at HARVEST_SLIPPAGE_BPS.
         uint256 wbnbFromThe =
             (theAmt * THE_PRICE_E8 * (10_000 - HARVEST_SLIPPAGE_BPS)) / (1e8 * 600 * 10_000);
         _fund(BSC.THE, address(this), 0);
         _fund(BSC.WBNB, address(this), IERC20(BSC.WBNB).balanceOf(address(this)) + wbnbFromThe);
 
-        // ---- 6. PCS leg emission (modeled — CAKE) ----
+        // ---- 6. PCS leg emission (modeled - CAKE) ----
         // Try real harvest first; expected to no-op offline.
         try IMasterChefV2Min(LOCAL_PCS_MCV2).pendingCake(LOCAL_PCS_PID, address(this)) returns (uint256) {
             try IMasterChefV2Min(LOCAL_PCS_MCV2).harvestFromMasterChef() {} catch {}
@@ -163,7 +163,7 @@ contract B08_05_PcsThenaDualGaugeTest is BSCStrategyBase {
         uint256 cakeAmt = (pcsUsdE6 * 1e16) / CAKE_PRICE_E8;
         _fund(BSC.CAKE, address(this), IERC20(BSC.CAKE).balanceOf(address(this)) + cakeAmt);
 
-        // Sell CAKE → WBNB.
+        // Sell CAKE -> WBNB.
         uint256 wbnbFromCake =
             (cakeAmt * CAKE_PRICE_E8 * (10_000 - HARVEST_SLIPPAGE_BPS)) / (1e8 * 600 * 10_000);
         _fund(BSC.CAKE, address(this), 0);

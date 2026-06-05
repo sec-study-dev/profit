@@ -8,11 +8,11 @@ import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {IPancakeStableRouter} from "src/interfaces/bsc/amm/IPancakeStableRouter.sol";
 
-/// @title B14-02 PoC — vUSDC × vUSDT cross-wrapper IRM-spread loop
+/// @title B14-02 PoC - vUSDC x vUSDT cross-wrapper IRM-spread loop
 /// @notice vUSDC and vUSDT are independent Venus wrappers whose IRM curves
 ///         decorrelate (USDT demand drives high utilisation; USDC stays
 ///         underutilised). Combined with XVS incentives on both legs the
-///         spread is materially positive — recursive looping scales it.
+///         spread is materially positive - recursive looping scales it.
 /// @dev    Offline-first: forked branch only runs when BSC_RPC_URL is set.
 contract B14_02_PoC is BSCStrategyBase {
     // ---- Inlined addresses not yet in BSC.sol (see README) ----
@@ -23,7 +23,7 @@ contract B14_02_PoC is BSCStrategyBase {
     uint256 constant PRINCIPAL_USDC = 100_000e18; // 100k USDC principal (18 dec on BSC)
     uint256 constant N_LOOPS = 4;
     uint256 constant CF_BPS = 8000; // vUSDC collateral factor ~ 0.80
-    uint256 constant SAFETY_BPS = 9500; // 0.95 haircut → 0.76 effective LTV
+    uint256 constant SAFETY_BPS = 9500; // 0.95 haircut -> 0.76 effective LTV
     uint256 constant HOLD_DAYS = 30;
 
     // ---- Rates (1e4 = 100 %) ----
@@ -84,7 +84,7 @@ contract B14_02_PoC is BSCStrategyBase {
 
             // 3) USDT -> USDC via PCS StableSwap so the next iteration
             //    can re-supply on the same wrapper. Indices follow the
-            //    canonical pool ordering (USDT=0, USDC=1, BUSD=2) —
+            //    canonical pool ordering (USDT=0, USDC=1, BUSD=2) -
             //    re-verify against the live pool.
             try IPancakeStableRouter(BSC.PCS_STABLE_ROUTER).exchange(
                 0, // USDT
@@ -108,7 +108,7 @@ contract B14_02_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Offline branch — closed-form projection.
+    // Offline branch - closed-form projection.
     // ----------------------------------------------------------------
     function _runOfflineProjection() internal {
         // Build levered series.

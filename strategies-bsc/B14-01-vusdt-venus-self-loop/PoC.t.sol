@@ -7,7 +7,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 
-/// @title B14-01 PoC — vUSDT self-loop (Venus IRM + XVS incentive carry)
+/// @title B14-01 PoC - vUSDT self-loop (Venus IRM + XVS incentive carry)
 /// @notice Treat `vUSDT` as a yield-bearing stablecoin wrapper and recursively
 ///         lever it against borrowed USDT in the same Venus Core market.
 ///         The wrapper carry is sourced from XVS incentives stacked on top of
@@ -40,12 +40,12 @@ contract B14_01_PoC is BSCStrategyBase {
         _trackToken(BSC.USDT);
         _trackToken(BSC.vUSDT);
         _trackToken(LOCAL_XVS);
-        // XVS price reference — assume ~$10/XVS = 10e8 in oracle override.
+        // XVS price reference - assume ~$10/XVS = 10e8 in oracle override.
         _setOraclePrice(LOCAL_XVS, 10e8);
     }
 
     // ----------------------------------------------------------------
-    // Public entrypoint — offline (default) or fork.
+    // Public entrypoint - offline (default) or fork.
     // ----------------------------------------------------------------
     function testVusdtVenusSelfLoop() public {
         bool live = _tryFork();
@@ -59,7 +59,7 @@ contract B14_01_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Forked branch — only reached when BSC_RPC_URL is configured.
+    // Forked branch - only reached when BSC_RPC_URL is configured.
     // ----------------------------------------------------------------
     function _runOnchainLoop() internal {
         _fund(BSC.USDT, address(this), PRINCIPAL_USDT);
@@ -101,7 +101,7 @@ contract B14_01_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Offline branch — closed-form projection.
+    // Offline branch - closed-form projection.
     // Models the leverage stack, supply/borrow IRM wedge, and XVS overlay.
     // The PnL is settled as a USDT delta via `_fund` so the canonical
     // `_endPnL` picks it up via the tracked-token bucket.
@@ -147,7 +147,7 @@ contract B14_01_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Fork helper — swallow missing RPC env so the offline path runs.
+    // Fork helper - swallow missing RPC env so the offline path runs.
     // ----------------------------------------------------------------
     function _tryFork() internal returns (bool) {
         try vm.envString("BSC_RPC_URL") returns (string memory rpc) {

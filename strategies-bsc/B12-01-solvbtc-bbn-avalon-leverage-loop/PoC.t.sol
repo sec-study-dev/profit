@@ -7,18 +7,18 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IAvalonLendingPool} from "src/interfaces/bsc/mm/IAvalonLendingPool.sol";
 import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 
-/// @title B12-01 solvBTC.BBN → Avalon → borrow USDX → buy more BTC → re-stake recursive loop
+/// @title B12-01 solvBTC.BBN -> Avalon -> borrow USDX -> buy more BTC -> re-stake recursive loop
 /// @notice Recursive BTC-restake leverage on Avalon. Each iteration: supply
-///         solvBTC.BBN as collateral, borrow USDX, swap USDX→BTCB, mint
-///         solvBTC then solvBTC.BBN, re-supply. Net carry = leverage ×
-///         (Babylon BTC APY + Avalon supply incentive − USDX borrow APR −
+///         solvBTC.BBN as collateral, borrow USDX, swap USDX->BTCB, mint
+///         solvBTC then solvBTC.BBN, re-supply. Net carry = leverage x
+///         (Babylon BTC APY + Avalon supply incentive - USDX borrow APR -
 ///         swap drag).
 /// @dev    Avalon BSC addresses and USDX are largely `TODO verify` in
 ///         `BSC.sol`. The PoC guards every Avalon / Solv touchpoint with
 ///         try/catch and falls back to an offline accounting branch so the
 ///         test runs regardless of fork availability.
 contract B12_01_SolvBTCBBN_Avalon_LeverageLoopTest is BSCStrategyBase {
-    /// @dev Pinned block — Avalon listed solvBTC.BBN by this window.
+    /// @dev Pinned block - Avalon listed solvBTC.BBN by this window.
     ///      Lock once BSC_RPC_URL is available.
     uint256 internal constant FORK_BLOCK = 46_000_000;
 
@@ -60,7 +60,7 @@ contract B12_01_SolvBTCBBN_Avalon_LeverageLoopTest is BSCStrategyBase {
 
         // Pre-load USDX at $1 (Avalon stable peg target).
         _setOraclePrice(LOCAL_USDX, 1e8);
-        // solvBTC.BBN priced ~ BTC with a small accrual premium (1.02x ≈ $66.3k).
+        // solvBTC.BBN priced ~ BTC with a small accrual premium (1.02x ~ $66.3k).
         _setOraclePrice(BSC.solvBTC_BBN, 66_300e8);
     }
 
@@ -132,7 +132,7 @@ contract B12_01_SolvBTCBBN_Avalon_LeverageLoopTest is BSCStrategyBase {
                 break;
             }
 
-            // 4. Swap USDX → USDT → BTCB on PCS v3 (1bp + 5bp tiers).
+            // 4. Swap USDX -> USDT -> BTCB on PCS v3 (1bp + 5bp tiers).
             bytes memory path = abi.encodePacked(
                 LOCAL_USDX, uint24(100), BSC.USDT, uint24(500), BSC.BTCB
             );
@@ -213,7 +213,7 @@ contract B12_01_SolvBTCBBN_Avalon_LeverageLoopTest is BSCStrategyBase {
         _fund(BSC.solvBTC_BBN, address(this), PRINCIPAL);
         _startPnL();
 
-        // +1.00 % return on 10 BTC at $66,300/solvBTC.BBN ≈ $6,630.
+        // +1.00 % return on 10 BTC at $66,300/solvBTC.BBN ~ $6,630.
         // Use solvBTC.BBN appreciation as the carrier (price oracle stays
         // fixed; we mint extra balance).
         uint256 gain = (PRINCIPAL * 100) / 10_000; // 1.00 %

@@ -34,7 +34,7 @@ contract B09_08_Wombat_PCS_Curve_Triangular is BSCStrategyBase, IPancakeV3FlashC
     ///      FDUSD allocation < 25% of the 3pool.
     uint256 constant FORK_BLOCK = 46_200_000;
 
-    /// @dev PCS V3 USDC/USDT 1bp tier — flash source + leg-3 venue.
+    /// @dev PCS V3 USDC/USDT 1bp tier - flash source + leg-3 venue.
     address constant PCS_V3_POOL_USDC_USDT_100 = 0x92b7807bF19b7DDdf89b706143896d05228f3121;
     uint24 constant V3_FEE_TIER = 100;
 
@@ -42,7 +42,7 @@ contract B09_08_Wombat_PCS_Curve_Triangular is BSCStrategyBase, IPancakeV3FlashC
     uint256 constant FLASH_NOTIONAL = 1_000_000 ether;
 
     /// @dev PCS Stable 3pool indices (canonical BUSD=0, USDT=1, USDC=2).
-    ///      TODO verify FDUSD listing — newer Stable pools include FDUSD; the
+    ///      TODO verify FDUSD listing - newer Stable pools include FDUSD; the
     ///      PoC may need to route through a separate FDUSD/USDC 2pool.
     uint256 constant PCS_IDX_FDUSD = 3; // placeholder if FDUSD added as 4th coin
     uint256 constant PCS_IDX_USDC = 2;

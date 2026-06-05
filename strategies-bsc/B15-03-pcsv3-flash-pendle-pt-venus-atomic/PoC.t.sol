@@ -11,7 +11,7 @@ import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B15-03 — PCS v3 flash + Pendle PT-sUSDe + Venus atomic levered carry
+/// @title B15-03 - PCS v3 flash + Pendle PT-sUSDe + Venus atomic levered carry
 ///
 /// @notice Atomic three-leg triple-mechanism stack:
 ///         1. PCS v3 flash USDC (BSC's cheapest 1 bp flash source).
@@ -124,7 +124,7 @@ contract B15_03_PcsV3FlashPendlePtVenusAtomicTest is BSCStrategyBase, IPancakeV3
         try IVToken(BSC.vUSDC).borrow(repay) returns (uint256 err) {
             require(err == 0, "Venus borrow err");
         } catch {
-            // If borrow fails the flash will revert atomically — no funds lost.
+            // If borrow fails the flash will revert atomically - no funds lost.
         }
 
         // 3. Repay the pool.

@@ -54,7 +54,7 @@ contract B12_04_PTSolvBTC_Avalon_PendleStack is BSCStrategyBase {
         _setOraclePrice(LOCAL_USDX, 1e8);
         _setOraclePrice(BSC.solvBTC_BBN, 66_300e8);
         // PT-solvBTC.BBN at the pinned block trades ~ 0.98x solvBTC.BBN
-        // (8 % implied APY × 90/365 ≈ 1.97 % discount).
+        // (8 % implied APY x 90/365 ~ 1.97 % discount).
         // We register a placeholder oracle override once PT address resolves.
     }
 

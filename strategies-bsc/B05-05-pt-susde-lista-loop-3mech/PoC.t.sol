@@ -9,14 +9,14 @@ import {IListaLending} from "src/interfaces/bsc/mm/IListaLending.sol";
 import {IPancakeStableRouter} from "src/interfaces/bsc/amm/IPancakeStableRouter.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 
-/// @title B05-05 PoC: PT-sUSDe (Pendle) + Lista lending + USDe — 3-mechanism carry
+/// @title B05-05 PoC: PT-sUSDe (Pendle) + Lista lending + USDe - 3-mechanism carry
 /// @notice Stacks 3 BSC primitives:
-///         (a) **Pendle PT-sUSDe** — buys the principal token at a discount,
+///         (a) **Pendle PT-sUSDe** - buys the principal token at a discount,
 ///             converting variable sUSDe APY into a fixed-yield instrument.
-///         (b) **Lista Lending** — supplies PT-sUSDe as collateral and borrows
+///         (b) **Lista Lending** - supplies PT-sUSDe as collateral and borrows
 ///             lisUSD at sub-Ethena APR. (Lista has begun accepting PT-stable
 ///             collateral on its V2 isolated markets; assumed at pinned block.)
-///         (c) **Ethena USDe** — the borrowed lisUSD is swapped to USDe on the
+///         (c) **Ethena USDe** - the borrowed lisUSD is swapped to USDe on the
 ///             PCS StableSwap lisUSD/USDe pool, then deposited into sUSDe so
 ///             the *non-PT* portion of the position still earns the floating
 ///             Ethena APY.
@@ -40,12 +40,12 @@ contract B05_05_PoC is BSCStrategyBase {
     // ---- Sizing / model (1e4 = 100%) ----
     uint256 constant PRINCIPAL_USDE = 100_000e18;
     uint256 constant N_LOOPS = 3;
-    /// @dev Lista LTV for PT-sUSDe — more conservative than spot sUSDe due
+    /// @dev Lista LTV for PT-sUSDe - more conservative than spot sUSDe due
     ///      to PT's pre-maturity volatility (model 0.72, vs 0.82 for sUSDe).
     uint256 constant PT_LTV_BPS = 7200;
     uint256 constant SAFETY_BPS = 9500;
     uint256 constant HOLD_DAYS = 60; // 2-month carry, well inside PT expiry
-    /// @dev PT fixed YTM at entry — 11% (typical for sUSDe PT in tight regimes).
+    /// @dev PT fixed YTM at entry - 11% (typical for sUSDe PT in tight regimes).
     uint256 constant PT_YTM_BPS = 1100;
     /// @dev Floating sUSDe APY for the recycled USDe leg.
     uint256 constant SUSDE_APY_BPS = 900;
@@ -167,7 +167,7 @@ contract B05_05_PoC is BSCStrategyBase {
         int256 borrowCostBps = int256((debtBps * LISUSD_BORROW_BPS) / 10_000);
         int256 grossBps = ptYieldBps + recycledYieldBps - borrowCostBps;
         int256 swapDragBps = int256((SWAP_DRAG_BPS * N_LOOPS * debtBps) / 10_000);
-        // One-time PT entry drag — amortised to annualised by /(HOLD_DAYS/365).
+        // One-time PT entry drag - amortised to annualised by /(HOLD_DAYS/365).
         int256 entryDragAnnualBps =
             int256((PT_ENTRY_DRAG_BPS * 365) / HOLD_DAYS);
         int256 netApyBps = grossBps - swapDragBps - entryDragAnnualBps;

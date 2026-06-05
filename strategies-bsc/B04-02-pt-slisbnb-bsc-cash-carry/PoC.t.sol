@@ -13,7 +13,7 @@ import {IPYieldToken} from "src/interfaces/pendle/IPYieldToken.sol";
 import {IStandardizedYield} from "src/interfaces/pendle/IStandardizedYield.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B04-02 — PT-slisBNB on Pendle BSC: BNB-denominated cash-and-carry
+/// @title B04-02 - PT-slisBNB on Pendle BSC: BNB-denominated cash-and-carry
 ///
 /// @notice Buy `PT-slisBNB-25SEP2025` with native BNB at a fixed discount,
 ///         hold to maturity, redeem PT 1:1 for SY -> slisBNB -> BNB. The
@@ -28,7 +28,7 @@ contract B04_02_PtSlisbnbBscCashCarryTest is BSCStrategyBase {
 
     // ---- Pendle BSC market ----
     /// @notice Pendle PT-slisBNB-25SEP2025 market on BSC.
-    /// @dev    Per-maturity inline constant — must be replaced with the
+    /// @dev    Per-maturity inline constant - must be replaced with the
     ///         actual deployed market address from Pendle's BSC subgraph.
     ///         Placeholder uses a deterministic pattern; PoC handles a wrong
     ///         address gracefully via `try/catch`.

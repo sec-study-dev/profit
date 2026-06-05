@@ -21,7 +21,7 @@ interface IVTokenLiquidate {
         returns (uint256);
 }
 
-/// @title B06-05 Venus liquidation keeper — atomic flash + liquidate + DEX
+/// @title B06-05 Venus liquidation keeper - atomic flash + liquidate + DEX
 /// @notice 3-mechanism stack:
 ///         1. Venus V4 vToken `flashLoan` provides the USDT principal.
 ///         2. Venus Core `liquidateBorrow` retires an underwater account's
@@ -46,7 +46,7 @@ contract B06_05_VenusLiquidationKeeperFlashTest is
     /// @dev In a live run this is the account whose `getAccountLiquidity`
     ///      returns `shortfall > 0`. For the offline PoC we use a
     ///      pre-existing borrower address that we trigger via `vm.prank`.
-    address internal constant TARGET_BORROWER = 0x000000000000000000000000000000000000C0DE;
+    address internal constant TARGET_BORROWER = 0x000000000000000000000000000000000000c0DE;
 
     // ---- Strategy parameters ----
     /// @dev Max repay = closeFactor * totalBorrow (closeFactor = 0.5 on Core).
@@ -72,7 +72,7 @@ contract B06_05_VenusLiquidationKeeperFlashTest is
     function testStrategy_B06_05() public {
         _fund(BSC.USDT, address(this), BUFFER);
         // Synthesize the underwater account for offline runs. In a live
-        // run this is skipped — the borrower is already underwater.
+        // run this is skipped - the borrower is already underwater.
         _seedUnderwaterBorrower();
 
         _startPnL();
@@ -105,7 +105,7 @@ contract B06_05_VenusLiquidationKeeperFlashTest is
         (uint256 err, uint256 liq, uint256 shortfall) =
             IVenusComptroller(BSC.VENUS_COMPTROLLER).getAccountLiquidity(TARGET_BORROWER);
         emit log_named_uint("target_shortfall", shortfall);
-        // Skip if not underwater — refund the flash cleanly so PoC degrades.
+        // Skip if not underwater - refund the flash cleanly so PoC degrades.
         if (err != 0 || shortfall == 0) {
             // Approve repay so the pool can pull `amount + premium`.
             IERC20(asset).approve(msg.sender, amount + premium);
@@ -114,7 +114,7 @@ contract B06_05_VenusLiquidationKeeperFlashTest is
 
         // ---- 2. liquidateBorrow on vUSDT, seize vBTCB ----
         IERC20(BSC.USDT).approve(BSC.vUSDT, type(uint256).max);
-        // try/catch — borrower may carry a debt < REPAY_USDT (closeFactor cap).
+        // try/catch - borrower may carry a debt < REPAY_USDT (closeFactor cap).
         try IVTokenLiquidate(BSC.vUSDT).liquidateBorrow(TARGET_BORROWER, amount, BSC.vBTCB) returns (uint256 e) {
             require(e == 0, "liquidate err");
         } catch {
@@ -131,7 +131,7 @@ contract B06_05_VenusLiquidationKeeperFlashTest is
         uint256 btcbBal = IERC20(BSC.BTCB).balanceOf(address(this));
         if (btcbBal > 0) {
             // BTCB token0 (0x71...) < USDT token1 (0x55...)? Compare addresses:
-            // BTCB = 0x7130d2A1... USDT = 0x55d398... so USDT < BTCB →
+            // BTCB = 0x7130d2A1... USDT = 0x55d398... so USDT < BTCB ->
             // USDT is token0, BTCB is token1. zeroForOne=false sells BTCB.
             _inSwap = true;
             IPancakeV3Pool(LOCAL_PCS_V3_BTCB_USDT).swap(
@@ -154,7 +154,7 @@ contract B06_05_VenusLiquidationKeeperFlashTest is
     function pancakeV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata /*data*/) external {
         require(_inSwap, "unsolicited swap cb");
         require(msg.sender == LOCAL_PCS_V3_BTCB_USDT, "only pcs btcb/usdt");
-        // We sold BTCB (token1) → owe BTCB to the pool; receive USDT (token0).
+        // We sold BTCB (token1) -> owe BTCB to the pool; receive USDT (token0).
         if (amount1Delta > 0) IERC20(BSC.BTCB).transfer(msg.sender, uint256(amount1Delta));
         if (amount0Delta > 0) IERC20(BSC.USDT).transfer(msg.sender, uint256(amount0Delta));
     }
@@ -168,7 +168,7 @@ contract B06_05_VenusLiquidationKeeperFlashTest is
     ///      is replaced by an off-chain account scanner.
     function _seedUnderwaterBorrower() internal {
         // Give the borrower some collateral so the comptroller has
-        // something to seize. 10 BTCB ≈ $650k at the default oracle.
+        // something to seize. 10 BTCB ~ $650k at the default oracle.
         _fund(BSC.BTCB, TARGET_BORROWER, 10e18);
         vm.startPrank(TARGET_BORROWER);
         IERC20(BSC.BTCB).approve(BSC.vBTCB, type(uint256).max);
@@ -185,7 +185,7 @@ contract B06_05_VenusLiquidationKeeperFlashTest is
         vm.stopPrank();
         // Warp far enough that interest accrual pushes the account
         // underwater (shortfall > 0). Offline PoC tolerates if it
-        // does not — `executeOperation` skips the liquidate branch.
+        // does not - `executeOperation` skips the liquidate branch.
         vm.warp(block.timestamp + 365 days);
         vm.roll(block.number + (365 days) / 3);
     }

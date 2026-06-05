@@ -27,7 +27,7 @@ contract B10_01_VenusVaiMintLisUsdSwapBasisTest is BSCStrategyBase {
     ///      PCS v2 VAI/USDT pool has > $100k of liquidity.
     uint256 internal constant FORK_BLOCK = 42_000_000;
 
-    /// @dev Local-only VAIController address. Not yet in BSC.sol — see README.
+    /// @dev Local-only VAIController address. Not yet in BSC.sol - see README.
     address internal constant LOCAL_VAI_CONTROLLER = 0x004065d34C6B18Ce4370cEd6CEbde94865DBFAFE;
 
     /// @dev Notional we commit (in USDT supplied to Venus to back the VAI mint).
@@ -133,7 +133,7 @@ contract B10_01_VenusVaiMintLisUsdSwapBasisTest is BSCStrategyBase {
             : 0;
         uint256 swapDragBps = 2 * PCS_STABLE_FEE_BPS;
 
-        // Funding savings = notional × spread × hold_years.
+        // Funding savings = notional x spread x hold_years.
         uint256 fundingSavings =
             (VAI_TO_MINT * spreadBps * HOLD_DAYS) / (10_000 * 365);
         // Swap drag is paid on the VAI notional at entry and exit.

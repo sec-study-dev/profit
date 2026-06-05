@@ -9,11 +9,11 @@ import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 import {IThenaRouter} from "src/interfaces/bsc/amm/IThenaRouter.sol";
 import {IThenaPair} from "src/interfaces/bsc/amm/IThenaPair.sol";
 
-/// @title B07-03 PCS v3 CAKE/WBNB 0.25% flash → Thena CAKE/BNB pair arb
+/// @title B07-03 PCS v3 CAKE/WBNB 0.25% flash -> Thena CAKE/BNB pair arb
 /// @notice CAKE is PancakeSwap's governance token; its price discovery is
 ///         dominated by PCS itself (v2 + v3 pools, plus the StableSwap
-///         CAKE/WBNB tier) — but Thena's CAKE/BNB pair exists for veTHE
-///         bribes and is often stale by 20–80 bps because Thena's CAKE LPs
+///         CAKE/WBNB tier) - but Thena's CAKE/BNB pair exists for veTHE
+///         bribes and is often stale by 20-80 bps because Thena's CAKE LPs
 ///         farm THE emissions, not arb. PCS v3's CAKE/WBNB 0.25% pool is
 ///         the canonical 25-bp tier for mid-tail tokens; we flash CAKE
 ///         here and round-trip through Thena. Higher fee tier than B07-01
@@ -27,11 +27,11 @@ contract B07_03_PcsV3CakeWbnbThenaArbTest is BSCStrategyBase, IPancakeV3FlashCal
     address internal constant PCS_V3_CAKE_WBNB_2500 = 0x133B3D95bAD5405d14d53473671200e9342896BF;
     uint24 internal constant PCS_V3_FEE_2500 = 2500;
 
-    /// @dev Thena CAKE/WBNB volatile pair (Solidly). Placeholder — Wave 3
+    /// @dev Thena CAKE/WBNB volatile pair (Solidly). Placeholder - Wave 3
     ///      verify via `Router.pairFor(CAKE, WBNB, false)`.
     address internal constant THENA_CAKE_WBNB_VOLATILE = 0xA5c6Cd0e73DA9F1ee0AE6e8b3Ad0ee0bf6BB7666;
 
-    /// @dev Flash CAKE notional (1e18). 100k CAKE ≈ $250k @ $2.50/CAKE.
+    /// @dev Flash CAKE notional (1e18). 100k CAKE ~ $250k @ $2.50/CAKE.
     uint256 internal constant FLASH_NOTIONAL_CAKE = 100_000 ether;
 
     /// @dev Required spread (bps of mid). Total fee load is ~95 bps
@@ -55,7 +55,7 @@ contract B07_03_PcsV3CakeWbnbThenaArbTest is BSCStrategyBase, IPancakeV3FlashCal
 
         // ---- 1. Read mids: WBNB per CAKE (1e18) ----
         (uint160 sqrtP, , , , , , ) = pool.slot0();
-        // Both 18-dec, so sqrtPriceX96 → WBNB per CAKE direct.
+        // Both 18-dec, so sqrtPriceX96 -> WBNB per CAKE direct.
         uint256 pcsWbnbPerCakeE18 = _sqrtPriceToPriceE18(sqrtP);
 
         IThenaPair tpair = IThenaPair(THENA_CAKE_WBNB_VOLATILE);
@@ -66,7 +66,7 @@ contract B07_03_PcsV3CakeWbnbThenaArbTest is BSCStrategyBase, IPancakeV3FlashCal
         emit log_named_uint("B07-03: pcsv3_wbnb_per_cake_1e18", pcsWbnbPerCakeE18);
         emit log_named_uint("B07-03: thena_wbnb_per_cake_1e18", thenaWbnbPerCakeE18);
 
-        // Profit direction: Thena pays MORE WBNB per CAKE → sell CAKE on Thena.
+        // Profit direction: Thena pays MORE WBNB per CAKE -> sell CAKE on Thena.
         if (thenaWbnbPerCakeE18 <= pcsWbnbPerCakeE18) {
             emit log_string("B07-03: skipped (no profitable direction at this block)");
             return;

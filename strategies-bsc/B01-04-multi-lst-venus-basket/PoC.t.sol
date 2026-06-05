@@ -16,7 +16,7 @@ interface IStaderStakeManager {
     function getExchangeRate() external view returns (uint256);
 }
 
-/// @title B01-04 50/50 slisBNB + BNBx basket on Venus → borrow BNB → split re-stake
+/// @title B01-04 50/50 slisBNB + BNBx basket on Venus -> borrow BNB -> split re-stake
 /// @notice Multi-LST collateral basket sharing one BNB debt leg. The borrow is
 ///         split evenly between Lista and Stader each iteration to keep the
 ///         basket weighting stable as the loop runs.

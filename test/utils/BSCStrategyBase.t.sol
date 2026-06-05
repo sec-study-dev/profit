@@ -84,15 +84,15 @@ abstract contract BSCStrategyBase is Test {
 
     /// @dev Preload sane defaults so Wave 2 PoCs can run offline-first.
     function _initDefaultPrices() internal {
-        // BNB ≈ $600
+        // BNB ~ $600
         _bnbUsdE8 = 600e8;
         _priceE8[BSC.WBNB] = 600e8;
         _priceE8[BSC.BNB] = 600e8;
-        // BTC ≈ $65,000
+        // BTC ~ $65,000
         _priceE8[BSC.BTCB] = 65_000e8;
-        // ETH ≈ $3,000
+        // ETH ~ $3,000
         _priceE8[BSC.WETH] = 3_000e8;
-        // BNB LSTs — peg to BNB at $600 (refine via exchangeRate where needed)
+        // BNB LSTs - peg to BNB at $600 (refine via exchangeRate where needed)
         _priceE8[BSC.slisBNB] = 600e8;
         _priceE8[BSC.BNBx] = 600e8;
         _priceE8[BSC.ankrBNB] = 600e8;
@@ -101,7 +101,7 @@ abstract contract BSCStrategyBase is Test {
         _priceE8[BSC.asBNB] = 600e8;
         // WBETH ~ ETH
         _priceE8[BSC.WBETH] = 3_000e8;
-        // Stables ≈ $1
+        // Stables ~ $1
         _priceE8[BSC.USDT] = 1e8;
         _priceE8[BSC.USDC] = 1e8;
         _priceE8[BSC.BUSD] = 1e8;
@@ -111,7 +111,7 @@ abstract contract BSCStrategyBase is Test {
         _priceE8[BSC.USDe] = 1e8;
         _priceE8[BSC.sUSDe] = 1e8;
         _priceE8[BSC.VAI] = 1e8;
-        // BTC-LSDs ≈ BTC
+        // BTC-LSDs ~ BTC
         _priceE8[BSC.solvBTC] = 65_000e8;
         _priceE8[BSC.solvBTC_BBN] = 65_000e8;
     }

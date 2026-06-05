@@ -8,7 +8,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 // Interfaces referenced in commented live-call sketches:
 //   IListaInteraction, IPancakeV3Router, ISUSDe
 
-/// @title B03-03 lisUSD ↔ USDe cross-CDP carry basis
+/// @title B03-03 lisUSD <-> USDe cross-CDP carry basis
 /// @notice Positional (multi-day) carry PoC:
 ///         1. Open Lista vault: deposit slisBNB collateral, borrow lisUSD.
 ///         2. Swap lisUSD -> USDT -> USDe on PCS v3 (two stable hops).
@@ -19,7 +19,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 ///         5. Unwind: redeem sUSDe -> USDe, swap USDe -> lisUSD, payback,
 ///            withdraw slisBNB collateral.
 ///
-///         Carry = sUSDe yield − Lista borrow rate − 2 swap hops.
+///         Carry = sUSDe yield - Lista borrow rate - 2 swap hops.
 ///         The PoC models steps 2-5 via balance accounting + skip(time)
 ///         to avoid a hard dependency on Ethena's BSC-side deployment.
 contract B03_03_LisUSDUSDeBasisTest is BSCStrategyBase {
@@ -29,7 +29,7 @@ contract B03_03_LisUSDUSDeBasisTest is BSCStrategyBase {
     uint256 constant TARGET_LTV_BPS = 7000; // 70%
     uint256 constant HOLD_DAYS = 60;
 
-    /// @dev Carry model — sUSDe APY > lisUSD borrow rate ⇒ positive basis.
+    /// @dev Carry model - sUSDe APY > lisUSD borrow rate => positive basis.
     uint256 constant SUSDE_APY_BPS = 1200; // 12%
     uint256 constant LISUSD_BORROW_BPS = 250; // 2.5%
     uint256 constant TWO_HOP_SLIP_BPS = 12; // 12 bp round-trip
@@ -85,7 +85,7 @@ contract B03_03_LisUSDUSDeBasisTest is BSCStrategyBase {
 
         // ---- 4. Carry over HOLD_DAYS ----
         //
-        // sUSDe price index drifts by SUSDE_APY_BPS × HOLD_DAYS/365.
+        // sUSDe price index drifts by SUSDE_APY_BPS x HOLD_DAYS/365.
         // We approximate by minting extra sUSDe to the contract (since
         // sUSDe is ERC-4626 and its *share price* rises rather than its
         // share count, this is just an accounting fiction for PnL).
@@ -93,9 +93,9 @@ contract B03_03_LisUSDUSDeBasisTest is BSCStrategyBase {
             / (10_000 * 365);
         _fund(BSC.sUSDe, address(this), sUsdeGain);
 
-        // lisUSD debt accrues by LISUSD_BORROW_BPS × HOLD_DAYS/365.
+        // lisUSD debt accrues by LISUSD_BORROW_BPS x HOLD_DAYS/365.
         // We "pay" this by burning slisBNB collateral worth the same USD
-        // — closed-form representation of the borrow cost. (The actual
+        // - closed-form representation of the borrow cost. (The actual
         // mechanism is that the Vat's `art` accrues; on payback we'd have
         // to send back extra lisUSD.)
         // Skip if there's no slisBNB on balance.

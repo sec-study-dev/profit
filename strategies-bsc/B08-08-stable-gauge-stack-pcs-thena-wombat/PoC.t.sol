@@ -23,7 +23,7 @@ interface IMasterWombatMin {
         external view returns (uint256, address[] memory, string[] memory, uint256[] memory);
 }
 
-/// @dev Wombat Pool — deposit/withdraw of LP receipts.
+/// @dev Wombat Pool - deposit/withdraw of LP receipts.
 interface IWombatPoolMin {
     function deposit(address token, uint256 amount, uint256 minLiquidity, address to, uint256 deadline, bool stake)
         external returns (uint256);
@@ -117,7 +117,7 @@ contract B08_08_StableGaugeStackTest is BSCStrategyBase {
             IThenaGauge(thenaGauge).deposit(thenaLp);
         }
 
-        // ---- Leg 2: PCS v3 USDe/USDC concentrated LP (modeled — same structure
+        // ---- Leg 2: PCS v3 USDe/USDC concentrated LP (modeled - same structure
         //              as B08-03, fully credited via _fund for offline PoC) ----
         // Burn USDC half + USDe half to simulate LP-locked. Track returned
         // emissions only.
@@ -131,7 +131,7 @@ contract B08_08_StableGaugeStackTest is BSCStrategyBase {
         IERC20(BSC.WOM).approve(LOCAL_VE_WOM, type(uint256).max);
         try IveWOMMin(LOCAL_VE_WOM).mint(WOM_LOCK, WOM_LOCK_DAYS) returns (uint256) {} catch {}
 
-        // b) Deposit USDe into Wombat pool (simulated — convert USDC).
+        // b) Deposit USDe into Wombat pool (simulated - convert USDC).
         _fund(BSC.USDC, address(this), IERC20(BSC.USDC).balanceOf(address(this)) - PER_LEG);
         _fund(BSC.USDe, address(this), IERC20(BSC.USDe).balanceOf(address(this)) + PER_LEG);
 
@@ -157,7 +157,7 @@ contract B08_08_StableGaugeStackTest is BSCStrategyBase {
             (PER_LEG / 1e12) * THENA_APR_BPS * HOLD_DAYS / (10_000 * 365);
         uint256 theAmt = (thenaUsdE6 * 1e16) / THE_PRICE_E8;
         _fund(BSC.THE, address(this), IERC20(BSC.THE).balanceOf(address(this)) + theAmt);
-        // Sell THE → USDC.
+        // Sell THE -> USDC.
         uint256 usdcFromThe =
             (theAmt * THE_PRICE_E8 * (10_000 - SLIP_BPS)) / (1e8 * 10_000);
         _fund(BSC.THE, address(this), 0);
@@ -174,7 +174,7 @@ contract B08_08_StableGaugeStackTest is BSCStrategyBase {
         _fund(BSC.USDC, address(this), IERC20(BSC.USDC).balanceOf(address(this)) + usdcFromCake);
 
         // ---- Wombat leg: veWOM boost amplifies base APR ----
-        // boosted_apr = base_apr * boost_multiplier / 10000 → 6% * 2.5 = 15%
+        // boosted_apr = base_apr * boost_multiplier / 10000 -> 6% * 2.5 = 15%
         uint256 wombatBoostedAprBps =
             (WOMBAT_BASE_APR_BPS * WOMBAT_BOOST_MULTIPLIER_BPS) / 10_000;
         uint256 wombatUsdE6 =
@@ -185,7 +185,7 @@ contract B08_08_StableGaugeStackTest is BSCStrategyBase {
         pids[0] = LOCAL_WOMBAT_PID;
         try IMasterWombatMin(LOCAL_MASTER_WOMBAT).multiClaim(pids) {} catch {}
         _fund(BSC.WOM, address(this), IERC20(BSC.WOM).balanceOf(address(this)) + womAmt);
-        // Sell WOM → USDC.
+        // Sell WOM -> USDC.
         uint256 usdcFromWom =
             (womAmt * WOM_PRICE_E8 * (10_000 - SLIP_BPS)) / (1e8 * 10_000);
         _fund(BSC.WOM, address(this), 0);
@@ -197,7 +197,7 @@ contract B08_08_StableGaugeStackTest is BSCStrategyBase {
         }
         // Mark Thena stable LP at $1 per USDC-equivalent.
         if (IERC20(thenaPair).totalSupply() > 0) {
-            // Stable pair LP ≈ underlying notional / total supply.
+            // Stable pair LP ~ underlying notional / total supply.
             _setOraclePrice(thenaPair, 1e8);
         }
         // PCS leg: credit underlyings (half USDC + half USDe at $1).
@@ -205,7 +205,7 @@ contract B08_08_StableGaugeStackTest is BSCStrategyBase {
         _fund(BSC.USDe, address(this), IERC20(BSC.USDe).balanceOf(address(this)) + pcsHalfUsde);
         // Wombat leg: credit USDe principal.
         _fund(BSC.USDe, address(this), IERC20(BSC.USDe).balanceOf(address(this)) + PER_LEG);
-        // Restore WOM lock principal at $0.10 (we DON'T credit back — locked).
+        // Restore WOM lock principal at $0.10 (we DON'T credit back - locked).
         // Instead show WOM as still locked.
 
         emit log_named_uint("thena_lp_minted_1e18", thenaLp);

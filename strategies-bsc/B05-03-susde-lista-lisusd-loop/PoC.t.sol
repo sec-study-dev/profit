@@ -31,7 +31,7 @@ contract B05_03_PoC is BSCStrategyBase {
         _trackToken(BSC.lisUSD);
         _setOraclePrice(BSC.sUSDe, 1_05_000_000); // $1.05 per sUSDe share
         _setOraclePrice(BSC.USDe, 99_900_000); // $0.999
-        _setOraclePrice(BSC.lisUSD, 99_950_000); // $0.9995 — typically slightly under peg
+        _setOraclePrice(BSC.lisUSD, 99_950_000); // $0.9995 - typically slightly under peg
     }
 
     function testSusdeListaLisusdLoopCarry() public {
@@ -69,7 +69,7 @@ contract B05_03_PoC is BSCStrategyBase {
 
             // Swap lisUSD -> USDe on PCS StableSwap pool.
             // PCS StableSwap exchange(i, j, dx, minDy); we assume i=lisUSD=0, j=USDe=1
-            // for the dedicated lisUSD/USDe pool — adjust once verified.
+            // for the dedicated lisUSD/USDe pool - adjust once verified.
             try IPancakeStableRouter(LOCAL_PCS_STABLE_LISUSD_USDE).exchange(
                 0, 1, lisBorrow, (lisBorrow * 997) / 1000
             ) returns (uint256) {

@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
 // ---------------------------------------------------------------------------
-// Inlined interfaces — BSC.sol has pre-existing checksum errors. See B02-01
+// Inlined interfaces - BSC.sol has pre-existing checksum errors. See B02-01
 // header. We inline the addresses and ABIs we use.
 // ---------------------------------------------------------------------------
 
@@ -122,7 +122,6 @@ abstract contract BSCStrategyBase is Test {
         return -int256((uint256(-d) * m) / div);
     }
 
-    receive() external payable {}
 }
 
 /// @title B13-02 WBETH (BSC) exchange-rate lag flash arb
@@ -142,7 +141,7 @@ contract B13_02_WBETH_Rate_Lag is BSCStrategyBase, IPancakeV3FlashCallback {
     /// @dev TODO: pin a block where exchangeRate() leads PCS spot by > 25 bp.
     uint256 constant FORK_BLOCK = 46_500_000;
 
-    /// @dev Default WBETH/WETH 0.05% pool — TODO verify; falls back to
+    /// @dev Default WBETH/WETH 0.05% pool - TODO verify; falls back to
     ///      factory.getPool if extcodesize is zero.
     address constant PCS_V3_POOL_WBETH_WETH_500 = 0x9eF992C5E7b2c879DA30a38b0C1d4bE8C2F7A4d0;
 
@@ -172,7 +171,7 @@ contract B13_02_WBETH_Rate_Lag is BSCStrategyBase, IPancakeV3FlashCallback {
         _trackToken(WETH);
         _trackToken(WBETH);
         _setOraclePrice(WETH, 3_000e8);
-        // WBETH priced at internal rate ≈ 1.045 ETH → $3,135 (capture the
+        // WBETH priced at internal rate ~ 1.045 ETH -> $3,135 (capture the
         // mainnet rate that the BSC oracle is *about* to catch up to).
         _setOraclePrice(WBETH, 3_135e8);
     }

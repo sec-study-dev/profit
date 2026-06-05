@@ -15,7 +15,7 @@ import {IThenaRouter} from "src/interfaces/bsc/amm/IThenaRouter.sol";
 ///         under-collateralized BTC-LSD positions:
 ///         1) flash USDX from PCS v3 USDX/USDT pool
 ///         2) Avalon `liquidationCall(collateralAsset, debtAsset,
-///            user, debtToCover, false)` — receive discounted solvBTC
+///            user, debtToCover, false)` - receive discounted solvBTC
 ///            collateral (5-10% bonus)
 ///         3) cross-DEX exit: PCS v3 first, then Thena fallback on
 ///            best price for solvBTC -> USDT -> USDX repay path
@@ -38,9 +38,9 @@ contract B12_08_AvalonBTCLSDLiquidationKeeper is BSCStrategyBase, IPancakeV3Flas
     uint256 internal constant FORK_BLOCK = 47_700_000;
 
     /// @dev A specific under-collateralized borrower at the pinned block.
-    ///      Placeholder — must be filled with a real address from on-chain
+    ///      Placeholder - must be filled with a real address from on-chain
     ///      indexer at scan time. TODO verify.
-    address internal constant LOCAL_TARGET_BORROWER = 0x0000000000000000000000000000000000B12081;
+    address internal constant LOCAL_TARGET_BORROWER = 0x0000000000000000000000000000000000b12081;
     /// @dev Avalon USDX. TODO verify.
     address internal constant LOCAL_USDX = 0xf3527ef8dE265eAa3716FB312c12847bFBA66Cef;
 

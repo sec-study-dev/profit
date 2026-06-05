@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
 // ---------------------------------------------------------------------------
-// Inlined interfaces — `src/constants/BSC.sol` has a pre-existing checksum
+// Inlined interfaces - `src/constants/BSC.sol` has a pre-existing checksum
 // bug in three unrelated constants (AVALON_LENDING_POOL, solvBTC_BBN,
 // ASTHERUS_STAKE_MANAGER) which makes the whole file refuse to compile.
 // Per the spec ("Inline local addresses/interfaces if needed.") we inline
@@ -128,7 +128,6 @@ abstract contract BSCStrategyBase is Test {
         return -int256((uint256(-d) * m) / div);
     }
 
-    receive() external payable {}
 }
 
 /// @title B02-01 slisBNB / WBNB PCS v3 single-pool flash arb
@@ -178,7 +177,7 @@ contract B02_01_slisBNB_PCSv3_FlashArb is BSCStrategyBase, IPancakeV3FlashCallba
         _trackToken(WBNB);
         _trackToken(slisBNB);
         _setOraclePrice(WBNB, 600e8);
-        // slisBNB priced at internal rate ≈ 1.078 BNB → $646.80
+        // slisBNB priced at internal rate ~ 1.078 BNB -> $646.80
         _setOraclePrice(slisBNB, 646_8000_0000);
     }
 
@@ -246,7 +245,7 @@ contract B02_01_slisBNB_PCSv3_FlashArb is BSCStrategyBase, IPancakeV3FlashCallba
 
     function _offlinePnLCheck() internal {
         // Documented assumption: pool gives 0.930 slisBNB per WBNB while
-        // internal rate is 1.078 BNB per slisBNB → implied 1.0025 (25 bp).
+        // internal rate is 1.078 BNB per slisBNB -> implied 1.0025 (25 bp).
         uint256 notional = FLASH_NOTIONAL;
         uint256 simSlisOut = notional * 930 / 1000;
         uint256 simBnbValue = simSlisOut * 1078 / 1000;

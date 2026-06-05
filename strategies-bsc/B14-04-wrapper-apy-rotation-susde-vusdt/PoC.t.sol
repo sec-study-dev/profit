@@ -8,7 +8,7 @@ import {ISUSDe} from "src/interfaces/bsc/stable/ISUSDe.sol";
 import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 
-/// @title B14-04 PoC — sUSDe ↔ vUSDT yield-wrapper APY rotation
+/// @title B14-04 PoC - sUSDe <-> vUSDT yield-wrapper APY rotation
 /// @notice Holds the higher-yielding stablecoin wrapper between sUSDe and
 ///         vUSDT and rotates when the APY cross-spread inverts past a
 ///         hysteresis band (modelled at 100 bps).
@@ -24,7 +24,7 @@ contract B14_04_PoC is BSCStrategyBase {
     uint256 constant INTERVAL_DAYS = 30;
 
     // Cross-spread hysteresis: don't rotate unless higher-yielding wrapper
-    // beats incumbent by ≥ this many bps.
+    // beats incumbent by >= this many bps.
     uint256 constant HYST_BPS = 100;
 
     // Blended rotation cost (one-way) in bps:
@@ -65,7 +65,7 @@ contract B14_04_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Forked branch — runs the full 3-interval rotation against live
+    // Forked branch - runs the full 3-interval rotation against live
     // contracts. Each interval picks the higher-yield wrapper based on
     // the modelled APYs (the real strategy would poll oracles).
     // ----------------------------------------------------------------
@@ -97,12 +97,12 @@ contract B14_04_PoC is BSCStrategyBase {
     function _pickHigher(uint256 sBps, uint256 vBps, uint8 incumbent) internal pure returns (uint8) {
         // Hysteresis: stay unless the contender beats by HYST_BPS.
         if (incumbent == 1) {
-            // sitting in sUSDe — only rotate to vUSDT if vBps >= sBps + HYST
+            // sitting in sUSDe - only rotate to vUSDT if vBps >= sBps + HYST
             return vBps >= sBps + HYST_BPS ? 2 : 1;
         } else if (incumbent == 2) {
             return sBps >= vBps + HYST_BPS ? 1 : 2;
         } else {
-            // idle (first interval) — pick the simple max
+            // idle (first interval) - pick the simple max
             return sBps >= vBps ? 1 : 2;
         }
     }
@@ -167,7 +167,7 @@ contract B14_04_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Offline branch — closed-form projection.
+    // Offline branch - closed-form projection.
     // ----------------------------------------------------------------
     function _runOfflineProjection() internal {
         // Run the same rotation schedule but accumulate USD carry.

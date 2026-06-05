@@ -30,19 +30,19 @@ interface IThenaVoterLocal {
     function gauges(address pool) external view returns (address);
 }
 
-/// @title B11-08 asBNB → PCS LP (asBNB/WBNB) → Thena gauge stake triple
+/// @title B11-08 asBNB -> PCS LP (asBNB/WBNB) -> Thena gauge stake triple
 /// @notice 3-mechanism yield stack on the asBNB LP token:
-///           1. Astherus asBNB (base LST) — half of principal still earns
+///           1. Astherus asBNB (base LST) - half of principal still earns
 ///              validator yield + points via the asBNB units locked into
 ///              the LP.
-///           2. PCS V2 asBNB/WBNB LP (fee-token issuance) — earns trading
+///           2. PCS V2 asBNB/WBNB LP (fee-token issuance) - earns trading
 ///              fees on every swap through the pair.
-///           3. Thena gauge stake — deposit the LP token into Thena's
+///           3. Thena gauge stake - deposit the LP token into Thena's
 ///              gauge for that pair; earns $THE emissions on top of LP
 ///              fees.
 ///         The Solidly-fork "stable" invariant on Thena lets the LP carry
 ///         significantly more notional with the same impermanent loss
-///         tolerance than a Uniswap-style x*y invariant — asBNB/WBNB is
+///         tolerance than a Uniswap-style x*y invariant - asBNB/WBNB is
 ///         close-peg, so stable=true is the right path.
 /// @dev    Thena gauge selectors are not yet pinned in
 ///         `src/interfaces/bsc/amm/IThenaVoter.sol` for this LST; calls
@@ -56,7 +56,7 @@ contract B11_08_AsBNBPCSLPThenaGaugeTriple is BSCStrategyBase {
     address internal constant LOCAL_THENA_GAUGE_ASBNB = 0x000000000000000000000000000000000000bEEF;
 
     uint256 internal constant PRINCIPAL_BNB = 100 ether;
-    /// @dev Half BNB → asBNB, half BNB → WBNB → LP both.
+    /// @dev Half BNB -> asBNB, half BNB -> WBNB -> LP both.
     uint256 internal constant SPLIT_BPS = 5_000;
     uint256 internal constant HOLD_DAYS = 60;
 
@@ -80,7 +80,7 @@ contract B11_08_AsBNBPCSLPThenaGaugeTriple is BSCStrategyBase {
 
         _setOraclePrice(BSC.asBNB, 615e8);
         // LP token rough USD: each LP = sqrt(reserve0 * reserve1) of value at
-        // current spot. Track at $1230 (≈ 1 asBNB + 1 BNB at $615 each).
+        // current spot. Track at $1230 (~ 1 asBNB + 1 BNB at $615 each).
         _setOraclePrice(LOCAL_PCS_LP_ASBNB_WBNB, 1230_00_000_000);
         // $THE assumed ~ $0.30
         _setOraclePrice(BSC.THE, 30_000_000); // $0.30
@@ -102,14 +102,14 @@ contract B11_08_AsBNBPCSLPThenaGaugeTriple is BSCStrategyBase {
 
         uint256 half = (PRINCIPAL_BNB * SPLIT_BPS) / 10_000;
 
-        // ---- 1. Half → asBNB (Astherus, mechanism 1). ----
+        // ---- 1. Half -> asBNB (Astherus, mechanism 1). ----
         if (!_tryAstherusDeposit(half)) {
             _offlinePnLCheck();
             return;
         }
         uint256 asBal = IasBNB(BSC.asBNB).balanceOf(address(this));
 
-        // ---- 2. Other half → WBNB. ----
+        // ---- 2. Other half -> WBNB. ----
         IWBNB(BSC.WBNB).deposit{value: PRINCIPAL_BNB - half}();
         uint256 wbnbBal = IERC20(BSC.WBNB).balanceOf(address(this));
 
@@ -148,7 +148,7 @@ contract B11_08_AsBNBPCSLPThenaGaugeTriple is BSCStrategyBase {
         // ---- 6. Claim THE rewards. ----
         try IThenaGaugeLocal(LOCAL_THENA_GAUGE_ASBNB).getReward() {} catch {}
 
-        // Refresh asBNB → underlying drift.
+        // Refresh asBNB -> underlying drift.
         try IasBNB(BSC.asBNB).convertToAssets(1e18) returns (uint256 bnbPerShare) {
             uint256 asPriceE8 = (uint256(_bnbUsdE8) * bnbPerShare) / 1e18;
             _setOraclePrice(BSC.asBNB, asPriceE8);
@@ -191,19 +191,19 @@ contract B11_08_AsBNBPCSLPThenaGaugeTriple is BSCStrategyBase {
         //
         //   60-day cashflows on 100 BNB:
         //     Validator yield on the 50 BNB asBNB half:
-        //       50 × (3.8 + 1.0) × 60/365 = 0.394 BNB
+        //       50 x (3.8 + 1.0) x 60/365 = 0.394 BNB
         //     LP fee on full 100 BNB notional in LP:
-        //       100 × 3.5 × 60/365 = 0.575 BNB
+        //       100 x 3.5 x 60/365 = 0.575 BNB
         //     $THE gauge emissions on LP notional:
-        //       100 × 12.0 × 60/365 = 1.973 BNB-equiv (priced in $THE)
-        //     IL drag: ≈ −0.005 BNB (close-peg pair)
+        //       100 x 12.0 x 60/365 = 1.973 BNB-equiv (priced in $THE)
+        //     IL drag: ~ -0.005 BNB (close-peg pair)
         //
         //   Net = 0.394 + 0.575 + 1.973 - 0.005 = +2.94 BNB per 100 BNB
-        //   ≈ +$1,762 over 60 days; ≈ 17.9 % APR-equiv.
+        //   ~ +$1,762 over 60 days; ~ 17.9 % APR-equiv.
         //
         //   Caveat: gauge $THE emissions depend on bribe + vote allocation
         //   for the LP. asBNB pair may not yet have enough vote weight at
-        //   launch; conservative case = 6 % → net +1.96 BNB.
+        //   launch; conservative case = 6 % -> net +1.96 BNB.
 
         uint256 simNetBnbE18 = (PRINCIPAL_BNB * 294) / 10_000; // 2.94 %
         // Realise as asBNB delta at rate 1.025.

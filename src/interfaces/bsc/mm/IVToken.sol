@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 
 /// @notice Venus vToken (Compound v2-style cToken). Used for both BEP20 and
-///         native-BNB markets — vBNB overrides `mint()` to be payable.
+///         native-BNB markets - vBNB overrides `mint()` to be payable.
 interface IVToken is IERC20 {
     function underlying() external view returns (address);
     function exchangeRateStored() external view returns (uint256);

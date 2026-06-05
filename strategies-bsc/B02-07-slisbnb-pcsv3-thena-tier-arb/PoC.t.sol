@@ -22,7 +22,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 //   Thena leg consumes the flat region of the invariant *only*, we get an
 //   effectively-flat-fee swap whose realised price is well below the PCS v3
 //   100-bp tier's market quote. The slisBNB collected is then *valued* at
-//   Lista's monotonic internal rate, not sold back into a PCS v3 pool — i.e.
+//   Lista's monotonic internal rate, not sold back into a PCS v3 pool - i.e.
 //   the position is non-atomic on the exit side, atomic on the entry side.
 // ---------------------------------------------------------------------------
 
@@ -100,7 +100,7 @@ contract B02_07_slisBNB_PCSv3_Thena_TierArb is BSCStrategyBase, IPancakeV3FlashC
         _trackToken(LOCAL_WBNB);
         _trackToken(LOCAL_slisBNB);
         _setOraclePrice(LOCAL_WBNB, 600e8);
-        // slisBNB at Lista internal rate ≈ 1.082 BNB → $649.20
+        // slisBNB at Lista internal rate ~ 1.082 BNB -> $649.20
         _setOraclePrice(LOCAL_slisBNB, 649_2000_0000);
     }
 

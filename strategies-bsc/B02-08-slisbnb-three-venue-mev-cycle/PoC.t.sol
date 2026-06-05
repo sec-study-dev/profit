@@ -12,10 +12,10 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 //
 // Mechanism composition:
 //   (1) PancakeSwap v3 flash (5 bp) from WBNB/USDT deep pool (capital)
-//   (2) PCS v3 100-bp slisBNB/WBNB pool — leg A: WBNB -> slisBNB
-//   (3) Thena stable pair — leg B: slisBNB -> WBNB at the Thena solidly-curve
+//   (2) PCS v3 100-bp slisBNB/WBNB pool - leg A: WBNB -> slisBNB
+//   (3) Thena stable pair - leg B: slisBNB -> WBNB at the Thena solidly-curve
 //       price (this is the "venue diversity" leg)
-//   (4) Wombat LST pool — leg C: residual slisBNB sweep -> WBNB at Wombat's
+//   (4) Wombat LST pool - leg C: residual slisBNB sweep -> WBNB at Wombat's
 //       dynamic-asset-weight price
 //
 //   Strategy intent: the slisBNB/WBNB price differs *across* the three
@@ -24,7 +24,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 //   epochs (5-min PCS v3 swap-driven, 1-week Thena epoch, 1-h Wombat
 //   weight-rebalance). A 3-venue cycle harvests all three at once.
 //
-//   This is the canonical "atomic 3-DEX cycle" — both legs B and C close back
+//   This is the canonical "atomic 3-DEX cycle" - both legs B and C close back
 //   to WBNB, so PnL is realised in pure WBNB inside the flash callback and
 //   the position is fully unwound at block end. No buffer needed except the
 //   flash repay (which equals notional + 5 bp).
@@ -128,7 +128,7 @@ contract B02_08_slisBNB_ThreeVenue_MEVCycle is BSCStrategyBase, IPancakeV3FlashC
         _trackToken(LOCAL_WBNB);
         _trackToken(LOCAL_slisBNB);
         _setOraclePrice(LOCAL_WBNB, 600e8);
-        // We do NOT mark slisBNB up to internal rate here — this is an
+        // We do NOT mark slisBNB up to internal rate here - this is an
         // atomic pure-WBNB cycle. Any residual slisBNB at end-of-block is
         // a flaw, not PnL, so price it at the WBNB-equivalent (no markup).
         _setOraclePrice(LOCAL_slisBNB, 600e8);
@@ -207,8 +207,8 @@ contract B02_08_slisBNB_ThreeVenue_MEVCycle is BSCStrategyBase, IPancakeV3FlashC
         //   Leg A: 600 WBNB -> 0.934 slisBNB-per-WBNB = 560.4 slisBNB
         //   Leg B (60% via Thena stable at 1.083 WBNB-per-slisBNB): 364 WBNB
         //   Leg C (40% via Wombat at 1.079 WBNB-per-slisBNB): 241.8 WBNB
-        //   Total WBNB out: 605.8 → +5.8 WBNB on 600 ticket = +97 bp gross
-        //   Less 5 bp flash → +92 bp net ≈ 5.52 BNB ≈ $3,312 @ $600/BNB.
+        //   Total WBNB out: 605.8 -> +5.8 WBNB on 600 ticket = +97 bp gross
+        //   Less 5 bp flash -> +92 bp net ~ 5.52 BNB ~ $3,312 @ $600/BNB.
         // Conservatively realised at 35 bp after slippage.
         uint256 n = FLASH_NOTIONAL;
         uint256 fee = n * 5 / 10_000;

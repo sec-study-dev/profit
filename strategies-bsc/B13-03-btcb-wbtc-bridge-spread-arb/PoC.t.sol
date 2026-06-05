@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
 // ---------------------------------------------------------------------------
-// Inlined interfaces — BSC.sol has pre-existing checksum errors. See B02-01
+// Inlined interfaces - BSC.sol has pre-existing checksum errors. See B02-01
 // header. We inline addresses + ABIs.
 // ---------------------------------------------------------------------------
 
@@ -117,7 +117,6 @@ abstract contract BSCStrategyBase is Test {
         return -int256((uint256(-d) * m) / div);
     }
 
-    receive() external payable {}
 }
 
 /// @title B13-03 BTCB vs WBTC (bridged) cross-chain spread arb
@@ -220,7 +219,7 @@ contract B13_03_BTCB_WBTC_Spread is BSCStrategyBase, IPancakeV3FlashCallback {
 
     function _offlinePnLCheck() internal {
         // WBTC 35 bp discount vs BTCB; 5 WBTC -> ~5.0175 BTCB; flash fee 5 bp.
-        // Net gain = 30 bp ≈ 0.015 BTC ≈ $975 @ $65k/BTC.
+        // Net gain = 30 bp ~ 0.015 BTC ~ $975 @ $65k/BTC.
         uint256 notional = FLASH_NOTIONAL;
         // Convert 8-dec WBTC notional to 18-dec BTCB equivalent, then apply spread.
         uint256 simBtcbOut18 = (uint256(notional) * 1e10 * (10_000 + ASSUMED_SPREAD_BP)) / 10_000;

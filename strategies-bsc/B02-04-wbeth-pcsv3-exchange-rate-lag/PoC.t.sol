@@ -99,7 +99,6 @@ abstract contract BSCStrategyBase is Test {
         if (d >= 0) return int256((uint256(d) * m) / div);
         return -int256((uint256(-d) * m) / div);
     }
-    receive() external payable {}
 }
 
 /// @title B02-04 WBETH (BSC) exchangeRate vs PCS v3 inter-tier lag arb
@@ -135,7 +134,7 @@ contract B02_04_WBETH_PCSv3_RateLag is BSCStrategyBase, IPancakeV3FlashCallback 
         _trackToken(WETH);
         _trackToken(WBETH);
         _setOraclePrice(WETH, 3_000e8);
-        _setOraclePrice(WBETH, 3_129_0000_0000); // 1.043 ETH at $3k → $3,129
+        _setOraclePrice(WBETH, 3_129_0000_0000); // 1.043 ETH at $3k -> $3,129
     }
 
     function testStrategy_B02_04() public {

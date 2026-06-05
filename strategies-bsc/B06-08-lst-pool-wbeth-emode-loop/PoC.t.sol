@@ -8,15 +8,15 @@ import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {IWBETH} from "src/interfaces/bsc/lst/IWBETH.sol";
 
-/// @title B06-08 Venus LST isolated pool — WBETH/WETH eMode-style loop
+/// @title B06-08 Venus LST isolated pool - WBETH/WETH eMode-style loop
 /// @notice ETH-correlated recursive loop inside Venus' Liquid Staked BNB
 ///         isolated pool. Because both WBETH and bridged WETH (Binance-Peg
 ///         ETH) are listed in the same isolated Comptroller and tagged as
 ///         ETH-correlated (V4 supports per-pool risk groups that mimic
 ///         Aave eMode), the collateralFactor on WBETH-against-WETH borrows
-///         is structurally higher (≈ 90 %) than the cross-asset CF in the
-///         Core pool (≈ 75 %). Higher CF → longer ladder of supply→borrow
-///         iterations → larger long-WBETH/short-WETH delta-1 exposure that
+///         is structurally higher (~ 90 %) than the cross-asset CF in the
+///         Core pool (~ 75 %). Higher CF -> longer ladder of supply->borrow
+///         iterations -> larger long-WBETH/short-WETH delta-1 exposure that
 ///         monetises the WBETH staking yield minus the WETH borrow APR.
 contract B06_08_VenusLSTPoolWBETHEModeLoopTest is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 42_500_000;
@@ -29,9 +29,9 @@ contract B06_08_VenusLSTPoolWBETHEModeLoopTest is BSCStrategyBase {
     address internal constant LOCAL_VWETH_LST = 0x39E1da2A2aa9aef18a65Ef7f1f0BB12Ec85c8D4D;
 
     // ---- Strategy parameters ----
-    /// @dev 100 WBETH starting principal ≈ $300k at default oracle.
+    /// @dev 100 WBETH starting principal ~ $300k at default oracle.
     uint256 internal constant PRINCIPAL_WBETH = 100 ether;
-    /// @dev eMode-style CF ≈ 90 %. Use 95 % of *liquidity* per iter as headroom.
+    /// @dev eMode-style CF ~ 90 %. Use 95 % of *liquidity* per iter as headroom.
     uint256 internal constant SAFETY_BPS = 9_500;
     uint256 internal constant ITERATIONS = 5;
     uint256 internal constant HOLD_DAYS = 30;
@@ -61,7 +61,7 @@ contract B06_08_VenusLSTPoolWBETHEModeLoopTest is BSCStrategyBase {
 
         uint256 wbethToSupply = PRINCIPAL_WBETH;
 
-        // ---- 2. Loop: supply WBETH → borrow WETH → swap WETH→WBETH ----
+        // ---- 2. Loop: supply WBETH -> borrow WETH -> swap WETH->WBETH ----
         // For the offline PoC we treat WBETH/WETH as 1:1 via the WBETH
         // exchangeRate (it actually drifts ETH-up over time). A live
         // implementation would route the borrowed WETH through the WBETH
@@ -74,7 +74,7 @@ contract B06_08_VenusLSTPoolWBETHEModeLoopTest is BSCStrategyBase {
             // 2b. Borrow WETH at SAFETY_BPS of available liquidity.
             (uint256 err, uint256 liq, uint256 shortfall) = comp.getAccountLiquidity(address(this));
             require(err == 0 && shortfall == 0, "lst liq err");
-            // Convert liq (USD, 1e18) → WETH wei using BSCStrategyBase's
+            // Convert liq (USD, 1e18) -> WETH wei using BSCStrategyBase's
             // override ($3000/ETH). liq is 1e18-scaled USD; WETH price 3000.
             uint256 borrowWeth = ((liq * SAFETY_BPS) / 10_000) * 1e18 / 3_000e18;
             if (borrowWeth == 0) break;
@@ -84,11 +84,11 @@ contract B06_08_VenusLSTPoolWBETHEModeLoopTest is BSCStrategyBase {
             if (borrowWeth == 0) break;
             require(IVToken(LOCAL_VWETH_LST).borrow(borrowWeth) == 0, "vWETH borrow failed");
 
-            // 2c. WETH → WBETH at the canonical rate. Direct mint via the
+            // 2c. WETH -> WBETH at the canonical rate. Direct mint via the
             //      WBETH contract (BSC variant; mainnet uses `deposit(address)`).
             //      Soft-fail to a 1:1 deal if the BSC ABI diverges; PoC PnL
             //      remains in the right ballpark because both assets are
-            //      priced ≈ $3k in the base override.
+            //      priced ~ $3k in the base override.
             try IWBETH(BSC.WBETH).deposit(address(0)) {
                 wbethToSupply = IERC20(BSC.WBETH).balanceOf(address(this));
             } catch {
@@ -119,7 +119,7 @@ contract B06_08_VenusLSTPoolWBETHEModeLoopTest is BSCStrategyBase {
         IVToken(LOCAL_VWBETH_LST).balanceOfUnderlying(address(this));
 
         // ---- 4. Mark WBETH to ETH exchange rate for the PnL snapshot ----
-        // WBETH price = ETH_USD * exchangeRate(WBETH→ETH).
+        // WBETH price = ETH_USD * exchangeRate(WBETH->ETH).
         uint256 rate = 1e18;
         try IWBETH(BSC.WBETH).exchangeRate() returns (uint256 r) {
             if (r > 0) rate = r;

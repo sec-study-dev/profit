@@ -17,14 +17,14 @@ import {IPancakeStableRouter} from "src/interfaces/bsc/amm/IPancakeStableRouter.
 ///         B10-06 captures this bonus *as carry over a session window* by:
 ///         deposit FDUSD into Wombat (earn LP yield while it sits on the
 ///         heavy side), wait for a counter-flow user-arb to rebalance the
-///         pool, withdraw as USDe, then route USDe → FDUSD via PCS Stable
+///         pool, withdraw as USDe, then route USDe -> FDUSD via PCS Stable
 ///         to close the position. The session window is bounded so this is
 ///         a held carry play, not an atomic arb.
 ///
 /// Mechanism stack (3 distinct):
-///  1. Wombat StableSwap LP — deposit + withdraw on the under/over-allocated
+///  1. Wombat StableSwap LP - deposit + withdraw on the under/over-allocated
 ///     asset (dynamic-weight bonus is the source of the basis).
-///  2. PCS StableSwap — close the USDe → FDUSD leg via the 3-pool tier where
+///  2. PCS StableSwap - close the USDe -> FDUSD leg via the 3-pool tier where
 ///     FDUSD has the deepest non-Wombat depth.
 ///  3. Ethena USDe direct mint/redeem (optional: only triggered when the
 ///     PCS exit slippage exceeds Ethena's mint fee).
@@ -36,7 +36,7 @@ contract B10_06_UsdeFdusdWombatWeightBasisTest is BSCStrategyBase {
     /// @dev Notional FDUSD deposited as the "long-imbalance" leg (18 decimals).
     uint256 internal constant NOTIONAL = 1_500_000 * 1e18;
 
-    /// @dev Bounded session window — how long we wait for a counter-flow.
+    /// @dev Bounded session window - how long we wait for a counter-flow.
     uint256 internal constant HOLD_HOURS = 36;
 
     /// @dev PCS StableSwap coin indices for the FDUSD-pool. // TODO verify.
@@ -140,7 +140,7 @@ contract B10_06_UsdeFdusdWombatWeightBasisTest is BSCStrategyBase {
             / (10_000 * 24 * 365);
         lpValueWithBonus += lpCarry;
 
-        // 4. Withdraw as USDe — haircut on the now-light asset side.
+        // 4. Withdraw as USDe - haircut on the now-light asset side.
         uint256 usdeOut = (lpValueWithBonus * (10_000 - WOMBAT_WITHDRAW_HAIRCUT_BPS)) / 10_000;
 
         // 5. Close USDe -> FDUSD via PCS Stable (PCS_STABLE_FEE_BPS round-trip).

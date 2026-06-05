@@ -68,7 +68,7 @@ contract B10_04_VaiLisUsdCdpClassBasisRotateTest is BSCStrategyBase {
         _fund(BSC.lisUSD, address(this), NOTIONAL);
         _startPnL();
 
-        // --- Epoch 1: State A, carry = +EPOCH1_SPREAD_BPS × 30/365 ----
+        // --- Epoch 1: State A, carry = +EPOCH1_SPREAD_BPS x 30/365 ----
         uint256 epoch1Gain = (NOTIONAL * EPOCH1_SPREAD_BPS * EPOCH_DAYS) / (10_000 * 365);
         emit log_named_uint("epoch1_carry_gain", epoch1Gain);
         // Credit the gain onto the lisUSD balance.
@@ -92,7 +92,7 @@ contract B10_04_VaiLisUsdCdpClassBasisRotateTest is BSCStrategyBase {
         _fund(BSC.VAI, address(this), newVaiBal);
         _state = State.B_LisUsdDebt_HoldVai;
 
-        // --- Epoch 2: State B, carry = +EPOCH2_SPREAD_BPS × 30/365 ----
+        // --- Epoch 2: State B, carry = +EPOCH2_SPREAD_BPS x 30/365 ----
         uint256 epoch2Gain = (newVaiBal * EPOCH2_SPREAD_BPS * EPOCH_DAYS) / (10_000 * 365);
         emit log_named_uint("epoch2_carry_gain", epoch2Gain);
         _fund(BSC.VAI, address(this), newVaiBal + epoch2Gain);

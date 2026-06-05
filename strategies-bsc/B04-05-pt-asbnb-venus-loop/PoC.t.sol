@@ -14,7 +14,7 @@ import {IPYieldToken} from "src/interfaces/pendle/IPYieldToken.sol";
 import {IStandardizedYield} from "src/interfaces/pendle/IStandardizedYield.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B04-05 — PT-asBNB BSC + Venus collateral + USDT borrow (3-mechanism)
+/// @title B04-05 - PT-asBNB BSC + Venus collateral + USDT borrow (3-mechanism)
 ///
 /// @notice Buy `PT-asBNB-25SEP2025` on Pendle's BSC deployment at a fixed
 ///         BNB-denominated discount, then deposit the PT as collateral into a
@@ -33,7 +33,7 @@ contract B04_05_PtAsbnbVenusLoopTest is BSCStrategyBase {
 
     // ---- Pendle BSC market (PT-asBNB-25SEP2025) ----
     /// @notice Per-maturity inline constant. TODO verify on Pendle BSC subgraph.
-    address constant LOCAL_PT_ASBNB_MARKET_25SEP2025 = 0xC1afE5fe7d4B2a93b3aA0a5b3F1C0a4f0bDb8e21;
+    address constant LOCAL_PT_ASBNB_MARKET_25SEP2025 = 0xC1AFE5FE7d4B2a93B3aA0a5b3F1C0A4F0bDb8e21;
     /// @notice Assumed expiry = 25-SEP-2025 00:00 UTC.
     uint256 constant ASSUMED_EXPIRY = 1_758_758_400;
 
@@ -128,7 +128,7 @@ contract B04_05_PtAsbnbVenusLoopTest is BSCStrategyBase {
                 try IVenusComptroller(BSC.VENUS_COMPTROLLER).enterMarkets(mkts) returns (uint256[] memory) {
                     // ---- 3. Borrow USDT against PT collateral ----
                     // Notional in USDT terms: ptOut * entryPrice * BNB/USD * LTV.
-                    // BNB/USD ≈ $600 default; entryPrice ≈ 0.95.
+                    // BNB/USD ~ $600 default; entryPrice ~ 0.95.
                     uint256 collateralUsd = (ptOut * 600 * 95) / 100; // 1e18 scaled
                     uint256 borrowAmt = (collateralUsd * TARGET_LTV_BPS) / 10_000;
                     try IVToken(BSC.vUSDT).borrow(borrowAmt) returns (uint256 berr) {
@@ -268,5 +268,4 @@ contract B04_05_PtAsbnbVenusLoopTest is BSCStrategyBase {
         }
     }
 
-    receive() external payable {}
 }

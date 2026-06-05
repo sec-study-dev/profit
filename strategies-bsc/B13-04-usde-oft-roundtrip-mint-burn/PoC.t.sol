@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
 // ---------------------------------------------------------------------------
-// Inlined interfaces — BSC.sol has pre-existing checksum errors. See B02-01
+// Inlined interfaces - BSC.sol has pre-existing checksum errors. See B02-01
 // header. We inline addresses + ABIs.
 // ---------------------------------------------------------------------------
 
@@ -106,12 +106,11 @@ abstract contract BSCStrategyBase is Test {
         return -int256((uint256(-d) * m) / div);
     }
 
-    receive() external payable {}
 }
 
 /// @title B13-04 USDe BSC <-> Ethereum OFT roundtrip
 /// @notice Positional strategy. The cross-chain leg (ETH-side mint / OFT
-///         send) is *not* atomic — it sits cross-chain for 1-3 minutes.
+///         send) is *not* atomic - it sits cross-chain for 1-3 minutes.
 ///         This BSC-side PoC executes only the capture step:
 ///         1. Pre-fund N USDe (representing the OFT credit from Ethereum).
 ///         2. Swap USDe -> USDT on PCS v3 USDe/USDT pool at premium (40 bp).

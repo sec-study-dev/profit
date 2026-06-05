@@ -24,19 +24,19 @@ interface IWBNBMin {
     function transfer(address, uint256) external returns (bool);
 }
 
-/// @title B08-09 Gauge-weight-shift LP migration (Thena ↔ PCS)
+/// @title B08-09 Gauge-weight-shift LP migration (Thena <-> PCS)
 /// @notice Each Thursday Thena's `Voter` distributes emissions across
 ///         gauges proportional to vote weight. When a pool's vote share
-///         drops (e.g. slisBNB/WBNB falls from 8 % → 3 %), its $/TVL
+///         drops (e.g. slisBNB/WBNB falls from 8 % -> 3 %), its $/TVL
 ///         emission halves. An LP who reads `rewardRate(token)` BEFORE
 ///         and AFTER the epoch distribution and rebalances toward the
 ///         protocol whose share rose captures a sustained APR uplift.
 ///
 ///         Strategy:
 ///           Epoch N:   100 % capital in Thena slisBNB/WBNB gauge.
-///           Epoch N+1: Vote weights publish — Thena share drops, PCS
+///           Epoch N+1: Vote weights publish - Thena share drops, PCS
 ///                      share unchanged. Migrate 60 % of capital from
-///                      Thena LP → PCS v2 LP same pair.
+///                      Thena LP -> PCS v2 LP same pair.
 ///           Epoch N+2: Reap higher blended APR (PCS rate hasn't been
 ///                      arbed away yet because only fast bots see this).
 ///
@@ -53,7 +53,7 @@ contract B08_09_GaugeWeightShiftMigrationTest is BSCStrategyBase {
     uint256 internal constant EPOCH = 7 days;
 
     // Modeled emission rates (THE/sec) measured at epoch boundaries.
-    // These are the test's "ground truth" — production would read on-chain.
+    // These are the test's "ground truth" - production would read on-chain.
     uint256 internal constant THENA_RATE_EPOCH_N = 1_000;     // arbitrary units
     uint256 internal constant THENA_RATE_EPOCH_N1 = 400;       // 60 % drop
     uint256 internal constant PCS_RATE_EPOCH_N = 600;
@@ -118,7 +118,7 @@ contract B08_09_GaugeWeightShiftMigrationTest is BSCStrategyBase {
             onChainRateN = r;
         } catch {}
 
-        // ---- 3. Warp through epoch N — harvest at boundary ----
+        // ---- 3. Warp through epoch N - harvest at boundary ----
         vm.warp(block.timestamp + EPOCH);
         vm.roll(block.number + EPOCH / 3);
 
@@ -127,7 +127,7 @@ contract B08_09_GaugeWeightShiftMigrationTest is BSCStrategyBase {
         try IThenaGauge(thenaGauge).getReward(address(this), rwd) {} catch {}
 
         // Modeled emission for epoch N (Thena 45 % APR).
-        uint256 notionalUsdE6 = (PRINCIPAL_BNB * 600e8) / 1e20; // $180k → 180e6
+        uint256 notionalUsdE6 = (PRINCIPAL_BNB * 600e8) / 1e20; // $180k -> 180e6
         uint256 epochN_usdE6 =
             (notionalUsdE6 * THENA_APR_EPOCH_N_BPS * 7) / (10_000 * 365);
         uint256 epochN_the = (epochN_usdE6 * 1e16) / THE_PRICE_E8;
@@ -136,7 +136,7 @@ contract B08_09_GaugeWeightShiftMigrationTest is BSCStrategyBase {
         // ---- 4. Read rate AFTER vote-snapshot (epoch N+1 distribution) ----
         // Modeled: Thena rate dropped 60 %, PCS unchanged. Decision logic:
         //   New Thena APR = 18 %. PCS APR = 27 %. Delta = 900 bps > 800 bps
-        //   threshold → migrate 60 % of capital to PCS.
+        //   threshold -> migrate 60 % of capital to PCS.
         uint256 thenaAprNew = THENA_APR_EPOCH_N1_BPS;
         uint256 pcsAprNew = PCS_APR_EPOCH_N1_BPS;
         bool migrate = pcsAprNew > thenaAprNew &&
@@ -148,7 +148,7 @@ contract B08_09_GaugeWeightShiftMigrationTest is BSCStrategyBase {
         if (lpToMigrate > 0) {
             // a) Withdraw from Thena gauge.
             IThenaGauge(thenaGauge).withdraw(lpToMigrate);
-            // b) Burn LP via removeLiquidity (modeled — credit underlyings back).
+            // b) Burn LP via removeLiquidity (modeled - credit underlyings back).
             // Pair balances revert to half-half slisBNB+WBNB equivalents.
             uint256 portionSlis = (slisBal * migratedShareBps) / 10_000;
             uint256 portionWbnb = (wbnbBal * migratedShareBps) / 10_000;
@@ -171,7 +171,7 @@ contract B08_09_GaugeWeightShiftMigrationTest is BSCStrategyBase {
                 _fund(BSC.WBNB, address(this), curWbnb - costBnb);
             }
 
-            // d) Deposit into PCS v2 leg (modeled — same as B08-05).
+            // d) Deposit into PCS v2 leg (modeled - same as B08-05).
             _fund(BSC.slisBNB, address(this),
                 IERC20(BSC.slisBNB).balanceOf(address(this)) - portionSlis);
             // WBNB might be lower than portionWbnb after cost; safely floor at 0.
@@ -179,7 +179,7 @@ contract B08_09_GaugeWeightShiftMigrationTest is BSCStrategyBase {
             _fund(BSC.WBNB, address(this), curW >= portionWbnb ? curW - portionWbnb : 0);
         }
 
-        // ---- 5. Warp epoch N+1 — harvest both legs ----
+        // ---- 5. Warp epoch N+1 - harvest both legs ----
         vm.warp(block.timestamp + EPOCH);
         vm.roll(block.number + EPOCH / 3);
 
@@ -211,7 +211,7 @@ contract B08_09_GaugeWeightShiftMigrationTest is BSCStrategyBase {
             ? realized_epochN1_usdE6 - cf_epochN1_usdE6
             : 0;
 
-        // ---- 7. Close out — withdraw remaining LP and credit principal ----
+        // ---- 7. Close out - withdraw remaining LP and credit principal ----
         uint256 remainingLp = lpMinted - lpToMigrate;
         if (remainingLp > 0) {
             try IThenaGauge(thenaGauge).withdraw(remainingLp) {} catch {}

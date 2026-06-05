@@ -8,12 +8,12 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 // Interfaces referenced in commented live-call sketches:
 //   IListaInteraction, IPendleRouterV4, IVenusComptroller, IVToken
 
-/// @title B03-07 lisUSD → Pendle PT-lisUSD lock + Venus secondary borrow
+/// @title B03-07 lisUSD -> Pendle PT-lisUSD lock + Venus secondary borrow
 /// @notice 3-mechanism positional PoC:
-///         1. Lista CDP — slisBNB collateral, mint lisUSD.
-///         2. Pendle PT-lisUSD — lock the lisUSD into a fixed-yield PT
+///         1. Lista CDP - slisBNB collateral, mint lisUSD.
+///         2. Pendle PT-lisUSD - lock the lisUSD into a fixed-yield PT
 ///            (buy PT-lisUSD at a discount; redeem at par on maturity).
-///         3. Venus secondary borrow — use PT-lisUSD (or its sister sy/lp)
+///         3. Venus secondary borrow - use PT-lisUSD (or its sister sy/lp)
 ///            as off-book collateral to borrow USDT at a lower rate than
 ///            Lista's stability fee, recycle into more PT.
 ///
@@ -29,17 +29,17 @@ contract B03_07_LisUsdPendlePtVenusBorrowLoopTest is BSCStrategyBase {
     uint256 constant FORK_BLOCK = 42_500_000;
 
     /// @dev Placeholder PT-lisUSD market. // TODO verify Pendle BSC PT
-    ///      registry — current Pendle BSC markets are PT-sUSDe and
+    ///      registry - current Pendle BSC markets are PT-sUSDe and
     ///      PT-slisBNB; PT-lisUSD may not yet exist and would need a
     ///      Pendle market listing.
-    address constant PT_LISUSD = 0x000000000000000000000000000000000000bEEf;
+    address constant PT_LISUSD = 0x000000000000000000000000000000000000bEEF;
 
     /// @dev Seed slisBNB collateral.
     uint256 constant SEED_SLIS_BNB = 100 ether;
     /// @dev Target LTV on the slisBNB ilk.
     uint256 constant LTV_SLIS_BPS = 7500;
     /// @dev LTV used for the Venus PT-lisUSD-collateralised borrow (Venus
-    ///      isolated pools are conservative — model 60% effective LTV).
+    ///      isolated pools are conservative - model 60% effective LTV).
     uint256 constant LTV_VENUS_BPS = 6000;
 
     /// @dev Lista slisBNB ilk stability fee.
@@ -49,7 +49,7 @@ contract B03_07_LisUsdPendlePtVenusBorrowLoopTest is BSCStrategyBase {
     /// @dev Venus USDT borrow APR (isolated pool variant).
     uint256 constant VENUS_BORROW_BPS = 400; // 4%
 
-    /// @dev Holding period — typical Pendle PT maturity bucket.
+    /// @dev Holding period - typical Pendle PT maturity bucket.
     uint256 constant HOLD_DAYS = 90;
 
     uint256 public lisUsdMinted;
@@ -61,7 +61,7 @@ contract B03_07_LisUsdPendlePtVenusBorrowLoopTest is BSCStrategyBase {
         _trackToken(BSC.slisBNB);
         _trackToken(BSC.lisUSD);
         _trackToken(BSC.USDT);
-        // PT-lisUSD itself is not tracked — its price isn't in the oracle
+        // PT-lisUSD itself is not tracked - its price isn't in the oracle
         // map, so we surface PnL through lisUSD/USDT legs only.
     }
 
@@ -84,7 +84,7 @@ contract B03_07_LisUsdPendlePtVenusBorrowLoopTest is BSCStrategyBase {
         lisUsdMinted = (collatUsd * LTV_SLIS_BPS) / 10_000;
         _fund(BSC.lisUSD, address(this), lisUsdMinted);
 
-        // ===== Mechanism 2: Pendle — buy PT-lisUSD =====
+        // ===== Mechanism 2: Pendle - buy PT-lisUSD =====
         //
         //   IERC20(BSC.lisUSD).approve(BSC.PENDLE_ROUTER_V4, lisUsdMinted);
         //   IPendleRouterV4(BSC.PENDLE_ROUTER_V4).swapExactTokenForPt({
@@ -97,16 +97,16 @@ contract B03_07_LisUsdPendlePtVenusBorrowLoopTest is BSCStrategyBase {
         //   });
         //
         // Offline: burn lisUSD, mint placeholder PT representing the locked
-        // fixed-rate position. PT entry price = par - (PT_APY × T/365),
+        // fixed-rate position. PT entry price = par - (PT_APY x T/365),
         // i.e. PT_amount > lisUSD_paid in nominal units.
         IERC20(BSC.lisUSD).transfer(address(0xdEaD), lisUsdMinted);
         // PT discount factor (T = HOLD_DAYS until maturity):
-        //   PT_in = lisUsdMinted / (1 - PT_APY × T/365)
+        //   PT_in = lisUsdMinted / (1 - PT_APY x T/365)
         uint256 discountBps = (PT_APY_BPS * HOLD_DAYS) / 365;
         ptBought = (lisUsdMinted * 10_000) / (10_000 - discountBps);
         _fund(PT_LISUSD, address(this), ptBought);
 
-        // ===== Mechanism 3: Venus — borrow USDT against PT-lisUSD =====
+        // ===== Mechanism 3: Venus - borrow USDT against PT-lisUSD =====
         //
         //   IERC20(PT_LISUSD).approve(VENUS_VPT_LISUSD, ptBought);
         //   IVToken(VENUS_VPT_LISUSD).mint(ptBought);
@@ -116,14 +116,14 @@ contract B03_07_LisUsdPendlePtVenusBorrowLoopTest is BSCStrategyBase {
         //   IVToken(BSC.vUSDT).borrow(venusBorrowed);
         //
         // Offline: model the borrow against the PT collateral. PT par
-        // value at maturity = ptBought × $1 = same nominal; usable
-        // collateral = ptBought × LTV_VENUS_BPS.
+        // value at maturity = ptBought x $1 = same nominal; usable
+        // collateral = ptBought x LTV_VENUS_BPS.
         venusBorrowed = (ptBought * LTV_VENUS_BPS) / 10_000;
         _fund(BSC.USDT, address(this), venusBorrowed);
 
         // ---- Recycle: USDT -> lisUSD -> additional PT-lisUSD ----
         //
-        // Single secondary loop only — we don't recurse, to keep the
+        // Single secondary loop only - we don't recurse, to keep the
         // accounting closed-form. PCS swap fee 1 bp.
         IERC20(BSC.USDT).transfer(address(0xdEaD), venusBorrowed);
         uint256 secondaryLisUsd = (venusBorrowed * (10_000 - 1)) / 10_000;
@@ -136,11 +136,11 @@ contract B03_07_LisUsdPendlePtVenusBorrowLoopTest is BSCStrategyBase {
         // ---- Carry over HOLD_DAYS ----
         //
         // PT yield: at maturity PT redeems 1:1 lisUSD; the gain over the
-        // hold = ptBought × discountBps + secondaryPt × discountBps
+        // hold = ptBought x discountBps + secondaryPt x discountBps
         // measured against the *par* redemption.
         uint256 ptUsd = (ptBought + secondaryPt); // par value at maturity
         // We just minted the par-quantity PT, so the realised gain is
-        // (par − paid). For accounting fidelity we instead skip ahead
+        // (par - paid). For accounting fidelity we instead skip ahead
         // and fund lisUSD = par redemption now (treat maturity as `t1`).
         IERC20(PT_LISUSD).transfer(address(0xdEaD), ptBought + secondaryPt);
         _fund(BSC.lisUSD, address(this), ptUsd);

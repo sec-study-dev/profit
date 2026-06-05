@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
 // ---------------------------------------------------------------------------
-// Inlined interfaces — same checksum-bug rationale as other B13-* PoCs.
+// Inlined interfaces - same checksum-bug rationale as other B13-* PoCs.
 // ---------------------------------------------------------------------------
 
 interface IERC20 {
@@ -151,7 +151,6 @@ abstract contract BSCStrategyBase is Test {
         return -int256((uint256(-d) * m) / div);
     }
 
-    receive() external payable {}
 }
 
 /// @title B13-06 CCIP-bridged USDC vs native (Circle-canonical) USDC on BSC
@@ -177,7 +176,7 @@ contract B13_06_CCIP_USDC_vs_Peg is BSCStrategyBase, IPancakeV3FlashCallback {
     address constant USDC_NATIVE = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
     address constant PCS_V3_FACTORY = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
     address constant PCS_V3_ROUTER = 0x13f4EA83D0bd40E75C8222255bc855a974568Dd4;
-    /// @notice PCS Stable Router (placeholder — same TODO as B03-04 / B13-04).
+    /// @notice PCS Stable Router (placeholder - same TODO as B03-04 / B13-04).
     address constant PCS_STABLE_ROUTER = 0x169F653A54ACD441aB34B73dA9946e2C451787EF;
 
     /// @notice Chainlink CCIP Router on BSC. TODO verify (placeholder).
