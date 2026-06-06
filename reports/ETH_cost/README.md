@@ -30,4 +30,5 @@ mainnet archive fork. Per-strategy gas telemetry emitted by
 - `net_usd` here is gas-inclusive and therefore slightly lower than the gas-zero
   `net_usd` in reports/ETH_pnl_results.csv. Most positives remain OVERSTATED
   (deal()/modeled/position-equity) - read reports/README.md.
-- Aggregate over the 127 PASS strategies with cost data: total fee ~= 1.82 ETH.
+- 147 rows (136 PASS / 2 SKIP / 9 FAIL); 128 PASS rows carry cost data (the rest
+  are graceful-skip tests that return before _endPnL). Total fee ~= 1.821871 ETH.
