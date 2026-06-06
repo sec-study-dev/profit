@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
 // ---------------------------------------------------------------------------
-// Inlined interfaces — same checksum-bug rationale as other B13-* PoCs.
+// Inlined interfaces - same checksum-bug rationale as other B13-* PoCs.
 // ---------------------------------------------------------------------------
 
 interface IERC20 {
@@ -198,13 +198,12 @@ abstract contract BSCStrategyBase is Test {
         return -int256((uint256(-d) * m) / div);
     }
 
-    receive() external payable {}
 }
 
 /// @title B13-08 Pendle PT-sUSDe cross-chain bridge spread (3-mech)
 /// @notice **3-mechanism positional** strategy:
 ///         1. **PCS v3 flash** N USDT from USDT/USDC.
-///         2. **Pendle V4 swapExactTokenForPt** USDT -> PT-sUSDe (BSC) — buy
+///         2. **Pendle V4 swapExactTokenForPt** USDT -> PT-sUSDe (BSC) - buy
 ///            BSC PT-sUSDe at YT-deepened discount when BSC's PT/SY market
 ///            yields > ETH's by 1-3 % APY (recurring during sUSDe APY drift).
 ///         3. **USDe / sUSDe OFT bridge** the underlying or wrapped SY back

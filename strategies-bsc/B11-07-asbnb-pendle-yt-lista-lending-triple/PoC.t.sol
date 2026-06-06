@@ -24,7 +24,7 @@ interface IPendleRouterV4Local {
         bytes swapData;
     }
 
-    /// @notice asBNB → YT-asBNB at the market. Mirrors mainnet shape.
+    /// @notice asBNB -> YT-asBNB at the market. Mirrors mainnet shape.
     function swapExactTokenForYt(
         address receiver,
         address market,
@@ -39,11 +39,11 @@ interface IPendleRouterV4Local {
 ///         finance it with a Lista-Lending lisUSD borrow against the
 ///         remaining asBNB collateral. YT-asBNB captures the entire
 ///         Astherus points stream at high implied leverage (because YT
-///         price ≈ time-value of points + stake yield), while the lending
+///         price ~ time-value of points + stake yield), while the lending
 ///         leg generates the BNB to mint more YT without burning principal.
 ///         Mechanism stack:
 ///           1. Astherus restake (asBNB mint)
-///           2. Pendle YT-asBNB long (points capture at ~20× implied
+///           2. Pendle YT-asBNB long (points capture at ~20x implied
 ///              leverage on the YT premium)
 ///           3. Lista Lending lisUSD borrow (cheap BNB-equivalent capital
 ///              to scale the YT position)
@@ -82,7 +82,7 @@ contract B11_07_AsBNBPendleYTListaLendingTriple is BSCStrategyBase {
         _trackToken(LOCAL_YT_ASBNB);
 
         _setOraclePrice(BSC.asBNB, 615e8);
-        // YT-asBNB ≈ 5 % of asBNB face (yield strip for ~90d).
+        // YT-asBNB ~ 5 % of asBNB face (yield strip for ~90d).
         _setOraclePrice(LOCAL_YT_ASBNB, 30_75_000_000); // $30.75
     }
 
@@ -143,7 +143,7 @@ contract B11_07_AsBNBPendleYTListaLendingTriple is BSCStrategyBase {
             return;
         }
 
-        // ---- 3. lisUSD → WBNB → BNB → asBNB. ----
+        // ---- 3. lisUSD -> WBNB -> BNB -> asBNB. ----
         IERC20(BSC.lisUSD).approve(BSC.PCS_V3_ROUTER, borrowAmt);
         uint256 wbnbOut;
         try router.exactInputSingle(
@@ -239,28 +239,28 @@ contract B11_07_AsBNBPendleYTListaLendingTriple is BSCStrategyBase {
         // Params:
         //   asBNB stake APY:            3.8 %
         //   Astherus points APY:        1.0 %  (USD-equiv assumption)
-        //   YT implied yield (asBNB):   4.8 %  (cost of YT = SY×asBNB/share)
-        //                                       — face stake APY + points
+        //   YT implied yield (asBNB):   4.8 %  (cost of YT = SYxasBNB/share)
+        //                                       - face stake APY + points
         //   Lista Lending lisUSD APR:   2.8 %
-        //   PCS lisUSD→WBNB slip:       0.10 %
+        //   PCS lisUSD->WBNB slip:       0.10 %
         //   Lista LTV * safety = 0.45  (asBNB CF 0.50)
         //
         //   Capital flow on 100 BNB:
-        //     Base 100 BNB → 97.56 asBNB (Astherus). Earns base 4.8 % over
+        //     Base 100 BNB -> 97.56 asBNB (Astherus). Earns base 4.8 % over
         //       90d on the SUPPLIED asBNB (Astherus accrues to underlying
         //       even while supplied to Lista) = +1.18 BNB.
         //     Borrow ~45 BNB-equiv lisUSD against 100 asBNB collateral.
-        //       Cost: 45 × 2.8 × 90/365 = 0.311 BNB.
-        //     45 BNB → 43.9 asBNB → long YT-asBNB.
-        //       YT face cashflow over 90d = 43.9 × 4.8 × 90/365 = +0.519
+        //       Cost: 45 x 2.8 x 90/365 = 0.311 BNB.
+        //     45 BNB -> 43.9 asBNB -> long YT-asBNB.
+        //       YT face cashflow over 90d = 43.9 x 4.8 x 90/365 = +0.519
         //       BNB-equiv (stake yield + points realised by YT holder).
         //       Cost of YT entry = ~5 % of face = 2.2 BNB at entry, but
         //       this is the same 43.9 asBNB notional, so we already
         //       expensed it via the borrow leg.
-        //     PCS slip one-off: 45 × 0.10 % = 0.045 BNB.
+        //     PCS slip one-off: 45 x 0.10 % = 0.045 BNB.
         //
         //   Net = 1.18 - 0.311 + 0.519 - 0.045 = +1.34 BNB per 100 BNB
-        //   ≈ +$806 over 90 days; ≈ 5.4 % APR-equiv.
+        //   ~ +$806 over 90 days; ~ 5.4 % APR-equiv.
         //
         //   Sensitivity: if Astherus points realise at ezETH-tier (3 % USD/yr)
         //   YT leg increases by ~0.4 BNB; net pushes to +1.7 BNB. With

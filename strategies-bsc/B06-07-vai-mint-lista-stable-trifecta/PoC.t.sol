@@ -19,7 +19,7 @@ interface IVenusVAIController {
 
 /// @title B06-07 VAI mint + PCS StableSwap LP + Lista lisUSD CDP (3-mech)
 /// @notice Three-mechanism stable trifecta on a single USDC collateral base:
-///         1. **Venus VAIController** mints VAI against vUSDC collateral —
+///         1. **Venus VAIController** mints VAI against vUSDC collateral -
 ///            free CDP capacity at 0 % stability fee while vUSDC keeps
 ///            earning supply APY.
 ///         2. **PCS StableSwap LP** parks the minted VAI into the canonical
@@ -27,8 +27,8 @@ interface IVenusVAIController {
 ///         3. **Lista Interaction** opens a *second* CDP using the LP token
 ///            (PCS pool LP) as exotic collateral (Lista allowlist required)
 ///            and mints lisUSD, which is then deposited into the same PCS
-///            StableSwap pool — double-recursive same-dollar carry.
-///         Net APY ≈ supplyAPY_vUSDC + LP_APR + LISTA_REBATE − VAI_fee −
+///            StableSwap pool - double-recursive same-dollar carry.
+///         Net APY ~ supplyAPY_vUSDC + LP_APR + LISTA_REBATE - VAI_fee -
 ///         LISTA_stability_fee. Each leg's notional is the same
 ///         **`PRINCIPAL_USDC`**, so the dollar earns three yields in
 ///         parallel.
@@ -99,18 +99,18 @@ contract B06_07_VAILisUSDTrifecta is BSCStrategyBase {
         IERC20(LOCAL_PCS_VAI_3POOL).approve(BSC.LISTA_INTERACTION, type(uint256).max);
         try lista.deposit(address(this), LOCAL_PCS_VAI_3POOL, lpAfterLeg2) {
             // Mint lisUSD against the LP collateral (safety haircut applied).
-            // Assume Lista LTV ≈ 70 % on stable LP → SAFETY_BPS applied on top.
+            // Assume Lista LTV ~ 70 % on stable LP -> SAFETY_BPS applied on top.
             uint256 mintLisUSD = (lpAfterLeg2 * 7_000 * SAFETY_BPS) / (10_000 * 10_000);
             try lista.borrow(LOCAL_PCS_VAI_3POOL, mintLisUSD) {} catch {
                 mintLisUSD = 0;
             }
             uint256 lisBal = IERC20(BSC.lisUSD).balanceOf(address(this));
             if (lisBal > 0) {
-                // Sell lisUSD → USDT (the closest StableSwap pair). For the
-                // PoC we route through PCS v3; here we assume lisUSD ≈ $1
+                // Sell lisUSD -> USDT (the closest StableSwap pair). For the
+                // PoC we route through PCS v3; here we assume lisUSD ~ $1
                 // and deposit it as USDT-equivalent by swapping via the
                 // StableSwap pool's USDT coin if listed, otherwise hold.
-                // (lisUSD is NOT a pool coin → we hold and let the price
+                // (lisUSD is NOT a pool coin -> we hold and let the price
                 // mark capture the yield through the oracle override.)
             }
         } catch {
@@ -118,7 +118,7 @@ contract B06_07_VAILisUSDTrifecta is BSCStrategyBase {
             // with only legs 1+2 active.
         }
 
-        // ---- 4. Hold 60 days — three legs accrue in parallel ----
+        // ---- 4. Hold 60 days - three legs accrue in parallel ----
         vm.warp(block.timestamp + HOLD_DAYS * 1 days);
         vm.roll(block.number + (HOLD_DAYS * 1 days) / SECS_PER_BLOCK);
 

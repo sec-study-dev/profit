@@ -15,7 +15,7 @@ import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 ///         Fund accumulating, sUSDe under-distributing) relative to the
 ///         on-chain perp-funding proxy, the strategy enters a directional
 ///         position on the *implied* APY by going long/short PT-sUSDe
-///         (via Pendle) — but on BSC we use a synthetic proxy:
+///         (via Pendle) - but on BSC we use a synthetic proxy:
 ///           - Long sUSDe + short USDe-pegged debt (Venus vUSDT) when
 ///             APY is *under-distributing* (Reserve Fund will release).
 ///           - Hold cash USDT + buy USDe on PCS v3 when APY is *over-
@@ -29,7 +29,7 @@ contract B05_08_PoC is BSCStrategyBase {
     uint256 constant PRINCIPAL_USDE = 100_000e18;
     uint256 constant HOLD_DAYS = 21; // 3 weeks; typical RF rebalance cadence
 
-    /// @dev On-chain perp-funding proxy (e.g. avg BTC/ETH perp funding × 365).
+    /// @dev On-chain perp-funding proxy (e.g. avg BTC/ETH perp funding x 365).
     /// @dev sUSDe APY observed on Ethena's distribution feed.
     uint256 constant ONCHAIN_FUNDING_APY_BPS = 1200; // 12% perp-funding proxy
     uint256 constant SUSDE_DISTRIBUTED_APY_BPS = 700; // 7% actual sUSDe APY
@@ -69,7 +69,7 @@ contract B05_08_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Forked branch — exercises the "long sUSDe at 1.5x" leg if the
+    // Forked branch - exercises the "long sUSDe at 1.5x" leg if the
     // off-chain signal indicates under-distribution.
     // ----------------------------------------------------------------
     function _runOnchainLong() internal {
@@ -111,10 +111,10 @@ contract B05_08_PoC is BSCStrategyBase {
                 uint256 usdeBal = IERC20(BSC.USDe).balanceOf(address(this));
                 if (usdeBal > 0) ISUSDe(BSC.sUSDe).deposit(usdeBal, address(this));
             } catch {
-                // PCS pool missing — proceed with offline projection PnL.
+                // PCS pool missing - proceed with offline projection PnL.
             }
         } catch {
-            // No collateral path (vsUSDe unlisted) — fall back to spot hold.
+            // No collateral path (vsUSDe unlisted) - fall back to spot hold.
         }
 
         vm.warp(block.timestamp + HOLD_DAYS * 1 days);
@@ -129,7 +129,7 @@ contract B05_08_PoC is BSCStrategyBase {
             ? ONCHAIN_FUNDING_APY_BPS - SUSDE_DISTRIBUTED_APY_BPS
             : SUSDE_DISTRIBUTED_APY_BPS - ONCHAIN_FUNDING_APY_BPS;
         if (gap < GAP_TRIGGER_BPS) {
-            // No trade — emit zero PnL.
+            // No trade - emit zero PnL.
             return;
         }
 
@@ -146,7 +146,7 @@ contract B05_08_PoC is BSCStrategyBase {
         int256 grossPnl = int256((collat * expectedApyBps * HOLD_DAYS) / (10_000 * 365));
         int256 borrowCost = int256((debt * VUSDT_BORROW_APR_BPS * HOLD_DAYS) / (10_000 * 365));
 
-        // Swap drag entering + exiting the levered leg: 2 × 11 bp on debt.
+        // Swap drag entering + exiting the levered leg: 2 x 11 bp on debt.
         int256 swapDrag = int256((debt * 22) / 10_000);
 
         int256 net = grossPnl - borrowCost - swapDrag;
@@ -161,7 +161,7 @@ contract B05_08_PoC is BSCStrategyBase {
             _fund(BSC.USDT, address(this), uint256(alpha));
         }
         // Negative-alpha branch: signal mis-fire. Surface the loss by
-        // burning USDT — but we keep PoC monotone (no negative settle).
+        // burning USDT - but we keep PoC monotone (no negative settle).
     }
 
     function _tryFork() internal returns (bool) {

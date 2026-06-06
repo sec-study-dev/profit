@@ -11,7 +11,7 @@ import {IPYieldToken} from "src/interfaces/pendle/IPYieldToken.sol";
 import {IStandardizedYield} from "src/interfaces/pendle/IStandardizedYield.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B04-01 — PT-sUSDe on Pendle BSC: cash-and-carry to maturity
+/// @title B04-01 - PT-sUSDe on Pendle BSC: cash-and-carry to maturity
 ///
 /// @notice Buy `PT-sUSDe-26JUN2025` on Pendle's BSC deployment at a fixed
 ///         discount, warp past maturity, then redeem PT 1:1 for SY -> USDC.

@@ -9,7 +9,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 // documentation only; uncomment when a real BSC fork is available):
 //   IWBNB, IListaInteraction, IListaStakeManager, IslisBNB, IPancakeV3Router
 
-/// @title B03-02 slisBNB · Lista CDP recursive leverage loop
+/// @title B03-02 slisBNB . Lista CDP recursive leverage loop
 /// @notice Multi-round (not single-tx) PoC. Each round:
 ///         1. Deposit slisBNB into Lista vault.
 ///         2. Borrow lisUSD against it (LTV target = TARGET_LTV_BPS).
@@ -26,7 +26,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 ///         accounting so the PoC compiles and reports a clean PnL line
 ///         without a live BSC fork.
 contract B03_02_SlisBnbListaCdpLeverageLoopTest is BSCStrategyBase {
-    /// @dev Late-2024 block — slisBNB is live; Lista vault is established.
+    /// @dev Late-2024 block - slisBNB is live; Lista vault is established.
     uint256 constant FORK_BLOCK = 42_500_000;
 
     /// @dev Target LTV per round in bps. 7500 = 75%.
@@ -71,14 +71,14 @@ contract B03_02_SlisBnbListaCdpLeverageLoopTest is BSCStrategyBase {
             //   );
             //
             // For offline mode, treat slisBNB as "locked" by transferring
-            // to a dead address — the test contract no longer owns it.
+            // to a dead address - the test contract no longer owns it.
             IERC20(BSC.slisBNB).transfer(address(0xCAFE), roundCollat);
             cumulativeCollat += roundCollat;
 
             // ---- 2. Borrow lisUSD at target LTV ----
             // slisBNB -> BNB via canonical rate (offline approx 1:1; in a
             // live run use convertSnBnbToBnb()).
-            uint256 slisInUsd = roundCollat; // 1 slisBNB ~ 1 BNB ~ $600 — see
+            uint256 slisInUsd = roundCollat; // 1 slisBNB ~ 1 BNB ~ $600 - see
             // _initDefaultPrices(); the PnL math treats every token at its
             // tracked price, so we mint lisUSD whose **par value** = LTV%
             // of the slisBNB collateral USD value.
@@ -122,15 +122,15 @@ contract B03_02_SlisBnbListaCdpLeverageLoopTest is BSCStrategyBase {
 
         // ---- 6. Apply carry over the holding period ----
         //
-        // For PnL display only — we credit slisBNB worth (APR × time)
-        // and debit lisUSD worth (borrow × time). The result is the
+        // For PnL display only - we credit slisBNB worth (APR x time)
+        // and debit lisUSD worth (borrow x time). The result is the
         // expected carry capture.
         uint256 collatYield = (cumulativeCollat * SLIS_BNB_APR_BPS * HOLD_DAYS)
             / (10_000 * 365);
         uint256 debtCost = (cumulativeDebt * LISUSD_BORROW_BPS * HOLD_DAYS)
             / (10_000 * 365);
         _fund(BSC.slisBNB, address(this), collatYield);
-        // debtCost lives as an extra unrepayable lisUSD obligation — for
+        // debtCost lives as an extra unrepayable lisUSD obligation - for
         // a closed-form PoC we model it by burning slisBNB worth the same
         // USD amount as the lisUSD borrow cost.
         // (1 slisBNB ~= $600, 1 lisUSD ~= $1.)

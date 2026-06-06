@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice Lista DAO CDP Interaction — open vaults, deposit collateral, mint
+/// @notice Lista DAO CDP Interaction - open vaults, deposit collateral, mint
 ///         lisUSD. MakerDAO-style architecture.
 interface IListaInteraction {
     /// @notice Deposit `amount` of `token` collateral into the user's CDP.

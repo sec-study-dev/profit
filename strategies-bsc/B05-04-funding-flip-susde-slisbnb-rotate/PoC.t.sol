@@ -51,7 +51,7 @@ contract B05_04_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Forked branch — the rotation itself is straightforward; the signal
+    // Forked branch - the rotation itself is straightforward; the signal
     // is off-chain so on the fork we just execute the legs.
     // ----------------------------------------------------------------
     function _runOnchainRotation() internal {
@@ -70,7 +70,7 @@ contract B05_04_PoC is BSCStrategyBase {
             recipient: address(this),
             deadline: block.timestamp + 60,
             amountIn: shares,
-            amountOutMinimum: (shares * 99) / 100, // wide 1% cap — pool is thin
+            amountOutMinimum: (shares * 99) / 100, // wide 1% cap - pool is thin
             sqrtPriceLimitX96: 0
         });
         uint256 usdtOut = IPancakeV3Router(BSC.PCS_V3_ROUTER).exactInputSingle(p1);

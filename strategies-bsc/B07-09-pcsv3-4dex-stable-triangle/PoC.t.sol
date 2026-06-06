@@ -10,9 +10,9 @@ import {IPancakeV2Router} from "src/interfaces/bsc/amm/IPancakeV2Router.sol";
 import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
 import {IThenaRouter} from "src/interfaces/bsc/amm/IThenaRouter.sol";
 
-/// @title B07-09 PCS v3 USDC flash → 4-DEX stable triangle (v2 + v3 + Wombat + Thena stable)
+/// @title B07-09 PCS v3 USDC flash -> 4-DEX stable triangle (v2 + v3 + Wombat + Thena stable)
 /// @notice Four BSC venues, each with a different invariant or pricing
-///         mechanism, route the same USDC↔USDT trade differently:
+///         mechanism, route the same USDC<->USDT trade differently:
 ///           - PancakeSwap v2 (constant-product, 0.25% fee). Catches
 ///             retail flow.
 ///           - PancakeSwap v3 0.01% USDT/USDC (concentrated band).
@@ -20,18 +20,18 @@ import {IThenaRouter} from "src/interfaces/bsc/amm/IThenaRouter.sol";
 ///           - Wombat Main Pool (dynamic-asset-weight StableSwap, ~5 bp
 ///             haircut at neutral coverage).
 ///           - Thena stable pair (Solidly stable invariant
-///             k = x³y + xy³, 0.04% fee). Often the most stale because
+///             k = x3y + xy3, 0.04% fee). Often the most stale because
 ///             LPs are bribe-driven.
 ///
 ///         The strategy picks the best two-hop cycle through three of
 ///         the four venues that produces a positive edge after the
-///         PCS v3 flash fee. With four venues there are 4·3·2 = 24
+///         PCS v3 flash fee. With four venues there are 4.3.2 = 24
 ///         ordered cycles; the PoC enumerates a curated subset (three
 ///         distinct cycles) representative of the family.
 /// @dev    Mechanism count: 3 (PCS v3 flash + at least two of: PCS v2,
 ///         Wombat, Thena stable). The fourth venue (PCS StableSwap) is
 ///         tracked as an alternate exit but not used in the active
-///         cycle in this PoC — it's in scope as a Wave 3 expansion.
+///         cycle in this PoC - it's in scope as a Wave 3 expansion.
 contract B07_09_PcsV3FourDexStableTriangleTest is BSCStrategyBase, IPancakeV3FlashCallback {
     uint256 internal constant FORK_BLOCK = 42_000_000;
 
@@ -42,25 +42,25 @@ contract B07_09_PcsV3FourDexStableTriangleTest is BSCStrategyBase, IPancakeV3Fla
     /// @dev Wombat main pool (USDT/USDC/BUSD basket).
     address internal constant WOMBAT_MAIN = BSC.WOMBAT_MAIN_POOL;
 
-    /// @dev Thena USDT/USDC STABLE pair (stable=true). Placeholder —
+    /// @dev Thena USDT/USDC STABLE pair (stable=true). Placeholder -
     ///      Wave 3 verify via `THENA_ROUTER.pairFor(USDT, USDC, true)`.
     address internal constant THENA_USDT_USDC_STABLE = 0x6321B57b6fdc14924be480c54e93294617E672aB;
 
-    /// @dev PCS v2 USDT/USDC pair (constant-product 0.25%). Placeholder —
+    /// @dev PCS v2 USDT/USDC pair (constant-product 0.25%). Placeholder -
     ///      derive at runtime via PCS_V2_FACTORY but PoC hardcodes for
     ///      grep visibility.
     address internal constant PCS_V2_USDT_USDC = 0xEc6557348085Aa57C72514D67070dC863C0a5A8c;
 
     /// @dev Flash USDC notional. 1M USDC; sized to keep each leg's
-    ///      impact ≤ 1% of its respective pool reserves.
+    ///      impact <= 1% of its respective pool reserves.
     uint256 internal constant FLASH_NOTIONAL_USDC = 1_000_000 ether;
 
     /// @dev Required net edge in bps (after summed fees).
     uint256 internal constant MIN_NET_EDGE_BPS = 3;
 
-    /// @dev Cycle selector. 0 = Wombat (USDC→USDT) + Thena stable (USDT→USDC).
-    ///      1 = Thena stable (USDC→USDT) + Wombat (USDT→USDC).
-    ///      2 = PCS v2 (USDC→USDT) + Wombat (USDT→USDC).
+    /// @dev Cycle selector. 0 = Wombat (USDC->USDT) + Thena stable (USDT->USDC).
+    ///      1 = Thena stable (USDC->USDT) + Wombat (USDT->USDC).
+    ///      2 = PCS v2 (USDC->USDT) + Wombat (USDT->USDC).
     enum Cycle { WombatToThena, ThenaToWombat, V2ToWombat }
 
     bool internal _flashActive;

@@ -7,7 +7,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IPancakeV3Pool} from "src/interfaces/bsc/amm/IPancakeV3Pool.sol";
 import {IPancakeV3Factory} from "src/interfaces/bsc/amm/IPancakeV3Factory.sol";
 
-/// @dev Minimal NPM (NonfungiblePositionManager) interface — PCS v3 mirrors
+/// @dev Minimal NPM (NonfungiblePositionManager) interface - PCS v3 mirrors
 ///      Uniswap v3 NPM almost 1:1.
 interface INonfungiblePositionManagerMin {
     struct MintParams {
@@ -40,16 +40,16 @@ interface IMasterChefV3Min {
     function v3PoolAddressPid(address pool) external view returns (uint256 pid);
 }
 
-/// @title B08-03 PCS v3 USDe/USDT concentrated LP → MasterChefV3
+/// @title B08-03 PCS v3 USDe/USDT concentrated LP -> MasterChefV3
 /// @notice Concentrated LP on the 0.01 % USDe/USDT pool, stake the NFT into
 ///         MasterChefV3 for CAKE emissions, warp one week, harvest and
 ///         off-ramp back to USDT.
 contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 40_000_000;
 
-    /// @dev BSC PCS v3 NonfungiblePositionManager. Not in BSC.sol → LOCAL_.
+    /// @dev BSC PCS v3 NonfungiblePositionManager. Not in BSC.sol -> LOCAL_.
     address internal constant LOCAL_NPM = 0x46A15B0b27311cedF172AB29E4f4766fbE7F4364;
-    /// @dev BSC PCS MasterChefV3. Not in BSC.sol → LOCAL_.
+    /// @dev BSC PCS MasterChefV3. Not in BSC.sol -> LOCAL_.
     address internal constant LOCAL_MASTERCHEF_V3 = 0x556B9306565093C855AEA9AE92A594704c2Cd59e;
 
     uint256 internal constant PRINCIPAL_USDT = 1_000_000e18; // BSC USDT is 18-dec
@@ -63,7 +63,7 @@ contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
     uint256 internal constant ASSUMED_CAKE_APR_BPS = 2_200;
     /// @dev Assumed weekly LP-fee accrual on notional, bps.
     uint256 internal constant ASSUMED_LP_FEE_BPS_WEEKLY = 5; // 0.05 %
-    /// @dev Slippage on CAKE → USDT off-ramp, bps.
+    /// @dev Slippage on CAKE -> USDT off-ramp, bps.
     uint256 internal constant HARVEST_SLIPPAGE_BPS = 40;
 
     function setUp() public {
@@ -88,7 +88,7 @@ contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
         (, int24 tickCurrent,,,,,) = p.slot0();
         int24 tickSpacing = p.tickSpacing();
 
-        // ---- 2. Half USDT → USDe via the same pool (modeled with 1:1 mark) ----
+        // ---- 2. Half USDT -> USDe via the same pool (modeled with 1:1 mark) ----
         // Production would call PCS v3 SwapRouter; we credit USDe at $1 via
         // _fund to keep the PoC offline. Net swap impact at 5 bp tier on
         // $500k is < 1 bp = negligible.
@@ -96,7 +96,7 @@ contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
         _fund(BSC.USDT, address(this), PRINCIPAL_USDT - half);
         _fund(BSC.USDe, address(this), half);
 
-        // ---- 3. Mint NFT position [tickCurrent ± TICK_HALF_WIDTH] ----
+        // ---- 3. Mint NFT position [tickCurrent  TICK_HALF_WIDTH] ----
         // Snap to tickSpacing.
         int24 tickLower = _snapTick(tickCurrent - TICK_HALF_WIDTH, tickSpacing);
         int24 tickUpper = _snapTick(tickCurrent + TICK_HALF_WIDTH, tickSpacing);
@@ -144,15 +144,15 @@ contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
         }
 
         // ---- 7. Modeled CAKE credit + LP fees ----
-        // notionalUsdE6 = 1_000_000 * 1e6 ≈ 1e12 (1M USD in 1e6 USD scale).
-        uint256 notionalUsdE6 = PRINCIPAL_USDT / 1e12; // 1e18 → 1e6 USD
+        // notionalUsdE6 = 1_000_000 * 1e6 ~ 1e12 (1M USD in 1e6 USD scale).
+        uint256 notionalUsdE6 = PRINCIPAL_USDT / 1e12; // 1e18 -> 1e6 USD
         uint256 weeklyCakeUsdE6 = (notionalUsdE6 * ASSUMED_CAKE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
         // CAKE amount: weeklyCakeUsdE6 / CAKE_PRICE_E8 * 1e18 / 1e2
         // = weeklyCakeUsdE6 * 1e16 / CAKE_PRICE_E8
         uint256 cakeAmt = (weeklyCakeUsdE6 * 1e16) / CAKE_PRICE_E8;
         _fund(BSC.CAKE, address(this), IERC20(BSC.CAKE).balanceOf(address(this)) + cakeAmt);
 
-        // ---- 8. Sell CAKE → USDT (modeled at price - slippage) ----
+        // ---- 8. Sell CAKE -> USDT (modeled at price - slippage) ----
         uint256 cakeBal = IERC20(BSC.CAKE).balanceOf(address(this));
         // usdt_out = cakeBal * CAKE_PRICE_E8 / 1e8 * (1 - slip)
         uint256 usdtFromCake =
@@ -168,7 +168,7 @@ contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
         //         call DecreaseLiquidity (out of scope for emission-yield
         //         measurement) so the LP notional remains "locked" inside the
         //         position. We mark it via a price override on the pool addr
-        //         that represents fair value of one NFT — too granular for
+        //         that represents fair value of one NFT - too granular for
         //         offline measurement. Instead, credit USDT 1:1 for the
         //         half + half tokens we no longer hold to approximate. ----
         try mc.withdraw(tokenId, address(this)) {

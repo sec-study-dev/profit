@@ -7,7 +7,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IListaLending} from "src/interfaces/bsc/mm/IListaLending.sol";
 import {IWombatRouter} from "src/interfaces/bsc/amm/IWombatRouter.sol";
 
-/// @title B14-03 PoC — lisUSD savings wrapper recursively folded via Lista Lending
+/// @title B14-03 PoC - lisUSD savings wrapper recursively folded via Lista Lending
 /// @notice lisUSD is treated as a yield-bearing wrapper carrying Lista DAO's
 ///         savings APR plus Lista Lending's supply incentive. The position
 ///         is fully intra-Lista (Lista Lending + Wombat lisUSD pool).
@@ -91,7 +91,7 @@ contract B14_03_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Offline branch — closed-form projection.
+    // Offline branch - closed-form projection.
     // ----------------------------------------------------------------
     function _runOfflineProjection() internal {
         // Levered series.

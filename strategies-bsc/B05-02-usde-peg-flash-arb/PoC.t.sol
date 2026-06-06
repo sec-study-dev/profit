@@ -122,7 +122,7 @@ contract B05_02_PoC is BSCStrategyBase, IPancakeV3FlashCallback {
     }
 
     // ----------------------------------------------------------------
-    // Offline projection — closed-form
+    // Offline projection - closed-form
     // ----------------------------------------------------------------
     function _runOfflineProjection() internal {
         uint256 X = FLASH_NOTIONAL;

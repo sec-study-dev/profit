@@ -10,7 +10,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 //
 // Mechanism composition (3 distinct BSC primitives):
 //   (1) PancakeSwap v3 single-pool FLASH for capital (5 bp on WBNB/USDT pool)
-//   (2) Wombat StableSwap (LST-class pool) — uses dynamic asset weight to
+//   (2) Wombat StableSwap (LST-class pool) - uses dynamic asset weight to
 //       quote a stkBNB <-> WBNB price that lags the pSTAKE oracle by minutes
 //   (3) Lista StakeManager `convertSnBnbToBnb` (internal rate) as the
 //       redemption-price source-of-truth for the slisBNB leg
@@ -28,7 +28,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 //       than the ratio of (Lista internal rate / pSTAKE internal rate).
 //
 //   This is strictly richer than any 2-mechanism arb because the closing
-//   trade is denominated in a *different* LST than the opening trade — no
+//   trade is denominated in a *different* LST than the opening trade - no
 //   single counterparty observes both legs simultaneously, so the surface
 //   persists much longer than slisBNB/WBNB or stkBNB/WBNB alone.
 // ---------------------------------------------------------------------------
@@ -124,9 +124,9 @@ contract B02_06_stkBNB_slisBNB_Wombat_Triangle is BSCStrategyBase, IPancakeV3Fla
         _trackToken(LOCAL_stkBNB);
         _trackToken(LOCAL_slisBNB);
         _setOraclePrice(LOCAL_WBNB, 600e8);
-        // stkBNB priced at pSTAKE internal rate ≈ 1.094 BNB → $656.40
+        // stkBNB priced at pSTAKE internal rate ~ 1.094 BNB -> $656.40
         _setOraclePrice(LOCAL_stkBNB, 656_4000_0000);
-        // slisBNB priced at Lista internal rate ≈ 1.082 BNB → $649.20
+        // slisBNB priced at Lista internal rate ~ 1.082 BNB -> $649.20
         _setOraclePrice(LOCAL_slisBNB, 649_2000_0000);
     }
 
@@ -193,11 +193,11 @@ contract B02_06_stkBNB_slisBNB_Wombat_Triangle is BSCStrategyBase, IPancakeV3Fla
 
     function _offlinePnLCheck() internal {
         // Assumed surface (post pSTAKE reward push, pre-Wombat rebalance):
-        //   Wombat: 1 WBNB -> 0.918 stkBNB (vs pSTAKE fair 1/1.094 = 0.914) → +4 bp
+        //   Wombat: 1 WBNB -> 0.918 stkBNB (vs pSTAKE fair 1/1.094 = 0.914) -> +4 bp
         //   PCS v3 cross-LST: 1 stkBNB -> 1.011 slisBNB (vs ratio 1.094/1.082 = 1.0111)
-        //   Internal: 1.011 slisBNB → 1.011 * 1.082 = 1.094 BNB
-        //   Total: 0.918 * 1.011 * 1.082 = 1.0042 BNB per WBNB → +42 bp
-        //   Minus flash 5 bp → net +37 bp.
+        //   Internal: 1.011 slisBNB -> 1.011 * 1.082 = 1.094 BNB
+        //   Total: 0.918 * 1.011 * 1.082 = 1.0042 BNB per WBNB -> +42 bp
+        //   Minus flash 5 bp -> net +37 bp.
         uint256 n = FLASH_NOTIONAL;
         uint256 simStk = n * 918 / 1_000;
         uint256 simSlis = simStk * 1011 / 1_000;

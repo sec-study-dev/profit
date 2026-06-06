@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice Lista DAO StakeManager — BNB <-> slisBNB conversion source of truth.
+/// @notice Lista DAO StakeManager - BNB <-> slisBNB conversion source of truth.
 /// @dev    The StakeManager is the official redeem path: convertBnbToSnBnb +
 ///         requestWithdraw, and the canonical exchange-rate oracle.
 interface IListaStakeManager {

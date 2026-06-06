@@ -27,24 +27,24 @@ import {IPancakeV3Pool, IPancakeV3FlashCallback} from "src/interfaces/bsc/amm/IP
 ///         reports the *theoretical* depeg capture cleanly without
 ///         requiring a real depegged fork block.
 contract B03_01_LisUSDDepegArbTest is BSCStrategyBase, IPancakeV3FlashCallback {
-    // Fork block: post-USDe BSC launch window (Q3 2024) — chosen so all
+    // Fork block: post-USDe BSC launch window (Q3 2024) - chosen so all
     // BSC.* addresses are live. // TODO verify: pick a block where the
     // PCS v3 lisUSD/USDT pool actually shows a >=30bp lisUSD discount.
     uint256 constant FORK_BLOCK = 42_500_000;
 
-    /// @dev USDT/USDC PCS v3 1bp pool — primary source of cheap USDT flash.
+    /// @dev USDT/USDC PCS v3 1bp pool - primary source of cheap USDT flash.
     ///      // TODO verify deployed fee tier.
     uint24 constant USDT_USDC_FEE = 100; // 1 bp
-    /// @dev lisUSD/USDT PCS v3 pool fee — assume 1bp stable-stable tier.
+    /// @dev lisUSD/USDT PCS v3 pool fee - assume 1bp stable-stable tier.
     uint24 constant LISUSD_USDT_FEE = 100;
 
     uint256 constant FLASH_NOTIONAL = 1_000_000 * 1e18; // 1M USDT (18 dec on BSC)
 
     /// @dev Simulated lisUSD depeg, basis points below par.
-    uint256 constant DEPEG_BPS = 50; // 50 bp discount → 1 USDT buys 1.005 lisUSD
+    uint256 constant DEPEG_BPS = 50; // 50 bp discount -> 1 USDT buys 1.005 lisUSD
 
     /// @dev Pre-funded repayment buffer (allows the PoC to model the
-    ///      "freed collateral → USDT" leg without a live Lista call).
+    ///      "freed collateral -> USDT" leg without a live Lista call).
     uint256 constant REPAY_BUFFER = 1_001 * 1e18;
 
     address internal flashPool;
@@ -102,7 +102,7 @@ contract B03_01_LisUSDDepegArbTest is BSCStrategyBase, IPancakeV3FlashCallback {
         // ---- 2. Swap USDT -> lisUSD at depegged price ---------------
         //
         // We *model* the depeg by directly minting the lisUSD output
-        // (1 + DEPEG_BPS) instead of routing through the pool — the
+        // (1 + DEPEG_BPS) instead of routing through the pool - the
         // real arb requires a fork block at which `lisUsdtPool` is
         // genuinely off-peg, which is left as a `// TODO verify` for the
         // live run. In production this is a single `exactInputSingle`.

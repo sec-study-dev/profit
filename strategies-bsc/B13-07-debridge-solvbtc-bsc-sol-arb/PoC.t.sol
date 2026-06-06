@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
 // ---------------------------------------------------------------------------
-// Inlined interfaces — same checksum-bug rationale as other B13-* PoCs.
+// Inlined interfaces - same checksum-bug rationale as other B13-* PoCs.
 // ---------------------------------------------------------------------------
 
 interface IERC20 {
@@ -44,7 +44,7 @@ interface IPancakeV3Router {
     function exactInputSingle(ExactInputSingleParams calldata) external payable returns (uint256);
 }
 
-/// @notice Minimal Wombat-router shape — Wombat is the third venue used for
+/// @notice Minimal Wombat-router shape - Wombat is the third venue used for
 ///         the BTCB <-> solvBTC stable-asset swap on BSC.
 interface IWombatRouter {
     function swapExactTokensForTokens(
@@ -58,7 +58,7 @@ interface IWombatRouter {
 }
 
 /// @notice deBridge `DlnSource` order-creation interface. We model the
-///         essentials of `createOrder` — taker bidding finalises out-of-
+///         essentials of `createOrder` - taker bidding finalises out-of-
 ///         band, so the PoC bookings happen via balance deltas.
 interface IDlnSource {
     struct OrderCreation {
@@ -155,7 +155,6 @@ abstract contract BSCStrategyBase is Test {
         return -int256((uint256(-d) * m) / div);
     }
 
-    receive() external payable {}
 }
 
 /// @title B13-07 deBridge solvBTC BSC <-> Solana arb w/ 3 venues

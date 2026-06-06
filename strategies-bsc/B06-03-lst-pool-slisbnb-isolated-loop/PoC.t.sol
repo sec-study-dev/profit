@@ -10,10 +10,10 @@ import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {IListaStakeManager} from "src/interfaces/bsc/lst/IListaStakeManager.sol";
 import {IslisBNB} from "src/interfaces/bsc/lst/IslisBNB.sol";
 
-/// @title B06-03 Venus LST isolated pool — slisBNB high-LTV loop
+/// @title B06-03 Venus LST isolated pool - slisBNB high-LTV loop
 /// @notice Same recursive shape as B01-01, but routed through the LST
-///         isolated-pool Comptroller (higher CF for slisBNB → higher
-///         effective leverage → wider stake-vs-borrow spread). Differential
+///         isolated-pool Comptroller (higher CF for slisBNB -> higher
+///         effective leverage -> wider stake-vs-borrow spread). Differential
 ///         payoff vs B01-01 is the family edge.
 contract B06_03_VenusLSTPoolSlisBNBLoopTest is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 42_500_000;
@@ -59,9 +59,9 @@ contract B06_03_VenusLSTPoolSlisBNBLoopTest is BSCStrategyBase {
 
         uint256 bnbToStake = address(this).balance;
 
-        // ---- 2. Iteratively stake → supply → borrow ----
+        // ---- 2. Iteratively stake -> supply -> borrow ----
         for (uint256 i = 0; i < ITERATIONS; i++) {
-            // 2a. BNB → slisBNB.
+            // 2a. BNB -> slisBNB.
             sm.deposit{value: bnbToStake}();
             uint256 slisBal = slis.balanceOf(address(this));
 
@@ -86,7 +86,7 @@ contract B06_03_VenusLSTPoolSlisBNBLoopTest is BSCStrategyBase {
             if (bnbToStake == 0) break;
         }
 
-        // Final dust → slisBNB → supply (saturate but don't borrow).
+        // Final dust -> slisBNB -> supply (saturate but don't borrow).
         if (address(this).balance > 0) {
             sm.deposit{value: address(this).balance}();
             uint256 finalSlis = slis.balanceOf(address(this));

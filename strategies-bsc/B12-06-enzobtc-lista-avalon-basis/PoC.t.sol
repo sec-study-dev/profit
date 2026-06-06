@@ -24,9 +24,9 @@ contract B12_06_EnzoBTC_Lista_Avalon_Basis is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 47_900_000;
 
     /// @dev enzoBTC ERC20 on BSC (Lorenzo Protocol). TODO verify.
-    address internal constant LOCAL_ENZOBTC = 0x6Ec1c8A0f7BBdf6D6D27dFc6F5a48aC18A3C28DC;
+    address internal constant LOCAL_ENZOBTC = 0x6eC1c8A0F7BBdf6d6d27DFC6f5a48Ac18a3C28dc;
     /// @dev enzoBTC minter (BTCB -> enzoBTC). TODO verify.
-    address internal constant LOCAL_ENZOBTC_MINTER = 0x0000000000000000000000000000000000B12061;
+    address internal constant LOCAL_ENZOBTC_MINTER = 0x0000000000000000000000000000000000b12061;
     /// @dev Avalon USDX. TODO verify.
     address internal constant LOCAL_USDX = 0xf3527ef8dE265eAa3716FB312c12847bFBA66Cef;
 
@@ -164,7 +164,7 @@ contract B12_06_EnzoBTC_Lista_Avalon_Basis is BSCStrategyBase {
             uint256 enzoOut = _mintEnzoBTC(btcbOut);
             if (enzoOut == 0) break;
 
-            // Route subsequent supply to Lista (this is the basis edge —
+            // Route subsequent supply to Lista (this is the basis edge -
             // each new BTC unit goes to the higher-APY market).
             try lista.supply(LOCAL_ENZOBTC, enzoOut, address(this)) {
                 // ok

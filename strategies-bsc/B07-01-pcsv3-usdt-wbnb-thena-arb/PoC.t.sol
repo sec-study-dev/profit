@@ -9,18 +9,18 @@ import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 import {IThenaRouter} from "src/interfaces/bsc/amm/IThenaRouter.sol";
 import {IThenaPair} from "src/interfaces/bsc/amm/IThenaPair.sol";
 
-/// @title B07-01 PCS v3 USDT/WBNB 0.01% flash → Thena USDT/WBNB volatile pair arb
+/// @title B07-01 PCS v3 USDT/WBNB 0.01% flash -> Thena USDT/WBNB volatile pair arb
 /// @notice Atomic cross-DEX arbitrage. The PCS v3 USDT/WBNB 0.01% pool is the
 ///         dominant venue for spot BNB pricing on BSC; Thena's USDT/WBNB
-///         volatile pair often lags by 5–15 bp during BNB price moves because
+///         volatile pair often lags by 5-15 bp during BNB price moves because
 ///         its TVL is an order of magnitude smaller. The strategy borrows
 ///         WBNB fee-only from the PCS v3 pool (10 bps annualised fee), sells
 ///         it for USDT on Thena at the lagged price, then buys WBNB back on
 ///         PCS v3 at the fresh price, and repays the flash. Profit = price
-///         delta − PCS v3 flash fee (0.01% × notional) − Thena 0.20% swap fee
-///         − PCS v3 swap fee on the return leg.
+///         delta - PCS v3 flash fee (0.01% x notional) - Thena 0.20% swap fee
+///         - PCS v3 swap fee on the return leg.
 contract B07_01_PcsV3UsdtWbnbThenaArbTest is BSCStrategyBase, IPancakeV3FlashCallback {
-    /// @dev Pinned block — re-pin to the first block after a >15 bp gap
+    /// @dev Pinned block - re-pin to the first block after a >15 bp gap
     ///      between PCS v3 0.01% USDT/WBNB mid and the Thena vAMM mid.
     uint256 internal constant FORK_BLOCK = 42_000_000;
 
@@ -34,17 +34,17 @@ contract B07_01_PcsV3UsdtWbnbThenaArbTest is BSCStrategyBase, IPancakeV3FlashCal
     /// @dev Thena WBNB/USDT volatile (non-stable) pair. The Solidly factory
     ///      hashes the pair address from (token0, token1, stable); volatile
     ///      = false is the canonical BNB/USDT route on Thena.
-    /// @dev Placeholder — Wave 3 verify against `IThenaRouter.pairFor(WBNB,
+    /// @dev Placeholder - Wave 3 verify against `IThenaRouter.pairFor(WBNB,
     ///      USDT, false)` on the pinned block.
     address internal constant THENA_WBNB_USDT_VOLATILE = 0x6BBCD4Dc0EA9bF1bc78C4e3e7Caf44b96F30a0ED;
 
-    /// @dev Flash notional in WBNB (1e18). 200 WBNB ≈ $120k @ $600/BNB. Sized
+    /// @dev Flash notional in WBNB (1e18). 200 WBNB ~ $120k @ $600/BNB. Sized
     ///      so the PCS v3 flash fee is ~0.02 BNB (= $12) while the arb edge
-    ///      at 10 bps gap is ~$120 — net edge ≈ $90 after Thena 0.20% fee.
+    ///      at 10 bps gap is ~$120 - net edge ~ $90 after Thena 0.20% fee.
     uint256 internal constant FLASH_NOTIONAL_WBNB = 200 ether;
 
     /// @dev Minimum spread (bps of mid) below which we abort instead of
-    ///      reverting — preserves the strategy as a queryable witness for
+    ///      reverting - preserves the strategy as a queryable witness for
     ///      Wave 3 grep tooling.
     uint256 internal constant MIN_SPREAD_BPS = 5;
 
@@ -80,7 +80,7 @@ contract B07_01_PcsV3UsdtWbnbThenaArbTest is BSCStrategyBase, IPancakeV3FlashCal
         emit log_named_uint("B07-01: pcsv3_mid_usdt_per_wbnb_1e18", pcsMidE18);
         emit log_named_uint("B07-01: thena_mid_usdt_per_wbnb_1e18", thenaMidE18);
 
-        // We profit if Thena pays MORE USDT per WBNB than PCS — sell WBNB on
+        // We profit if Thena pays MORE USDT per WBNB than PCS - sell WBNB on
         // Thena, buy WBNB back on PCS. Spread of interest is (thena - pcs)/pcs.
         if (thenaMidE18 <= pcsMidE18) {
             emit log_string("B07-01: skipped (no profitable direction at this block)");

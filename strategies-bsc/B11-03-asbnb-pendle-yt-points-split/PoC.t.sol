@@ -13,7 +13,7 @@ interface IAstherusStakeManagerLocal {
 }
 
 /// @notice Minimal Pendle Router V4 surface (BSC deployment shares the
-///         mainnet ABI). All calls are guarded with try/catch — the BSC
+///         mainnet ABI). All calls are guarded with try/catch - the BSC
 ///         router address is reused-from-mainnet and flagged TODO verify.
 interface IPendleRouterV4Local {
     struct ApproxParams {
@@ -38,26 +38,26 @@ interface IPendleRouterV4Local {
         payable
         returns (uint256 netSyOut);
 
-    /// @notice Split SY → (PT, YT) at a market.
+    /// @notice Split SY -> (PT, YT) at a market.
     function mintPyFromSy(address receiver, address YT, uint256 netSyIn, uint256 minPyOut)
         external
         returns (uint256 netPyOut);
 }
 
-/// @title B11-03 asBNB → Pendle YT-asBNB points-split / cash-and-carry
+/// @title B11-03 asBNB -> Pendle YT-asBNB points-split / cash-and-carry
 /// @notice Pendle splits asBNB cashflows into:
-///           PT-asBNB → the BNB-denominated principal, redeems 1:1 at expiry
-///           YT-asBNB → the yield strip + Astherus points stream
+///           PT-asBNB -> the BNB-denominated principal, redeems 1:1 at expiry
+///           YT-asBNB -> the yield strip + Astherus points stream
 ///         Two complementary positions:
 ///           (a) Sell YT (or hold PT only) to lock in fixed BNB carry up to
-///               expiry — cash-and-carry; full upside foregone.
+///               expiry - cash-and-carry; full upside foregone.
 ///           (b) Buy YT only to long the points stream at high implied
 ///               leverage; principal capped at YT premium.
 ///         This PoC implements *both legs* on the same 100 BNB principal:
-///           50 BNB → PT-asBNB (lock fixed yield)
-///           50 BNB → YT-asBNB (long points)
+///           50 BNB -> PT-asBNB (lock fixed yield)
+///           50 BNB -> YT-asBNB (long points)
 ///         Together this is a synthetic "all the yield + all the points"
-///         exposure that B11-01 produces, but funded with 0× lending leverage.
+///         exposure that B11-01 produces, but funded with 0x lending leverage.
 /// @dev    BSC Pendle router address is reused-from-mainnet in `BSC.sol`
 ///         (still TODO verify). All router calls are try/catch'd.
 contract B11_03_AsBNBPendleYTPointsSplit is BSCStrategyBase {
@@ -92,9 +92,9 @@ contract B11_03_AsBNBPendleYTPointsSplit is BSCStrategyBase {
         _trackToken(LOCAL_YT_ASBNB);
         _setOraclePrice(BSC.asBNB, 615e8);
         // PT-asBNB trades at a discount to asBNB; assume 95 % of asBNB at
-        // pinned block (≈ 4.5 % implied APY * 90/365). 0.95 * 615 = 584.25.
+        // pinned block (~ 4.5 % implied APY * 90/365). 0.95 * 615 = 584.25.
         _setOraclePrice(LOCAL_PT_ASBNB, 584_25_000_000);
-        // YT-asBNB price = asBNB - PT. ≈ 5 % of asBNB at the pinned block.
+        // YT-asBNB price = asBNB - PT. ~ 5 % of asBNB at the pinned block.
         _setOraclePrice(LOCAL_YT_ASBNB, 30_75_000_000); // 30.75 USD
     }
 
@@ -149,7 +149,7 @@ contract B11_03_AsBNBPendleYTPointsSplit is BSCStrategyBase {
             return;
         }
 
-        // ---- 3. Split SY → (PT, YT) on a 50/50 basis.
+        // ---- 3. Split SY -> (PT, YT) on a 50/50 basis.
         //    mintPyFromSy mints equal PT+YT, so we route 100% through
         //    splitter and the two legs are economically held jointly: we then
         //    re-sell half the YT to lock in a PT-heavy position. Simplified
@@ -171,7 +171,7 @@ contract B11_03_AsBNBPendleYTPointsSplit is BSCStrategyBase {
             _setOraclePrice(BSC.asBNB, asPriceE8);
             // PT at maturity == 1.0 asBNB.
             _setOraclePrice(LOCAL_PT_ASBNB, asPriceE8);
-            // YT at maturity → ~0 token price, but cumulative claims should
+            // YT at maturity -> ~0 token price, but cumulative claims should
             // have been claimed into asBNB / rewards. Approximate residual = 0.
             _setOraclePrice(LOCAL_YT_ASBNB, 0);
         } catch {}
@@ -206,13 +206,13 @@ contract B11_03_AsBNBPendleYTPointsSplit is BSCStrategyBase {
     /// @dev Offline-first sim. Models PT + YT held to maturity.
     function _offlinePnLCheck() internal {
         // Params:
-        //   t=0 asBNB/BNB rate:   1.025  (so 100 BNB → 97.56 asBNB)
-        //   t=90d asBNB/BNB rate: 1.025 × (1 + 3.8% × 90/365) = 1.0346
+        //   t=0 asBNB/BNB rate:   1.025  (so 100 BNB -> 97.56 asBNB)
+        //   t=90d asBNB/BNB rate: 1.025 x (1 + 3.8% x 90/365) = 1.0346
         //   So 97.56 asBNB at maturity = 100.93 BNB (locked-in stake yield).
         //
-        //   Astherus points over 90d (per asBNB held): ~1.0% × 90/365 = 0.247%
-        //   USD-equivalent. On 97.56 asBNB at $615 → $60,000 NAV → $148 points.
-        //   In BNB units (≈ $600/BNB) that's +0.247 BNB.
+        //   Astherus points over 90d (per asBNB held): ~1.0% x 90/365 = 0.247%
+        //   USD-equivalent. On 97.56 asBNB at $615 -> $60,000 NAV -> $148 points.
+        //   In BNB units (~ $600/BNB) that's +0.247 BNB.
         //
         // Net realised over 90d: +0.93 BNB stake APY + 0.247 BNB points
         //                      = +1.18 BNB per 100 BNB notional. (no leverage)

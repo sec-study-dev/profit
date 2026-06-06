@@ -44,7 +44,7 @@ contract B08_07_ThenaBribeFrontrunTest is BSCStrategyBase {
     uint256 internal constant LOCK_THE = 500_000e18;
     uint256 internal constant LOCK_DURATION = 2 * 365 days;
     uint256 internal constant EPOCH = 7 days;
-    /// @dev Front-run window — last 60 minutes before epoch close.
+    /// @dev Front-run window - last 60 minutes before epoch close.
     uint256 internal constant FRONTRUN_WINDOW = 1 hours;
 
     uint256 internal constant THE_PRICE_E8 = 0.30e8;
@@ -66,7 +66,7 @@ contract B08_07_ThenaBribeFrontrunTest is BSCStrategyBase {
         _fund(BSC.THE, address(this), LOCK_THE);
         _startPnL();
 
-        // ---- 1. Lock THE → veTHE NFT (but do NOT vote yet) ----
+        // ---- 1. Lock THE -> veTHE NFT (but do NOT vote yet) ----
         IERC20(BSC.THE).approve(BSC.veTHE, type(uint256).max);
         IveTHE ve = IveTHE(BSC.veTHE);
         uint256 tokenId = ve.create_lock(LOCK_THE, LOCK_DURATION);

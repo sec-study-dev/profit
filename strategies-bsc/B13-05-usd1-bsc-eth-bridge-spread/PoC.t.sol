@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
 // ---------------------------------------------------------------------------
-// Inlined interfaces — `src/constants/BSC.sol` has pre-existing checksum
+// Inlined interfaces - `src/constants/BSC.sol` has pre-existing checksum
 // errors (same root cause noted in B13-01..04). Following the project
 // convention for B13-* we inline addresses + ABIs we actually use.
 // ---------------------------------------------------------------------------
@@ -48,7 +48,7 @@ interface IPancakeV3Router {
 
 /// @notice Generic LayerZero-V2-style burnAndSend interface used by USD1's
 ///         official bridge (WLF have stated USD1 uses LayerZero OFT in their
-///         docs — adapter address TODO when deployed).
+///         docs - adapter address TODO when deployed).
 interface IUSD1Bridge {
     struct SendParam {
         uint32 dstEid;
@@ -155,7 +155,6 @@ abstract contract BSCStrategyBase is Test {
         return -int256((uint256(-d) * m) / div);
     }
 
-    receive() external payable {}
 }
 
 /// @title B13-05 USD1 BSC <-> ETH bridge spread
@@ -168,7 +167,7 @@ abstract contract BSCStrategyBase is Test {
 ///            is atomic; the ETH-side credit lands within one LZ DVN window.
 ///         4. Repay flash from a pre-funded USDT buffer modelling the
 ///            re-bridged USDT proceeds.
-/// @dev    USD1 is a fresh launch — the BSC <-> ETH bridge adapter address is
+/// @dev    USD1 is a fresh launch - the BSC <-> ETH bridge adapter address is
 ///         still TODO. PoC runs offline-first against an assumed 25 bp
 ///         discount window; once the adapter is wired the same callback path
 ///         runs on-chain.
@@ -198,7 +197,7 @@ contract B13_05_USD1_BSC_ETH_Bridge_Spread is BSCStrategyBase, IPancakeV3FlashCa
 
     /// @dev USDT/USDC pool fee (0.01%).
     uint24 constant FLASH_FEE_TIER = 100;
-    /// @dev USD1/USDT pool fee tier — assumed 0.05% (stable-but-thinner).
+    /// @dev USD1/USDT pool fee tier - assumed 0.05% (stable-but-thinner).
     uint24 constant SWAP_FEE_TIER = 500;
     /// @dev LayerZero endpoint id for Ethereum mainnet.
     uint32 constant ETH_EID = 30101;

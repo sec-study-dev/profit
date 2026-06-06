@@ -15,7 +15,7 @@ interface IAstherusStakeManagerLocal {
     function convertToAssets(uint256 shares) external view returns (uint256);
 }
 
-/// @notice Minimal Pendle Router V4 surface — reused-from-mainnet ABI; address
+/// @notice Minimal Pendle Router V4 surface - reused-from-mainnet ABI; address
 ///         still TODO verify in BSC.sol. Calls are try/catch'd.
 interface IPendleRouterV4Local {
     struct TokenInput {
@@ -38,24 +38,24 @@ interface IPendleRouterV4Local {
 }
 
 /// @title B11-05 asBNB + Lista CDP + Pendle PT-asBNB triple stack
-/// @notice 3-mechanism stack — Astherus restake (mechanism 1) supplies the
+/// @notice 3-mechanism stack - Astherus restake (mechanism 1) supplies the
 ///         asBNB underlying; Lista CDP (mechanism 2) mints lisUSD against
 ///         asBNB collateral; the borrowed lisUSD is routed back to BNB on
 ///         PCS v3 and then locked into Pendle PT-asBNB (mechanism 3) to
 ///         monetise the maturity discount as a fixed-rate add-on.
 ///         Net effect on 100 BNB capital:
-///           - 100 BNB → asBNB (Astherus). Earns validator yield + Astherus
+///           - 100 BNB -> asBNB (Astherus). Earns validator yield + Astherus
 ///             points on this base layer.
 ///           - Deposit asBNB to Lista CDP, mint X lisUSD up to 65 % LTV.
-///           - lisUSD → BNB on PCS v3.
-///           - BNB → asBNB → PT-asBNB on Pendle. PT pulls toward 1 asBNB at
-///             expiry → locked-in fixed BNB carry on top of the leveraged
+///           - lisUSD -> BNB on PCS v3.
+///           - BNB -> asBNB -> PT-asBNB on Pendle. PT pulls toward 1 asBNB at
+///             expiry -> locked-in fixed BNB carry on top of the leveraged
 ///             leg.
 ///         Compared to B11-01/02, this is **non-recursive** but stacks three
 ///         orthogonal yield streams (Astherus, CDP-stable borrow, Pendle
 ///         fixed) on the same principal.
 /// @dev    All three core surfaces (asBNB, ASTHERUS, Pendle, Lista CDP) are
-///         flagged TODO verify in BSC.sol — the PoC is offline-first and
+///         flagged TODO verify in BSC.sol - the PoC is offline-first and
 ///         degrades to a documented-rates simulation when any address has
 ///         no code at the pinned block.
 contract B11_05_AsBNBListaCDPPendlePtTriple is BSCStrategyBase {
@@ -71,7 +71,7 @@ contract B11_05_AsBNBListaCDPPendlePtTriple is BSCStrategyBase {
     uint256 internal constant CDP_LTV_BPS = 6_500;
     /// @dev Extra safety haircut on top of CDP LTV.
     uint256 internal constant SAFETY_BPS = 9_000;
-    /// @dev Hold horizon — match Pendle PT 90-day expiry.
+    /// @dev Hold horizon - match Pendle PT 90-day expiry.
     uint256 internal constant TIME_TO_EXPIRY_DAYS = 90;
     /// @dev PCS v3 lisUSD/WBNB fee tier (TODO verify 0.25 %).
     uint24 internal constant PCS_FEE_TIER = 2_500;
@@ -95,7 +95,7 @@ contract B11_05_AsBNBListaCDPPendlePtTriple is BSCStrategyBase {
         _trackToken(LOCAL_PT_ASBNB);
 
         _setOraclePrice(BSC.asBNB, 615e8); // 1.025 BNB/share at pinned block
-        // PT-asBNB at ~95 % of asBNB (4.5 % implied APY × 90/365).
+        // PT-asBNB at ~95 % of asBNB (4.5 % implied APY x 90/365).
         _setOraclePrice(LOCAL_PT_ASBNB, 584_25_000_000);
     }
 
@@ -119,7 +119,7 @@ contract B11_05_AsBNBListaCDPPendlePtTriple is BSCStrategyBase {
         IListaInteraction cdp = IListaInteraction(BSC.LISTA_INTERACTION);
         IPancakeV3Router router = IPancakeV3Router(BSC.PCS_V3_ROUTER);
 
-        // 1. BNB → asBNB (Astherus, mechanism 1).
+        // 1. BNB -> asBNB (Astherus, mechanism 1).
         if (!_tryAstherusDeposit(PRINCIPAL_BNB)) {
             _offlinePnLCheck();
             return;
@@ -137,8 +137,8 @@ contract B11_05_AsBNBListaCDPPendlePtTriple is BSCStrategyBase {
             return;
         }
         // lisUSD mint quota = asBal * asBNB_price / 1 USD * LTV * safety.
-        // asBNB price assumed $615 → asBal (1e18) * 615 / 1.0 in 1e18 lisUSD
-        // is approximately asBal * 615 / 600 ≈ 1.025 × asBal BNB-equivalent.
+        // asBNB price assumed $615 -> asBal (1e18) * 615 / 1.0 in 1e18 lisUSD
+        // is approximately asBal * 615 / 600 ~ 1.025 x asBal BNB-equivalent.
         // Cap below ltv * safety = 65 % * 90 % = 58.5 %.
         uint256 collateralUsdE18 = (asBal * 615) / 100; // $615 per asBNB
         uint256 mintAmt = (collateralUsdE18 * CDP_LTV_BPS * SAFETY_BPS) / (10_000 * 10_000);
@@ -151,7 +151,7 @@ contract B11_05_AsBNBListaCDPPendlePtTriple is BSCStrategyBase {
             return;
         }
 
-        // 3. lisUSD → WBNB on PCS v3, then unwrap.
+        // 3. lisUSD -> WBNB on PCS v3, then unwrap.
         IERC20(BSC.lisUSD).approve(BSC.PCS_V3_ROUTER, mintAmt);
         uint256 wbnbOut;
         try router.exactInputSingle(
@@ -177,7 +177,7 @@ contract B11_05_AsBNBListaCDPPendlePtTriple is BSCStrategyBase {
         }
         IWBNB(BSC.WBNB).withdraw(wbnbOut);
 
-        // 4. Borrowed-BNB → asBNB → PT-asBNB on Pendle (mechanism 3).
+        // 4. Borrowed-BNB -> asBNB -> PT-asBNB on Pendle (mechanism 3).
         if (!_tryAstherusDeposit(address(this).balance)) {
             _offlinePnLCheck();
             return;
@@ -212,7 +212,7 @@ contract B11_05_AsBNBListaCDPPendlePtTriple is BSCStrategyBase {
         try asBnb.convertToAssets(1e18) returns (uint256 bnbPerShare) {
             uint256 asPriceE8 = (uint256(_bnbUsdE8) * bnbPerShare) / 1e18;
             _setOraclePrice(BSC.asBNB, asPriceE8);
-            _setOraclePrice(LOCAL_PT_ASBNB, asPriceE8); // PT → 1 asBNB at maturity
+            _setOraclePrice(LOCAL_PT_ASBNB, asPriceE8); // PT -> 1 asBNB at maturity
         } catch {}
 
         _endPnL("B11-05: asBNB Lista CDP Pendle PT triple");
@@ -248,26 +248,26 @@ contract B11_05_AsBNBListaCDPPendlePtTriple is BSCStrategyBase {
         //   asBNB stake APY:    3.8 %     (validator yield)
         //   Astherus points APY: 1.0 %    (USD-equiv assumption)
         //   Lista CDP lisUSD borrow APR (stability fee): 4.0 %
-        //   PCS lisUSD→WBNB slip: 0.10 %  (per round-trip)
+        //   PCS lisUSD->WBNB slip: 0.10 %  (per round-trip)
         //   PT-asBNB implied APY: 4.5 %   (locked at entry)
-        //   CDP LTV × safety = 0.585
+        //   CDP LTV x safety = 0.585
         //
         //   Capital flow on 100 BNB principal:
         //     base leg: 100 BNB locked as asBNB (earns 3.8 + 1.0 = 4.8 %).
-        //     CDP leg: mint 100 × 1.025 × 0.585 ≈ 60 lisUSD (~60 BNB-equiv).
+        //     CDP leg: mint 100 x 1.025 x 0.585 ~ 60 lisUSD (~60 BNB-equiv).
         //         pay 4.0 % borrow APR on 60 BNB-eq.
-        //     PT leg: 60 BNB → asBNB → PT @ 4.5 % implied APY → locked.
+        //     PT leg: 60 BNB -> asBNB -> PT @ 4.5 % implied APY -> locked.
         //         (Also earns Astherus points on the asBNB-via-PT exposure
         //         to the extent that SY's underlying still accrues points;
         //         set to zero here for conservative accounting.)
         //
         //   90-day yields:
-        //     base = 100 × 4.8 × 90/365 = 1.18 BNB
-        //     CDP cost = 60 × 4.0 × 90/365 = 0.591 BNB
-        //     PT lock = 60 × 4.5 × 90/365 = 0.666 BNB
-        //     PCS slip = 60 × 0.10 % = 0.060 BNB (one-off)
+        //     base = 100 x 4.8 x 90/365 = 1.18 BNB
+        //     CDP cost = 60 x 4.0 x 90/365 = 0.591 BNB
+        //     PT lock = 60 x 4.5 x 90/365 = 0.666 BNB
+        //     PCS slip = 60 x 0.10 % = 0.060 BNB (one-off)
         //   Net = 1.18 - 0.591 + 0.666 - 0.060 = +1.20 BNB per 100 BNB
-        //   ≈ +$720 over 90 days; ~4.9 % APR-equiv on principal.
+        //   ~ +$720 over 90 days; ~4.9 % APR-equiv on principal.
 
         uint256 simNetBnbE18 = (PRINCIPAL_BNB * 120) / 10_000; // 1.20 %
         uint256 simAsBnbDelta = (simNetBnbE18 * 1e18) / 1.0346e18; // post-maturity rate

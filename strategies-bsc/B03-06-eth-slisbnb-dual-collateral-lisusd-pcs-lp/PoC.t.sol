@@ -8,10 +8,10 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 // Interfaces referenced in commented live-call sketches:
 //   IListaInteraction, IPancakeV3Router, IPancakeV3NonfungiblePositionManager
 
-/// @title B03-06 Dual-collateral Lista (ETH + slisBNB) → lisUSD → PCS LP farm
+/// @title B03-06 Dual-collateral Lista (ETH + slisBNB) -> lisUSD -> PCS LP farm
 /// @notice 3-mechanism positional PoC stacking:
-///         1. Lista CDP — slisBNB ilk collateral, mint lisUSD.
-///         2. Lista CDP — WETH ilk collateral, mint additional lisUSD.
+///         1. Lista CDP - slisBNB ilk collateral, mint lisUSD.
+///         2. Lista CDP - WETH ilk collateral, mint additional lisUSD.
 ///         3. PCS v3 lisUSD/USDT 1bp concentrated LP, earning the dominant
 ///            stable-stable fee on BSC.
 ///
@@ -36,7 +36,7 @@ contract B03_06_EthSlisBnbDualCollateralLisUsdPcsLpTest is BSCStrategyBase {
     uint256 constant SEED_SLIS_BNB = 100 ether; // $60k
     uint256 constant SEED_WETH = 20 ether; // $60k
     uint256 constant LTV_SLIS_BPS = 7500; // 75%
-    uint256 constant LTV_WETH_BPS = 7000; // 70% — Lista typically gives ETH a tighter LTV
+    uint256 constant LTV_WETH_BPS = 7000; // 70% - Lista typically gives ETH a tighter LTV
     uint256 constant SLIS_BORROW_BPS = 250; // 2.5%/yr stability fee on slisBNB ilk
     uint256 constant WETH_BORROW_BPS = 350; // 3.5%/yr stability fee on WETH ilk
 
@@ -45,7 +45,7 @@ contract B03_06_EthSlisBnbDualCollateralLisUsdPcsLpTest is BSCStrategyBase {
 
     // ---- PCS v3 LP fee accrual ----
     /// @dev Modeled annualised lisUSD/USDT 1bp pool fee APR for a tight
-    ///      ±20 bp range around par. Empirically ~5-8% on stable-stable
+    ///      20 bp range around par. Empirically ~5-8% on stable-stable
     ///      pools when concentrated; we model 600 bp (6%).
     uint256 constant LP_FEE_APR_BPS = 600;
 
@@ -69,7 +69,7 @@ contract B03_06_EthSlisBnbDualCollateralLisUsdPcsLpTest is BSCStrategyBase {
 
         _startPnL();
 
-        // ===== Mechanism 1: Lista CDP — slisBNB ilk =====
+        // ===== Mechanism 1: Lista CDP - slisBNB ilk =====
         //
         //   IERC20(BSC.slisBNB).approve(BSC.LISTA_INTERACTION, SEED_SLIS_BNB);
         //   IListaInteraction(BSC.LISTA_INTERACTION).deposit(
@@ -84,7 +84,7 @@ contract B03_06_EthSlisBnbDualCollateralLisUsdPcsLpTest is BSCStrategyBase {
         uint256 mintFromSlis = (slisCollatUsd * LTV_SLIS_BPS) / 10_000;
         _fund(BSC.lisUSD, address(this), mintFromSlis);
 
-        // ===== Mechanism 2: Lista CDP — WETH ilk =====
+        // ===== Mechanism 2: Lista CDP - WETH ilk =====
         //
         //   IERC20(BSC.WETH).approve(BSC.LISTA_INTERACTION, SEED_WETH);
         //   IListaInteraction(BSC.LISTA_INTERACTION).deposit(
@@ -139,9 +139,9 @@ contract B03_06_EthSlisBnbDualCollateralLisUsdPcsLpTest is BSCStrategyBase {
         uint256 lpFeeUsd =
             (lpNotionalUsd * LP_FEE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
 
-        // Net carry in USD = (a) + (c) − (b1) − (b2). Realise this by
+        // Net carry in USD = (a) + (c) - (b1) - (b2). Realise this by
         // funding lisUSD on net positive, or burning slisBNB on net
-        // negative. We expect positive: 3.2% × $120k + 6% × $84k - blended
+        // negative. We expect positive: 3.2% x $120k + 6% x $84k - blended
         // borrow ~ positive.
         int256 netCarryUsd =
             int256(slisYieldUsd + lpFeeUsd) -

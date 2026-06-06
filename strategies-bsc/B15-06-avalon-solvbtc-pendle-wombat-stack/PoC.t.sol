@@ -9,7 +9,7 @@ import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B15-06 — Avalon solvBTC + Pendle PT-solvBTC + Wombat BTC stack
+/// @title B15-06 - Avalon solvBTC + Pendle PT-solvBTC + Wombat BTC stack
 ///
 /// @notice Triple-protocol BTC-yield stack:
 ///         1. Avalon: supply solvBTC, borrow BTCB (60% LTV).
@@ -74,7 +74,7 @@ contract B15_06_AvalonSolvBtcPendleWombatStackTest is BSCStrategyBase {
             ptOut = (ptInBtcb * (10_000 - 500)) / 10_000;
             // Burn BTCB to model the spend
             IERC20(BSC.BTCB).transfer(address(0xdEaD), ptInBtcb);
-            // PT is not in BSC.sol — skip tracking; carry credited as solvBTC at maturity
+            // PT is not in BSC.sol - skip tracking; carry credited as solvBTC at maturity
             console2.log("pendle_offline_pt_equiv_solvBTC_1e18=", ptOut);
         } else {
             console2.log("pendle_live_pt_acquired_1e18=", ptOut);

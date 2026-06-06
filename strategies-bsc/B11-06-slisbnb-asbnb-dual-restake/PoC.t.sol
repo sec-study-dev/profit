@@ -21,7 +21,7 @@ interface IAstherusStakeManagerLocal {
 ///           - Lista DAO slisBNB points + governance ($LISTA) emissions on
 ///             one half of the principal, and
 ///           - Astherus asBNB restake / AVS points on the other half.
-///         No leverage, no lending, no Pendle — pure "same user, two
+///         No leverage, no lending, no Pendle - pure "same user, two
 ///         protocols' points programs" parallel farm.
 ///         Why two restake LSTs work in parallel: each protocol attributes
 ///         points strictly on its own share token. There is no overlap
@@ -33,9 +33,9 @@ contract B11_06_SlisBNBAsBNBDualRestake is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 45_500_000;
 
     uint256 internal constant PRINCIPAL_BNB = 100 ether;
-    /// @dev Split — 50/50 slisBNB / asBNB.
+    /// @dev Split - 50/50 slisBNB / asBNB.
     uint256 internal constant SPLIT_BPS = 5_000;
-    /// @dev Hold horizon — 60 days.
+    /// @dev Hold horizon - 60 days.
     uint256 internal constant HOLD_DAYS = 60;
 
     bool internal _haveFork;
@@ -73,7 +73,7 @@ contract B11_06_SlisBNBAsBNBDualRestake is BSCStrategyBase {
 
         uint256 half = (PRINCIPAL_BNB * SPLIT_BPS) / 10_000;
 
-        // ---- Leg A: BNB → slisBNB via Lista StakeManager. ----
+        // ---- Leg A: BNB -> slisBNB via Lista StakeManager. ----
         try IListaStakeManager(BSC.LISTA_STAKE_MANAGER).deposit{value: half}() {} catch {
             _offlinePnLCheck();
             return;
@@ -84,7 +84,7 @@ contract B11_06_SlisBNBAsBNBDualRestake is BSCStrategyBase {
             return;
         }
 
-        // ---- Leg B: BNB → asBNB via Astherus StakeManager. ----
+        // ---- Leg B: BNB -> asBNB via Astherus StakeManager. ----
         if (!_tryAstherusDeposit(PRINCIPAL_BNB - half)) {
             _offlinePnLCheck();
             return;
@@ -154,14 +154,14 @@ contract B11_06_SlisBNBAsBNBDualRestake is BSCStrategyBase {
         //   60-day hold, no leverage.
         //
         //   Per-leg yield (each leg 50 BNB notional):
-        //     Leg A (slisBNB+LISTA):  50 × (3.6+1.5) × 60/365 = 0.419 BNB
-        //     Leg B (asBNB+points):   50 × (3.8+1.0) × 60/365 = 0.394 BNB
+        //     Leg A (slisBNB+LISTA):  50 x (3.6+1.5) x 60/365 = 0.419 BNB
+        //     Leg B (asBNB+points):   50 x (3.8+1.0) x 60/365 = 0.394 BNB
         //   Total realised yield on 100 BNB principal: +0.813 BNB
-        //   ≈ +$488 over 60 days; ≈ 4.95 % APR-equiv.
+        //   ~ +$488 over 60 days; ~ 4.95 % APR-equiv.
         //
         //   Versus dumping 100 BNB into either LST alone:
-        //     all slisBNB:  100 × 5.10 × 60/365 = 0.839 BNB
-        //     all asBNB:    100 × 4.80 × 60/365 = 0.789 BNB
+        //     all slisBNB:  100 x 5.10 x 60/365 = 0.839 BNB
+        //     all asBNB:    100 x 4.80 x 60/365 = 0.789 BNB
         //   Splitting is *marginally suboptimal* in raw BNB terms but the
         //   real edge is that the asBNB points are unpriced ($AST not yet
         //   live). If asBNB points realise at 3 %+ APY ezETH-tier, dual

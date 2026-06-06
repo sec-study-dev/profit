@@ -31,7 +31,7 @@ library BSC {
     address constant slisBNB = 0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B;
     /// @notice pSTAKE stkBNB.
     address constant stkBNB = 0xc2E9d07F66A89c44062459A47a0D2Dc038E4fb16;
-    /// @notice Binance wrapped Beacon ETH (WBETH) — bridged from ETH mainnet.
+    /// @notice Binance wrapped Beacon ETH (WBETH) - bridged from ETH mainnet.
     address constant WBETH = 0xa2E3356610840701BDf5611a53974510Ae27E2e1;
     /// @notice Astherus asBNB (restaked BNB). // TODO verify
     address constant asBNB = 0x77734e70b6E88b4d82fE632a168EDf6e700912b6;

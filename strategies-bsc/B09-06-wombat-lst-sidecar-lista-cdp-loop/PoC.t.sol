@@ -11,11 +11,11 @@ import {IPancakeStableRouter} from "src/interfaces/bsc/amm/IPancakeStableRouter.
 
 /// @title B09-06 Wombat BNB-LST sidecar -> Lista CDP -> PCS Stable unwind
 /// @notice 3-mechanism composition:
-///         (a) Wombat dynamic-weight slisBNB/BNB sidecar — acquire slisBNB
+///         (a) Wombat dynamic-weight slisBNB/BNB sidecar - acquire slisBNB
 ///             at a rate-fair-or-better quote when cov_BNB < 0.9.
-///         (b) Lista CDP — deposit slisBNB collateral, mint lisUSD against it
+///         (b) Lista CDP - deposit slisBNB collateral, mint lisUSD against it
 ///             (~70% LTV typical).
-///         (c) PCS StableSwap lisUSD/USDT — convert minted lisUSD to USDT,
+///         (c) PCS StableSwap lisUSD/USDT - convert minted lisUSD to USDT,
 ///             realizing the position in dollar-stable form for clean PnL.
 ///
 ///         Why 3-mech matters: the position **isolates the Wombat skew

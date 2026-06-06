@@ -14,7 +14,7 @@ import {IPYieldToken} from "src/interfaces/pendle/IPYieldToken.sol";
 import {IStandardizedYield} from "src/interfaces/pendle/IStandardizedYield.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B04-08 — PT-slisBNB on Pendle BSC + Venus collateral + Lista lisUSD borrow
+/// @title B04-08 - PT-slisBNB on Pendle BSC + Venus collateral + Lista lisUSD borrow
 ///         (3-mechanism)
 ///
 /// @notice Buy PT-slisBNB at a fixed BNB-denominated discount, deposit as
@@ -112,7 +112,7 @@ contract B04_08_PtSlisbnbVenusLisusdBorrowTest is BSCStrategyBase {
         uint256 ptToVenus = (ptOut * 60) / 100;
         uint256 ptToLista = ptOut - ptToVenus;
 
-        // 2a. Venus leg: mint vToken, enter market (do NOT borrow — keep as
+        // 2a. Venus leg: mint vToken, enter market (do NOT borrow - keep as
         //     emergency liquidity buffer & to accrue Venus PT supply APY).
         IERC20(_pt).approve(V_PT_SLISBNB, ptToVenus);
         bool venusLive = false;
@@ -139,7 +139,7 @@ contract B04_08_PtSlisbnbVenusLisusdBorrowTest is BSCStrategyBase {
         IERC20(_pt).approve(BSC.LISTA_INTERACTION, ptToLista);
         try IListaInteraction(BSC.LISTA_INTERACTION).deposit(address(this), _pt, ptToLista) {
             // Mint lisUSD; size in BNB-PT collateral units approximated as USD.
-            // 1 PT-slisBNB ≈ 1 slisBNB ≈ 1 BNB ≈ $600.
+            // 1 PT-slisBNB ~ 1 slisBNB ~ 1 BNB ~ $600.
             uint256 collateralUsd = (ptToLista * 600);
             uint256 mintAmt = (collateralUsd * LISTA_LTV_BPS) / 10_000;
             uint256 lisBefore = IERC20(BSC.lisUSD).balanceOf(address(this));
@@ -150,7 +150,7 @@ contract B04_08_PtSlisbnbVenusLisusdBorrowTest is BSCStrategyBase {
                 console2.log("Lista borrow reverted");
             }
         } catch {
-            console2.log("Lista deposit (PT) reverted — collateral not whitelisted");
+            console2.log("Lista deposit (PT) reverted - collateral not whitelisted");
         }
 
         // ---- 3. Warp past maturity ----
@@ -297,5 +297,4 @@ contract B04_08_PtSlisbnbVenusLisusdBorrowTest is BSCStrategyBase {
         }
     }
 
-    receive() external payable {}
 }

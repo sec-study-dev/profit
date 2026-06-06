@@ -9,17 +9,17 @@ import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B01-08 WBETH (bridged Beacon ETH) → Venus → borrow ETH → re-mint loop
+/// @title B01-08 WBETH (bridged Beacon ETH) -> Venus -> borrow ETH -> re-mint loop
 ///
 /// @notice WBETH is Binance's wrapped beacon ETH (non-rebasing, bridged from
 ///         ETH mainnet via the BNB Bridge). Unlike the four BNB LSTs of
 ///         B01-01..04, WBETH carries the **ETH stake APY** (~3.0 %) while
 ///         the borrow leg is Binance-peg ETH on BSC. The carry shape is
-///         identical to a wstETH/Aave loop on mainnet — but on BSC the
+///         identical to a wstETH/Aave loop on mainnet - but on BSC the
 ///         borrow market is much shallower, so the IRM spread is wider.
 ///
 /// @dev    Discriminator vs. existing B01s:
-///         - **ETH-correlated**, not BNB-correlated — the strategy is
+///         - **ETH-correlated**, not BNB-correlated - the strategy is
 ///           hedged against BNB price moves and exposed only to the
 ///           ETH-LSD stake APR vs. BSC ETH borrow APR spread.
 ///         - Designed to run inside a Venus eMode-style market group
@@ -28,21 +28,21 @@ import {console2} from "forge-std/console2.sol";
 ///           unavailable, the strategy still works at lower leverage with
 ///           the standard CF.
 contract B01_08_WBETHVenusEModeETHLoopTest is BSCStrategyBase {
-    /// @dev Pinned block — Venus must have WBETH listed and ETH borrowable.
+    /// @dev Pinned block - Venus must have WBETH listed and ETH borrowable.
     uint256 internal constant FORK_BLOCK = 42_000_000;
 
-    /// @dev Venus vWBETH market token. Placeholder — verify against Venus
+    /// @dev Venus vWBETH market token. Placeholder - verify against Venus
     ///      Core pool listing.
-    address internal constant LOCAL_VWBETH = 0xa6A1C9b8df8B2eF2E0aFc3D5B7D2A6FaFa9d4eB1;
+    address internal constant LOCAL_VWBETH = 0xA6A1c9B8Df8b2ef2E0afc3d5b7d2a6FAfa9d4eb1;
     /// @dev Venus vETH (Binance-peg ETH borrow market). Placeholder; in the
     ///      Core pool ETH is often listed under a vETH or vWETH name.
-    address internal constant LOCAL_VETH = 0xf508fCbf8B7e4f7B7B5b9C5a3B5e3D4eE8d7C9A1;
+    address internal constant LOCAL_VETH = 0xf508fCbF8b7e4f7B7b5B9C5a3b5E3D4Ee8d7C9A1;
 
     uint256 internal constant PRINCIPAL_ETH = 30 ether; // ETH-denominated principal
     uint256 internal constant ITERATIONS = 4;
     /// @dev Higher SAFETY_BPS than the BNB loops because the WBETH/ETH peg
     ///      is materially tighter (both are bridge-or-stake claims on the
-    ///      same beacon ETH) — we can run closer to the CF without taking
+    ///      same beacon ETH) - we can run closer to the CF without taking
     ///      meaningful liquidation tail. 97 % vs 95 %.
     uint256 internal constant SAFETY_BPS = 9_700;
     uint256 internal constant HOLD_DAYS = 30;
@@ -77,7 +77,7 @@ contract B01_08_WBETHVenusEModeETHLoopTest is BSCStrategyBase {
         uint256 ethToStake = IERC20(BSC.WETH).balanceOf(address(this));
 
         for (uint256 i = 0; i < ITERATIONS; i++) {
-            // 1. peg-ETH → WBETH via Binance's WBETH deposit path.
+            // 1. peg-ETH -> WBETH via Binance's WBETH deposit path.
             //    `deposit(address referral)` is payable on the canonical
             //    mainnet ABI; on BSC the deposit is typically against the
             //    bridged ETH ERC20. The BSC deployment may also expose a

@@ -9,7 +9,7 @@ import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 import {IVBNB} from "src/interfaces/bsc/mm/IVBNB.sol";
 import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 
-/// @notice Minimal Stader StakeManager surface for the BNB → BNBx mint path.
+/// @notice Minimal Stader StakeManager surface for the BNB -> BNBx mint path.
 ///         Stader's manager accepts native BNB via `deposit()` payable, mints
 ///         BNBx at the current exchange rate, and credits the depositor.
 interface IStaderStakeManager {
@@ -17,14 +17,14 @@ interface IStaderStakeManager {
     function getExchangeRate() external view returns (uint256);
 }
 
-/// @title B01-02 BNBx → Venus isolated pool → borrow BNB → Stader re-stake loop
+/// @title B01-02 BNBx -> Venus isolated pool -> borrow BNB -> Stader re-stake loop
 /// @notice Same recursive shape as B01-01 but on Stader BNBx in a Venus V4
 ///         isolated pool. Discriminator: cheaper borrow cost from the
 ///         isolated-pool IRM.
 contract B01_02_BNBxVenusStaderLoopTest is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 40_500_000;
 
-    /// @dev Stader BNB X StakeManager (V2). Inline placeholder — verify on-chain.
+    /// @dev Stader BNB X StakeManager (V2). Inline placeholder - verify on-chain.
     address internal constant LOCAL_STADER_STAKE_MANAGER = 0x7276241a669489E4BBB76f63d2A43Bfe63080F2F;
 
     /// @dev Stader BNBx ERC20. Mirrors BSC.BNBx but inlined here because the
@@ -73,7 +73,7 @@ contract B01_02_BNBxVenusStaderLoopTest is BSCStrategyBase {
         uint256 bnbToStake = address(this).balance;
 
         for (uint256 i = 0; i < ITERATIONS; i++) {
-            // 1. BNB → BNBx via Stader mint path.
+            // 1. BNB -> BNBx via Stader mint path.
             stader.deposit{value: bnbToStake}();
             uint256 bnbxBal = bnbx.balanceOf(address(this));
 

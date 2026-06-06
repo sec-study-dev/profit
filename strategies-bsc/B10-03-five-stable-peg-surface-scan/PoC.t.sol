@@ -119,7 +119,7 @@ contract B10_03_FiveStablePegSurfaceScanTest is BSCStrategyBase {
 
     /// @dev Enumerate the 20 directed triangles and return the best one.
     function _bestTriangle() internal view returns (Triangle memory best) {
-        // 3 × edge fee budget.
+        // 3 x edge fee budget.
         int256 feeBudget = int256(EDGE_FEE_BPS * 3);
         best.netBps = type(int256).min;
         for (uint8 a = 0; a < N; a++) {

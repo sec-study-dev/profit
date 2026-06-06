@@ -26,18 +26,18 @@ interface IStkBNB is IERC20 {
     function getExchangeRate() external view returns (uint256);
 }
 
-/// @title B01-05 stkBNB (pSTAKE) → Venus → borrow BNB → pSTAKE re-stake loop
+/// @title B01-05 stkBNB (pSTAKE) -> Venus -> borrow BNB -> pSTAKE re-stake loop
 /// @notice Fifth-LST coverage of the B01 family. The four existing PoCs already
 ///         loop slisBNB / BNBx / ankrBNB / multi-LST baskets; pSTAKE's stkBNB
 ///         is the only major non-rebasing BNB LST not yet covered. Same
-///         recursive shape: BNB → stkBNB → Venus collateral → borrow BNB →
+///         recursive shape: BNB -> stkBNB -> Venus collateral -> borrow BNB ->
 ///         re-stake. Discriminator vs. B01-01/02/03: stkBNB's TVL is the
 ///         smallest of the four LSTs, so its Venus market has a lower
 ///         utilization and the LST itself often runs a small structural
-///         premium on PCS — both push the borrow APR / stake APR spread in
+///         premium on PCS - both push the borrow APR / stake APR spread in
 ///         the strategy's favour.
 contract B01_05_StkBNBPstakeVenusLoopTest is BSCStrategyBase {
-    /// @dev Pinned block — must be re-pinned to a block where Venus Core or a
+    /// @dev Pinned block - must be re-pinned to a block where Venus Core or a
     ///      Venus V4 isolated pool has stkBNB listed as collateral. The PoC
     ///      tolerates pin drift via try/catch around the comptroller call.
     uint256 internal constant FORK_BLOCK = 42_500_000;
@@ -47,8 +47,8 @@ contract B01_05_StkBNBPstakeVenusLoopTest is BSCStrategyBase {
     address internal constant LOCAL_PSTAKE_STAKE_POOL = 0xC228CefDF841dEfDbD5B3a18dFD414cC0dbfa0D8;
 
     /// @dev Venus vStkBNB market token (Compound v2 fork interface). Placeholder
-    ///      — refine once Venus publishes the Core/isolated-pool listing.
-    address internal constant LOCAL_VSTKBNB = 0xb6c3D4B6D6f6F2A26b2bbF9C9d6D7Da8b3C1F8D2;
+    ///      - refine once Venus publishes the Core/isolated-pool listing.
+    address internal constant LOCAL_VSTKBNB = 0xb6c3D4B6d6F6F2a26b2bbf9c9d6d7Da8b3c1F8d2;
 
     /// @dev Venus Comptroller hosting the vStkBNB market. Default to the
     ///      Core-pool Comptroller; if stkBNB lives in an isolated pool replace
@@ -87,7 +87,7 @@ contract B01_05_StkBNBPstakeVenusLoopTest is BSCStrategyBase {
         uint256 bnbToStake = address(this).balance;
 
         for (uint256 i = 0; i < ITERATIONS; i++) {
-            // 1. BNB → stkBNB via pSTAKE StakePool. Try `stake()` then `deposit()`
+            // 1. BNB -> stkBNB via pSTAKE StakePool. Try `stake()` then `deposit()`
             //    so the PoC works against either pSTAKE ABI variant.
             _mintStkBNB(bnbToStake);
             uint256 stkBal = stk.balanceOf(address(this));

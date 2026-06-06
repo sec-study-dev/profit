@@ -7,14 +7,14 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
 import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 
-/// @title B14-07 PoC — Wombat MasterChef LP + veWOM boost + Pendle PT lock (3-mech)
+/// @title B14-07 PoC - Wombat MasterChef LP + veWOM boost + Pendle PT lock (3-mech)
 /// @notice Three orthogonal yield mechanisms running on a single USDT principal:
-///         (1) **Wombat MasterChef LP** — deposit USDT into the Wombat main
+///         (1) **Wombat MasterChef LP** - deposit USDT into the Wombat main
 ///         pool, earning swap fees + WOM emissions.
-///         (2) **veWOM boost** — convert claimed WOM to veWOM (4-year lock at
+///         (2) **veWOM boost** - convert claimed WOM to veWOM (4-year lock at
 ///         peak boost ~2.0x) so the *boostMultiplier* lifts the LP's WOM APR
 ///         from base to peak.
-///         (3) **Pendle PT-USDT-LP** lock — sell a slice of the LP-token's
+///         (3) **Pendle PT-USDT-LP** lock - sell a slice of the LP-token's
 ///         WOM yield stream as YT and pocket the discounted PT, effectively
 ///         locking the **boosted** base APR at a premium.
 /// @dev    Offline-first; the on-chain branch uses `try/catch` for every
@@ -32,12 +32,12 @@ contract B14_07_PoC is BSCStrategyBase {
 
     // ---- Sizing ----
     uint256 constant PRINCIPAL_USDT = 100_000e18;
-    /// @dev 80/20 split — 80% to LP+boost path, 20% to PT lock.
+    /// @dev 80/20 split - 80% to LP+boost path, 20% to PT lock.
     uint256 constant LP_LEG_BPS = 8000;
     uint256 constant HOLD_DAYS = 60;
     /// @dev Boost multiplier applied to the LP's WOM emission. veWOM at
-    ///      4-year peak gives ~2.0× base APR.
-    uint256 constant BOOST_MULT_BPS = 20_000; // 2.0×
+    ///      4-year peak gives ~2.0x base APR.
+    uint256 constant BOOST_MULT_BPS = 20_000; // 2.0x
 
     // ---- Rates (1e4 = 100%) ----
     /// @dev Wombat USDT pool base swap-fee APR.
@@ -85,7 +85,7 @@ contract B14_07_PoC is BSCStrategyBase {
             BSC.USDT, lpLeg, 0, address(this), block.timestamp + 60, true
         ) returns (uint256) {} catch {}
 
-        // 2. veWOM lock — placeholder; the PoC pre-funds a small amount of WOM
+        // 2. veWOM lock - placeholder; the PoC pre-funds a small amount of WOM
         //    to simulate already having WOM to lock, then attempts lock.
         _fund(BSC.WOM, address(this), 1_000e18);
         IERC20(BSC.WOM).approve(LOCAL_VEWOM, type(uint256).max);
@@ -128,7 +128,7 @@ contract B14_07_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Offline branch — closed-form 3-mech projection.
+    // Offline branch - closed-form 3-mech projection.
     // ----------------------------------------------------------------
     function _runOfflineProjection() internal {
         int256 principal = int256(PRINCIPAL_USDT);

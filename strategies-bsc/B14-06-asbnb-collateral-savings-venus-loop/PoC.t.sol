@@ -9,16 +9,16 @@ import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {IListaLending} from "src/interfaces/bsc/mm/IListaLending.sol";
 import {IasBNB} from "src/interfaces/bsc/lst/IasBNB.sol";
 
-/// @title B14-06 PoC — asBNB collateral + Lista lisUSD savings + Venus loop (3-mech)
+/// @title B14-06 PoC - asBNB collateral + Lista lisUSD savings + Venus loop (3-mech)
 /// @notice Cross-asset 3-mechanism stablecoin carry. Principal is BNB-equivalent
 ///         posted as asBNB; the strategy unlocks stablecoin yield while keeping
 ///         BNB exposure productive.
-///         (1) **asBNB restake yield** — Astherus restaking + EigenLayer-style
+///         (1) **asBNB restake yield** - Astherus restaking + EigenLayer-style
 ///         points convertible to native yield (~5% APR base).
-///         (2) **Lista lending** — borrow lisUSD against asBNB (CF ~0.70),
+///         (2) **Lista lending** - borrow lisUSD against asBNB (CF ~0.70),
 ///         use proceeds to deposit into the lisUSD savings module / Lista
 ///         lending supply for ~4% real stable yield.
-///         (3) **Venus loop** — recycle leftover lisUSD by swapping to USDT
+///         (3) **Venus loop** - recycle leftover lisUSD by swapping to USDT
 ///         and stacking inside the Venus vUSDT market for XVS-incentive carry.
 /// @dev    The strategy is BNB-principal but reports PnL in USD so the
 ///         tracked-token deltas pick up BNB (via WBNB price) + lisUSD + USDT
@@ -26,7 +26,7 @@ import {IasBNB} from "src/interfaces/bsc/lst/IasBNB.sol";
 ///         external calls.
 contract B14_06_PoC is BSCStrategyBase {
     /// @dev Venus XVS placeholder.
-    address constant LOCAL_XVS = 0x0000000000000000000000000000000000B14060;
+    address constant LOCAL_XVS = 0x0000000000000000000000000000000000b14060;
 
     // ---- Sizing ----
     /// @dev 100 BNB principal at $600/BNB = $60k notional. Smaller than the
@@ -81,11 +81,11 @@ contract B14_06_PoC is BSCStrategyBase {
 
         // 1. Post asBNB collateral and borrow lisUSD.
         try IListaLending(BSC.LISTA_LENDING).supply(BSC.asBNB, PRINCIPAL_ASBNB, address(this)) {} catch {}
-        // BNB ≈ $600; borrow ~70% of value in lisUSD.
+        // BNB ~ $600; borrow ~70% of value in lisUSD.
         uint256 lisUsdBorrow = (PRINCIPAL_ASBNB * 600 * CF_ASBNB_BPS * SAFETY_BPS) / (10_000 * 10_000);
         try IListaLending(BSC.LISTA_LENDING).borrow(BSC.lisUSD, lisUsdBorrow, address(this)) {} catch {}
 
-        // 2. Half of borrowed lisUSD → supply back to Lista savings.
+        // 2. Half of borrowed lisUSD -> supply back to Lista savings.
         uint256 savingsLeg = lisUsdBorrow / 2;
         try IListaLending(BSC.LISTA_LENDING).supply(BSC.lisUSD, savingsLeg, address(this)) {} catch {}
 
@@ -110,11 +110,11 @@ contract B14_06_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Offline branch — closed-form 3-mechanism projection.
+    // Offline branch - closed-form 3-mechanism projection.
     // Convert asBNB principal to USD at $600/BNB.
     // ----------------------------------------------------------------
     function _runOfflineProjection() internal {
-        // Principal in USD (1e18 scale): 100 BNB × $600 = $60,000.
+        // Principal in USD (1e18 scale): 100 BNB x $600 = $60,000.
         int256 principalUsd = int256(PRINCIPAL_ASBNB * 600);
 
         // Leg 1: asBNB restake yield on full principal.

@@ -12,20 +12,20 @@ import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B15-07 — PCS v3 flash + Astherus asBNB mint + Venus collateral atomic
+/// @title B15-07 - PCS v3 flash + Astherus asBNB mint + Venus collateral atomic
 ///
 /// @notice Atomic triple-protocol levered LST-restake position:
-///         1. **PCS v3 flash** — borrow USDT from the 1bp WBNB/USDT pool
+///         1. **PCS v3 flash** - borrow USDT from the 1bp WBNB/USDT pool
 ///            (cheapest BNB-side flash source).
-///         2. **Astherus stake** — USDT → WBNB → BNB → asBNB via the
+///         2. **Astherus stake** - USDT -> WBNB -> BNB -> asBNB via the
 ///            Astherus stake manager.  This is the *new* restake LST that
 ///            B15-04 holds passively; here we levered-mint it inside one tx.
-///         3. **Venus collateral + borrow USDT** — supply asBNB-equivalent
+///         3. **Venus collateral + borrow USDT** - supply asBNB-equivalent
 ///            (proxy via vBNB), borrow USDT to repay the flash.
 ///
 /// @dev Distinct from B15-03 (which uses Pendle PT-sUSDe inside the flash)
 ///      and B15-04 (which holds asBNB and stays at a single LTV without a
-///      flash).  Here the flash makes the position *atomic and 5×-leverage
+///      flash).  Here the flash makes the position *atomic and 5x-leverage
 ///      enabled* on a single block.
 ///
 /// @dev Offline-first: all external interactions wrapped in try/catch.
@@ -128,7 +128,7 @@ contract B15_07_PcsV3FlashAsBnbMintVenusAtomicTest is BSCStrategyBase, IPancakeV
         try IVToken(BSC.vUSDT).borrow(repay) returns (uint256 err) {
             require(err == 0, "Venus borrow err");
         } catch {
-            // Atomic flash will revert if borrow fails — no funds lost.
+            // Atomic flash will revert if borrow fails - no funds lost.
         }
 
         IERC20(BSC.USDT).transfer(_flashPool, repay);
@@ -139,7 +139,7 @@ contract B15_07_PcsV3FlashAsBnbMintVenusAtomicTest is BSCStrategyBase, IPancakeV
     function _usdtToBnb(uint256 usdtIn) internal returns (uint256 bnbOut) {
         if (usdtIn == 0) return 0;
         // Attempt Wombat USDT -> WBNB; fall back to a flat 1:600 conversion
-        // (BNB ≈ $600) with a 5 bp execution haircut.
+        // (BNB ~ $600) with a 5 bp execution haircut.
         IERC20(BSC.USDT).approve(BSC.WOMBAT_MAIN_POOL, usdtIn);
         try IWombatPool(BSC.WOMBAT_MAIN_POOL).swap(
             BSC.USDT, BSC.WBNB, usdtIn, 0, address(this), block.timestamp + 1 hours

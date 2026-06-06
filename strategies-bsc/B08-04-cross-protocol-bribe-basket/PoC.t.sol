@@ -13,7 +13,7 @@ interface IveTHE {
     function balanceOfNFT(uint256 tokenId) external view returns (uint256);
 }
 
-/// @dev veCAKE — Pancake's Curve-style locker. Has a single global lock per
+/// @dev veCAKE - Pancake's Curve-style locker. Has a single global lock per
 ///      account (not NFT-based like veTHE). createLock takes an end-timestamp.
 interface IveCAKE {
     function createLock(uint256 amount, uint256 unlockTime) external;
@@ -38,7 +38,7 @@ contract B08_04_CrossProtocolBribeBasketTest is BSCStrategyBase {
     address internal constant LOCAL_VE_CAKE = 0x5692DB8177a81A6c6afc8084C2976C9933EC1bAB;
     /// @dev PCS GaugeVoting controller. TODO verify on bscscan.
     address internal constant LOCAL_PCS_GAUGE_VOTING = 0xf81953dC234cdEf1D6D0d3ef61b232C6bCbF9aeF;
-    /// @dev PCS slisBNB/BNB gauge address (modeled — placeholder for PoC).
+    /// @dev PCS slisBNB/BNB gauge address (modeled - placeholder for PoC).
     address internal constant LOCAL_PCS_SLISBNB_GAUGE = 0x000000000000000000000000000000000000b08C;
 
     uint256 internal constant LOCK_THE = 100_000e18;
@@ -121,14 +121,14 @@ contract B08_04_CrossProtocolBribeBasketTest is BSCStrategyBase {
         try voter.claimBribes(bribesArr, tokens, theTokenId) {} catch {}
 
         // ============ Modeled bribe credits ============
-        // Thena leg: votesT ≈ LOCK_THE/2 (50% decay-weighted nominal).
+        // Thena leg: votesT ~ LOCK_THE/2 (50% decay-weighted nominal).
         uint256 votesT = ve.balanceOfNFT(theTokenId);
         if (votesT == 0) votesT = LOCK_THE / 2;
         // PCS leg: votesC = veCAKE.balanceOf(this), fallback to half-nominal.
         uint256 votesC = veCake.balanceOf(address(this));
         if (votesC == 0) votesC = LOCK_CAKE / 2;
 
-        // Thena bribe USD = votesT * THE_DPV_1E18 / 1e36, then *1e6 → /1e30.
+        // Thena bribe USD = votesT * THE_DPV_1E18 / 1e36, then *1e6 -> /1e30.
         // Simpler: usdE6 = votesT * 12 / 1e15.
         uint256 thenaBribeUsdE6 = (votesT * 12) / 1e15;
         // PCS bribe USD = votesC * 0.8 / 1e15 (since 8e14 = 0.8e15).
@@ -145,7 +145,7 @@ contract B08_04_CrossProtocolBribeBasketTest is BSCStrategyBase {
         _fund(BSC.lisUSD, address(this),
             IERC20(BSC.lisUSD).balanceOf(address(this)) + thenaLis);
 
-        // ============ Locked principal — credit back so PnL ≈ realized yield ============
+        // ============ Locked principal - credit back so PnL ~ realized yield ============
         _fund(BSC.THE, address(this), LOCK_THE);
         _fund(BSC.CAKE, address(this), LOCK_CAKE);
 

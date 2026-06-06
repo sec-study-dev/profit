@@ -10,19 +10,19 @@ import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {IListaInteraction} from "src/interfaces/bsc/cdp/IListaInteraction.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B15-09 — Triple-LST basket: slisBNB + BNBx + asBNB on Venus·Lista·Astherus
+/// @title B15-09 - Triple-LST basket: slisBNB + BNBx + asBNB on Venus.Lista.Astherus
 ///
 /// @notice BSC analogue of mainnet F18-05 (triple-LST restake).  Three
 ///         distinct mechanisms across three sister LST issuers:
-///         1. **Lista StakeManager** — mint slisBNB (BNB-validator LST).
-///         2. **Stader BNBx** — convert BNB → BNBx (validator LST,
+///         1. **Lista StakeManager** - mint slisBNB (BNB-validator LST).
+///         2. **Stader BNBx** - convert BNB -> BNBx (validator LST,
 ///            different validator set than Lista).
-///         3. **Astherus stake** — convert BNB → asBNB (restaked LST,
+///         3. **Astherus stake** - convert BNB -> asBNB (restaked LST,
 ///            Babylon-pointed).
-///         Then *both* slisBNB and asBNB are pledged as collateral —
+///         Then *both* slisBNB and asBNB are pledged as collateral -
 ///         slisBNB into Lista CDP to mint lisUSD, BNBx + asBNB into
 ///         Venus to borrow USDT.  Net result: equity-equivalent BNB
-///         exposure ≈ 1× spot, but three independent LST yield streams
+///         exposure ~ 1x spot, but three independent LST yield streams
 ///         (different unstake curves, validator sets, restake premia).
 ///
 /// @dev Distinct from B01-04 (single-protocol basket on Venus only),

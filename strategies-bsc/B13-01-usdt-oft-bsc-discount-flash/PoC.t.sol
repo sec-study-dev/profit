@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
 // ---------------------------------------------------------------------------
-// Inlined interfaces — `src/constants/BSC.sol` has a pre-existing checksum
+// Inlined interfaces - `src/constants/BSC.sol` has a pre-existing checksum
 // bug in several unrelated constants (AVALON_LENDING_POOL, solvBTC_BBN,
 // ASTHERUS_STAKE_MANAGER, PCS_STABLE_ROUTER, LISTA_LENDING, LISTA_INTERACTION,
 // FDUSD, BNBx) which makes the whole file refuse to compile. Per the spec
@@ -158,7 +158,6 @@ abstract contract BSCStrategyBase is Test {
         return -int256((uint256(-d) * m) / div);
     }
 
-    receive() external payable {}
 }
 
 /// @title B13-01 Bridged USDT (OFT) vs BSC Peg USDT discount flash
@@ -168,7 +167,7 @@ abstract contract BSCStrategyBase is Test {
 ///            discounted ~20-80 bp.
 ///         3. Call IOFTAdapter.send(dstEid=ETH_EID, amountLD=oftReceived) to
 ///            atomically burn OFT on BSC. The ETH-side credit arrives in
-///            1-3 minutes — out of band; the PoC simulates the burn only.
+///            1-3 minutes - out of band; the PoC simulates the burn only.
 ///         4. Repay the PCS v3 flash from a pre-funded Peg buffer that
 ///            represents the eventual re-bridged proceeds.
 /// @dev    Offline-first: if BSC_RPC_URL is unset OR the OFT adapter address

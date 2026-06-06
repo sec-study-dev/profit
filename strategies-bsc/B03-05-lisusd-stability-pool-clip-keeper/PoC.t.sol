@@ -21,11 +21,11 @@ import {IPancakeV3Pool, IPancakeV3FlashCallback} from "src/interfaces/bsc/amm/IP
 ///         Flow:
 ///         1. Flash USDT from PCS v3 USDT/USDC 1bp pool.
 ///         2. Swap USDT -> lisUSD on PCS v3 (1 bp stable hop).
-///         3. Call `IListaClipper.take(...)` against an active auction —
+///         3. Call `IListaClipper.take(...)` against an active auction -
 ///            pay lisUSD, receive slisBNB at the current Dutch price
 ///            (modeled here as a CLIP_DISCOUNT_BPS discount to oracle).
 ///         4. Swap slisBNB -> WBNB -> USDT on PCS v3 to repay the flash.
-///         5. Profit = discount captured − flash fee − 3 AMM hops.
+///         5. Profit = discount captured - flash fee - 3 AMM hops.
 ///
 ///         For offline mode we synthesize the Clipper interaction via
 ///         `_fund` accounting because the Clipper proxy address on BSC has
@@ -34,7 +34,7 @@ import {IPancakeV3Pool, IPancakeV3FlashCallback} from "src/interfaces/bsc/amm/IP
 contract B03_05_LisUsdStabilityPoolClipKeeperTest is BSCStrategyBase, IPancakeV3FlashCallback {
     uint256 constant FORK_BLOCK = 42_500_000;
 
-    /// @dev PCS v3 USDT/USDC 1bp pool — primary flash source.
+    /// @dev PCS v3 USDT/USDC 1bp pool - primary flash source.
     uint24 constant USDT_USDC_FEE = 100;
     /// @dev PCS v3 lisUSD/USDT pool fee.
     uint24 constant LISUSD_USDT_FEE = 100;

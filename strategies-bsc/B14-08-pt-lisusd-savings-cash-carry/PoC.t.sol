@@ -12,20 +12,20 @@ import {IStandardizedYield} from "src/interfaces/pendle/IStandardizedYield.sol";
 import {IWombatRouter} from "src/interfaces/bsc/amm/IWombatRouter.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B14-08 PoC — PT-lisUSD-savings cash-and-carry on Pendle BSC
+/// @title B14-08 PoC - PT-lisUSD-savings cash-and-carry on Pendle BSC
 /// @notice Mirror of F07-08 (PT-sUSDS) tailored to BSC's lisUSD savings
 ///         wrapper. Buy `PT-lisUSDsavings-26JUN2025` at a fixed discount,
 ///         warp past maturity, redeem PT 1:1 to lisUSD and unwind to USDT.
-///         The locked carry is `(1 − entryPrice)` annualised over the
+///         The locked carry is `(1 - entryPrice)` annualised over the
 ///         time-to-maturity.
 /// @dev    Distinct from B14-03 (which *loops* lisUSD): this strategy is
 ///         **unleveraged, fixed-term**, with the only mechanism being the
 ///         Pendle PT discount capture. Offline-first.
 contract B14_08_PoC is BSCStrategyBase {
     /// @dev Pendle PT-lisUSD-savings-26JUN2025 market on BSC. // TODO verify.
-    address constant LOCAL_PT_LISUSD_MARKET = 0x0000000000000000000000000000000000B14080;
+    address constant LOCAL_PT_LISUSD_MARKET = 0x0000000000000000000000000000000000b14080;
     /// @dev PT principal token. // TODO verify.
-    address constant LOCAL_PT_LISUSD = 0x0000000000000000000000000000000000B14081;
+    address constant LOCAL_PT_LISUSD = 0x0000000000000000000000000000000000b14081;
     /// @dev SY token. // TODO verify.
     address constant LOCAL_SY_LISUSD = 0x0000000000000000000000000000000000B14082;
     /// @dev YT token. // TODO verify.
@@ -34,15 +34,15 @@ contract B14_08_PoC is BSCStrategyBase {
     uint256 constant ASSUMED_EXPIRY = 1_750_896_000;
 
     // ---- Sizing ----
-    /// @dev 100k USDT principal — 18-decimal BSC USDT.
+    /// @dev 100k USDT principal - 18-decimal BSC USDT.
     uint256 constant PRINCIPAL_USDT = 100_000e18;
     /// @dev Days from fork to maturity (modelled).
     uint256 constant DAYS_TO_EXPIRY = 180;
-    /// @dev PT entry price in 1e18 — modelled 0.965 USDT per PT.
+    /// @dev PT entry price in 1e18 - modelled 0.965 USDT per PT.
     uint256 constant ENTRY_PRICE_E18 = 965_000_000_000_000_000;
     /// @dev PT entry slippage on Pendle market + Wombat USDT->lisUSD swap.
     uint256 constant ENTRY_DRAG_BPS = 30;
-    /// @dev Exit drag: PT redeem → SY → lisUSD → Wombat → USDT.
+    /// @dev Exit drag: PT redeem -> SY -> lisUSD -> Wombat -> USDT.
     uint256 constant EXIT_DRAG_BPS = 25;
 
     function setUp() public {
@@ -154,12 +154,12 @@ contract B14_08_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Offline branch — closed-form discount-convergence math.
+    // Offline branch - closed-form discount-convergence math.
     //   PT bought at ENTRY_PRICE_E18 USDT per PT.
     //   ptOut = principal * 1e18 / ENTRY_PRICE_E18.
-    //   At expiry PT redeems 1:1 → ptOut USDT.
+    //   At expiry PT redeems 1:1 -> ptOut USDT.
     //   Gross carry = ptOut - principal = principal * (1/entry - 1).
-    //   Net = gross − entry_drag − exit_drag.
+    //   Net = gross - entry_drag - exit_drag.
     // ----------------------------------------------------------------
     function _runOfflineProjection() internal {
         // Compute PT received per the entry price; subtract entry slippage

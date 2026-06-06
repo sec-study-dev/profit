@@ -103,7 +103,6 @@ abstract contract BSCStrategyBase is Test {
         if (d >= 0) return int256((uint256(d) * m) / div);
         return -int256((uint256(-d) * m) / div);
     }
-    receive() external payable {}
 }
 
 /// @title B02-02 BNBx Thena vs Stader internal rate cross-DEX arb
@@ -142,7 +141,7 @@ contract B02_02_BNBx_Thena_Stader_RateArb is BSCStrategyBase, IPancakeV3FlashCal
         _trackToken(WBNB);
         _trackToken(BNBx);
         _setOraclePrice(WBNB, 600e8);
-        _setOraclePrice(BNBx, 651_0000_0000); // 1.085 BNB at $600 → $651
+        _setOraclePrice(BNBx, 651_0000_0000); // 1.085 BNB at $600 -> $651
     }
 
     function testStrategy_B02_02() public {

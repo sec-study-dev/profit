@@ -10,7 +10,7 @@ import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
 import {IPYieldToken} from "src/interfaces/pendle/IPYieldToken.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B04-07 — YT-asBNB Astherus airdrop / points speculation
+/// @title B04-07 - YT-asBNB Astherus airdrop / points speculation
 ///
 /// @notice Atomically mint PT+YT-asBNB via `mintPyFromToken`, immediately sell
 ///         the PT back to BNB, retain the YT to harvest Astherus restaking
@@ -27,9 +27,9 @@ contract B04_07_YtAsbnbAirdropPointsSplitTest is BSCStrategyBase {
 
     // ---- Pendle BSC market (PT/YT-asBNB-25SEP2025) ----
     /// @notice Per-maturity inline constant. TODO verify on Pendle BSC subgraph.
-    address constant LOCAL_PT_ASBNB_MARKET_25SEP2025 = 0xC1afE5fe7d4B2a93b3aA0a5b3F1C0a4f0bDb8e21;
+    address constant LOCAL_PT_ASBNB_MARKET_25SEP2025 = 0xC1AFE5FE7d4B2a93B3aA0a5b3F1C0A4F0bDb8e21;
     /// @notice Fallback YT address if market `readTokens()` reverts.
-    address constant LOCAL_YT_ASBNB_25SEP2025 = 0xCAFEcafeCafEcAFEcafEcAFeCafECafEcafecaFe;
+    address constant LOCAL_YT_ASBNB_25SEP2025 = 0xCAfEcAfeCAfECaFeCaFecaFecaFECafECafeCaFe;
     uint256 constant ASSUMED_EXPIRY = 1_758_758_400;
 
     uint256 constant EQUITY_BNB = 100 ether;
@@ -201,5 +201,4 @@ contract B04_07_YtAsbnbAirdropPointsSplitTest is BSCStrategyBase {
         }
     }
 
-    receive() external payable {}
 }

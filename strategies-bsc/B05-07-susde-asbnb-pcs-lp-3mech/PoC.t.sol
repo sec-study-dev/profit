@@ -8,15 +8,15 @@ import {ISUSDe} from "src/interfaces/bsc/stable/ISUSDe.sol";
 import {IasBNB} from "src/interfaces/bsc/lst/IasBNB.sol";
 import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 
-/// @title B05-07 PoC: sUSDe + Astherus asBNB + PCS LP — 3-mechanism triangular yield
+/// @title B05-07 PoC: sUSDe + Astherus asBNB + PCS LP - 3-mechanism triangular yield
 /// @notice Constructs a triangular yield basket that earns from three
 ///         independent sources simultaneously:
-///         (a) **Ethena sUSDe** — ~50% of principal staked into sUSDe to
+///         (a) **Ethena sUSDe** - ~50% of principal staked into sUSDe to
 ///             harvest Ethena perp-funding APY (~9%).
-///         (b) **Astherus asBNB** — ~50% of principal rotated into asBNB
+///         (b) **Astherus asBNB** - ~50% of principal rotated into asBNB
 ///             (restaked BNB) to harvest validator + Babylon restaking
 ///             yield (~5-6% BNB-denominated, plus AST points).
-///         (c) **PCS v3 LP on sUSDe/USDT** — the remaining USDe-side
+///         (c) **PCS v3 LP on sUSDe/USDT** - the remaining USDe-side
 ///             tail (after staking) is LP'd in the concentrated PCS v3
 ///             sUSDe/USDT pool to harvest fee income on the stable pair.
 /// @dev    Three uncorrelated yield drivers: Ethena funding, BSC validator
@@ -26,7 +26,7 @@ import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 contract B05_07_PoC is BSCStrategyBase {
     // ---- Inlined addresses ----
     /// @dev PCS v3 sUSDe/USDT 5bp pool (LP venue). // TODO verify
-    address constant LOCAL_PCS_V3_SUSDE_USDT_5BP = 0x000000000000000000000000000000000000B571;
+    address constant LOCAL_PCS_V3_SUSDE_USDT_5BP = 0x000000000000000000000000000000000000b571;
 
     // ---- Sizing / model (1e4 = 100%) ----
     uint256 constant PRINCIPAL_USDE = 100_000e18;
@@ -69,7 +69,7 @@ contract B05_07_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Forked branch — splits principal across 3 legs
+    // Forked branch - splits principal across 3 legs
     // ----------------------------------------------------------------
     function _runOnchain() internal {
         _fund(BSC.USDe, address(this), PRINCIPAL_USDE);
@@ -110,7 +110,7 @@ contract B05_07_PoC is BSCStrategyBase {
         uint256 wbnbOut = IPancakeV3Router(BSC.PCS_V3_ROUTER).exactInputSingle(pBnb);
 
         // Mint asBNB via Astherus StakeManager. The PoC uses a placeholder
-        // selector since the canonical Astherus ABI is unverified —
+        // selector since the canonical Astherus ABI is unverified -
         // production wiring would call `ASTHERUS_STAKE_MANAGER.deposit{value: ...}`.
         // For PoC, just hold WBNB as the asBNB proxy.
         wbnbOut; // tracked through WBNB->asBNB conversion in offline branch
@@ -124,7 +124,7 @@ contract B05_07_PoC is BSCStrategyBase {
     }
 
     // ----------------------------------------------------------------
-    // Offline projection — sum of 3 yield streams
+    // Offline projection - sum of 3 yield streams
     // ----------------------------------------------------------------
     function _runOffline() internal {
         // Initial USD on each leg.
@@ -133,17 +133,17 @@ contract B05_07_PoC is BSCStrategyBase {
         uint256 asbnbUsd = (initialUsd * ALLOC_ASBNB_BPS) / 10_000;
         uint256 lpUsd = (initialUsd * ALLOC_LP_BPS) / 10_000;
 
-        // Leg 1 yield: sUSDe APY × susdeUsd × 30/365.
+        // Leg 1 yield: sUSDe APY x susdeUsd x 30/365.
         int256 leg1 = int256((susdeUsd * SUSDE_APY_BPS * HOLD_DAYS) / (10_000 * 365));
 
-        // Leg 2 yield: asBNB APY × asbnbUsd × 30/365.
-        // (Holding BNB exposure has a separate spot-PnL term — we model BNB
+        // Leg 2 yield: asBNB APY x asbnbUsd x 30/365.
+        // (Holding BNB exposure has a separate spot-PnL term - we model BNB
         // as flat for the carry attribution; spot is a beta line, not alpha.)
         int256 leg2 = int256((asbnbUsd * ASBNB_APY_BPS * HOLD_DAYS) / (10_000 * 365));
         int256 leg2EntryDrag = int256((asbnbUsd * USDE_TO_BNB_DRAG_BPS) / 10_000);
         leg2 -= leg2EntryDrag;
 
-        // Leg 3 yield: LP APR × lpUsd × 30/365 - entry drag - IL drift.
+        // Leg 3 yield: LP APR x lpUsd x 30/365 - entry drag - IL drift.
         int256 leg3 = int256((lpUsd * LP_APY_BPS * HOLD_DAYS) / (10_000 * 365));
         int256 leg3Entry = int256((lpUsd * LP_ENTRY_DRAG_BPS) / 10_000);
         int256 leg3IL = int256((lpUsd * LP_IL_DRAG_BPS) / 10_000);

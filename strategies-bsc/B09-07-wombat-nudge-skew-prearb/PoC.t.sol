@@ -15,7 +15,7 @@ import {IPancakeV3Pool, IPancakeV3FlashCallback} from "src/interfaces/bsc/amm/IP
 ///
 ///         (1) Flash USDT from PCS v3 (USDC/USDT 0.01% pool, 1 bp fee).
 ///         (2) "Nudge": small `Wombat.swap(USDT, USDC, dN)` to push
-///             `cov_USDT` past 1.15 → arrives at the convex knee.
+///             `cov_USDT` past 1.15 -> arrives at the convex knee.
 ///         (3) "Strike": large `Wombat.swap(USDC, USDT, N)` at the
 ///             over-corrected quote where Wombat now pays USDC sellers a
 ///             bonus to restore USDT coverage.
@@ -23,7 +23,7 @@ import {IPancakeV3Pool, IPancakeV3FlashCallback} from "src/interfaces/bsc/amm/IP
 ///             repay the flash, keep the spread.
 ///
 ///         The "nudge" sounds like manipulation but is mechanically just
-///         exploiting the same dynamic-weight pricing surface as B09-01/02 —
+///         exploiting the same dynamic-weight pricing surface as B09-01/02 -
 ///         the difference is that the operator *creates* the skew within the
 ///         tx instead of waiting for it to occur naturally. The math works
 ///         only when the curve's curvature dominates the haircut, i.e. when
@@ -33,7 +33,7 @@ contract B09_07_Wombat_Nudge_Skew_PreArb is BSCStrategyBase, IPancakeV3FlashCall
     ///      (close to but not past the convex knee).
     uint256 constant FORK_BLOCK = 45_900_000;
 
-    /// @dev USDC/USDT PCS v3 0.01% pool — flash source (same as B09-01).
+    /// @dev USDC/USDT PCS v3 0.01% pool - flash source (same as B09-01).
     address constant PCS_V3_POOL_USDC_USDT_100 = 0x92b7807bF19b7DDdf89b706143896d05228f3121;
     uint24 constant FLASH_FEE_TIER = 100;
 
@@ -107,14 +107,14 @@ contract B09_07_Wombat_Nudge_Skew_PreArb is BSCStrategyBase, IPancakeV3FlashCall
         uint256 owedFee = usdtIsToken0 ? fee0 : fee1;
         owedFeeTracked = owedFee;
 
-        // ---- Step 2: Nudge — USDT -> USDC via Wombat to push cov_USDT past
+        // ---- Step 2: Nudge - USDT -> USDC via Wombat to push cov_USDT past
         // the knee.
         IERC20(BSC.USDT).approve(BSC.WOMBAT_MAIN_POOL, NUDGE_SIZE);
         (nudgeOut, ) = IWombatPool(BSC.WOMBAT_MAIN_POOL).swap(
             BSC.USDT, BSC.USDC, NUDGE_SIZE, 0, address(this), block.timestamp
         );
 
-        // ---- Step 3: Strike — USDC -> USDT via Wombat at the over-corrected
+        // ---- Step 3: Strike - USDC -> USDT via Wombat at the over-corrected
         // quote. Use the USDC just received as part of the strike input.
         uint256 usdcForStrike = nudgeOut; // re-use the nudge output
         // If we want a larger strike than the nudge returned, we can't (we'd
@@ -146,7 +146,7 @@ contract B09_07_Wombat_Nudge_Skew_PreArb is BSCStrategyBase, IPancakeV3FlashCall
     ///      2M USDT: 1 bp = $200. The strategy only clears net positive when
     ///      the strike size is large relative to the nudge (which requires
     ///      either a larger ex-ante skew or routing the strike-USDC from a
-    ///      different source — e.g. flash USDC instead of USDT).
+    ///      different source - e.g. flash USDC instead of USDT).
     function _offlinePnLCheck() internal {
         nudgeOut  = (NUDGE_SIZE * 9993) / 10000; // -7 bp Wombat haircut on USDT push
         strikeOut = (nudgeOut   * 10005) / 10000; // +5 bp Wombat bonus on USDC pull

@@ -11,13 +11,13 @@ import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 import {IVBNB} from "src/interfaces/bsc/mm/IVBNB.sol";
 import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 
-/// @title B01-01 slisBNB → Venus → borrow BNB → Lista re-stake loop
+/// @title B01-01 slisBNB -> Venus -> borrow BNB -> Lista re-stake loop
 /// @notice Recursive leverage on Lista's slisBNB using Venus' Core pool. Each
-///         iteration: stake BNB → slisBNB, supply as collateral on Venus,
+///         iteration: stake BNB -> slisBNB, supply as collateral on Venus,
 ///         borrow BNB at the slisBNB collateral factor, feed back into
-///         StakeManager. Net carry = leverage × (slisBNB APY − vBNB borrow APR).
+///         StakeManager. Net carry = leverage x (slisBNB APY - vBNB borrow APR).
 contract B01_01_SlisBNBVenusLoopTest is BSCStrategyBase {
-    /// @dev Pinned block — Venus Core has slisBNB collateral listed; lock once
+    /// @dev Pinned block - Venus Core has slisBNB collateral listed; lock once
     ///      BSC_RPC_URL is available and the slisBNB market exists at this height.
     uint256 internal constant FORK_BLOCK = 40_000_000;
 
@@ -64,9 +64,9 @@ contract B01_01_SlisBNBVenusLoopTest is BSCStrategyBase {
 
         uint256 bnbToStake = address(this).balance;
 
-        // ---- 2. Iteratively stake → supply → borrow ----
+        // ---- 2. Iteratively stake -> supply -> borrow ----
         for (uint256 i = 0; i < ITERATIONS; i++) {
-            // 2a. BNB → slisBNB via Lista StakeManager (canonical mint path).
+            // 2a. BNB -> slisBNB via Lista StakeManager (canonical mint path).
             sm.deposit{value: bnbToStake}();
             uint256 slisBal = slis.balanceOf(address(this));
 

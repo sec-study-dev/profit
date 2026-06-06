@@ -15,14 +15,14 @@ interface IAnkrBinancePool {
     function stakeAndClaimCerts() external payable;
 }
 
-/// @title B01-03 ankrBNB → Lista Lending → borrow BNB → Ankr re-stake loop
+/// @title B01-03 ankrBNB -> Lista Lending -> borrow BNB -> Ankr re-stake loop
 /// @notice Venue-diversified leveraged staking: Ankr BNB LST stacked on
 ///         Lista's lending market (instead of Venus) to escape Core-pool
 ///         IRM crowding. Same recursive shape as B01-01 / B01-02.
 contract B01_03_AnkrBNBListaLendingLoopTest is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 41_000_000;
 
-    /// @dev Ankr BinancePool (BNB → ankrBNB mint). Verify on-chain at FORK_BLOCK.
+    /// @dev Ankr BinancePool (BNB -> ankrBNB mint). Verify on-chain at FORK_BLOCK.
     address internal constant LOCAL_ANKR_BINANCE_POOL = 0x9e347Af362059bf2E55839002c699F7A5BaFE86E;
 
     /// @dev Lista Lending pool. Mirrors BSC.LISTA_LENDING (currently a
@@ -56,7 +56,7 @@ contract B01_03_AnkrBNBListaLendingLoopTest is BSCStrategyBase {
         uint256 bnbToStake = address(this).balance;
 
         for (uint256 i = 0; i < ITERATIONS; i++) {
-            // 1. BNB → ankrBNB via Ankr's mint path.
+            // 1. BNB -> ankrBNB via Ankr's mint path.
             ankr.stakeAndClaimCerts{value: bnbToStake}();
             uint256 ankBal = ank.balanceOf(address(this));
 

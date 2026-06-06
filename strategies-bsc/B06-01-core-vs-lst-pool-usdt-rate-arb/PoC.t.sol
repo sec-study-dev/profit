@@ -8,8 +8,8 @@ import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {IVenusFlashLoan, IVenusFlashLoanReceiver} from "src/interfaces/bsc/mm/IVenusFlashLoan.sol";
 
-/// @title B06-01 Venus Core ↔ LST isolated pool USDT rate arb
-/// @notice Atomic flashLoan from Core vUSDT, supply→borrow on LST isolated
+/// @title B06-01 Venus Core <-> LST isolated pool USDT rate arb
+/// @notice Atomic flashLoan from Core vUSDT, supply->borrow on LST isolated
 ///         pool's vUSDT, hold the spread for 30 days. Demonstrates that the
 ///         same EOA can simultaneously hold positions in two Comptrollers,
 ///         and that Venus V4 flash loans can bootstrap an arb with only the
@@ -72,7 +72,7 @@ contract B06_01_VenusCoreLSTPoolUSDTArbTest is BSCStrategyBase, IVenusFlashLoanR
         uint256 debt = IVToken(LOCAL_VUSDT_LST).borrowBalanceCurrent(address(this));
         emit log_named_uint("lst_pool_vusdt_debt_e18", debt);
 
-        // For PnL, redeem all and repay debt — net cash is the spread.
+        // For PnL, redeem all and repay debt - net cash is the spread.
         // 1. Borrow more USDT from buffer-side, repay LST debt.
         uint256 dbtNow = IVToken(LOCAL_VUSDT_LST).borrowBalanceCurrent(address(this));
         IERC20(BSC.USDT).approve(LOCAL_VUSDT_LST, type(uint256).max);

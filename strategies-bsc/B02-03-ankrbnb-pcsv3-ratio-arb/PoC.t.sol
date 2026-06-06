@@ -100,7 +100,6 @@ abstract contract BSCStrategyBase is Test {
         if (d >= 0) return int256((uint256(d) * m) / div);
         return -int256((uint256(-d) * m) / div);
     }
-    receive() external payable {}
 }
 
 /// @title B02-03 ankrBNB ratio() vs PCS v3 inter-fee-tier arb

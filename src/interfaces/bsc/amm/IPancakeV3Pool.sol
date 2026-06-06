@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice PancakeSwap V3 pool. UniswapV3 fork — includes flash + swap.
+/// @notice PancakeSwap V3 pool. UniswapV3 fork - includes flash + swap.
 interface IPancakeV3Pool {
     function token0() external view returns (address);
     function token1() external view returns (address);

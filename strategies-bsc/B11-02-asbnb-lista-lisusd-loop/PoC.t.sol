@@ -15,10 +15,10 @@ interface IAstherusStakeManagerLocal {
     function convertToAssets(uint256 shares) external view returns (uint256);
 }
 
-/// @title B11-02 asBNB → Lista Lending → borrow lisUSD → swap → re-stake loop
+/// @title B11-02 asBNB -> Lista Lending -> borrow lisUSD -> swap -> re-stake loop
 /// @notice Uses Lista Lending (instead of Venus) as the borrow venue and
 ///         **lisUSD** (instead of BNB) as the borrowed asset. Then swaps
-///         lisUSD → BNB on PCS v3 to re-feed Astherus. The trick:
+///         lisUSD -> BNB on PCS v3 to re-feed Astherus. The trick:
 ///           - lisUSD has its own borrow IRM divorced from BNB; when lisUSD
 ///             demand is low (utilization < 50 %) borrow APR can dip below
 ///             1 % even when BNB demand is hot.
@@ -34,12 +34,12 @@ contract B11_02_AsBNBListaLisUSDLoop is BSCStrategyBase {
 
     uint256 internal constant PRINCIPAL_BNB = 100 ether;
     uint256 internal constant ITERATIONS = 3;
-    /// @dev Lista Lending ltv * safety. Assume ltv = 0.70 → 0.665 per step.
+    /// @dev Lista Lending ltv * safety. Assume ltv = 0.70 -> 0.665 per step.
     uint256 internal constant STEP_LTV_BPS = 6_650;
     /// @dev Hold horizon (days).
     uint256 internal constant HOLD_DAYS = 60;
 
-    /// @dev PCS v3 lisUSD/WBNB fee tier — assume 0.25 % is canonical (TODO
+    /// @dev PCS v3 lisUSD/WBNB fee tier - assume 0.25 % is canonical (TODO
     ///      verify with `getPool`).
     uint24 internal constant PCS_FEE_TIER = 2_500;
 
@@ -59,7 +59,7 @@ contract B11_02_AsBNBListaLisUSDLoop is BSCStrategyBase {
         _trackToken(BSC.asBNB);
         _trackToken(BSC.lisUSD);
 
-        _setOraclePrice(BSC.asBNB, 615e8); // 1.025 BNB/share × $600/BNB
+        _setOraclePrice(BSC.asBNB, 615e8); // 1.025 BNB/share x $600/BNB
     }
 
     function testStrategy_B11_02() public {
@@ -85,7 +85,7 @@ contract B11_02_AsBNBListaLisUSDLoop is BSCStrategyBase {
         uint256 bnbToStake = address(this).balance;
 
         for (uint256 i = 0; i < ITERATIONS; i++) {
-            // 1. BNB → asBNB.
+            // 1. BNB -> asBNB.
             if (!_tryAstherusDeposit(bnbToStake)) {
                 _offlinePnLCheck();
                 return;
@@ -99,7 +99,7 @@ contract B11_02_AsBNBListaLisUSDLoop is BSCStrategyBase {
                 return;
             }
 
-            // 3. Read account data → derive lisUSD borrow size.
+            // 3. Read account data -> derive lisUSD borrow size.
             // getUserAccountData returns base-currency-denominated amounts.
             uint256 borrowBase;
             try lending.getUserAccountData(address(this)) returns (
@@ -112,7 +112,7 @@ contract B11_02_AsBNBListaLisUSDLoop is BSCStrategyBase {
             if (borrowBase == 0) break;
 
             // Heuristic: assume base currency == USD with 1e8 scale; lisUSD is
-            // 18-dec and pegged 1:1 → borrowAmt = borrowBase * 1e10.
+            // 18-dec and pegged 1:1 -> borrowAmt = borrowBase * 1e10.
             uint256 borrowAmt = borrowBase * 1e10;
             // Apply safety haircut to step LTV (already baked into the
             // 6_650 bp). Cap at 80 % of avail to leave HF headroom.
@@ -123,7 +123,7 @@ contract B11_02_AsBNBListaLisUSDLoop is BSCStrategyBase {
                 break;
             }
 
-            // 4. Swap lisUSD → WBNB → unwrap to BNB.
+            // 4. Swap lisUSD -> WBNB -> unwrap to BNB.
             IERC20(BSC.lisUSD).approve(BSC.PCS_V3_ROUTER, borrowAmt);
             uint256 wbnbOut;
             try router.exactInputSingle(
@@ -201,16 +201,16 @@ contract B11_02_AsBNBListaLisUSDLoop is BSCStrategyBase {
         //   asBNB stake APY:       3.8 %
         //   Astherus points APY:   1.0 %  (USD-equiv assumption)
         //   lisUSD borrow APR:     2.8 %  (Lista Lending isolated market)
-        //   PCS lisUSD↔BNB slip:   0.10 % per round-trip (PCS v3 0.25 % tier
+        //   PCS lisUSD<->BNB slip:   0.10 % per round-trip (PCS v3 0.25 % tier
         //                          but pool is moderately balanced)
-        //   step LTV (incl. CF×safety): 0.665
-        //   3-iter leverage:   1 + 0.665 + 0.442 + 0.294 = 2.401×
+        //   step LTV (incl. CFxsafety): 0.665
+        //   3-iter leverage:   1 + 0.665 + 0.442 + 0.294 = 2.401x
         //   net APR =
-        //     L × (3.8 + 1.0) − (L − 1) × 2.8 − slip(once at entry) − slip(once at exit)
-        //     = 2.401 × 4.8 − 1.401 × 2.8 − 0.20
-        //     = 11.525 − 3.923 − 0.20 = +7.40 %
-        //   60-day yield = 7.40 × 60/365 = 1.22 %
-        //   → +1.22 BNB per 100 BNB ≈ +$730.
+        //     L x (3.8 + 1.0) - (L - 1) x 2.8 - slip(once at entry) - slip(once at exit)
+        //     = 2.401 x 4.8 - 1.401 x 2.8 - 0.20
+        //     = 11.525 - 3.923 - 0.20 = +7.40 %
+        //   60-day yield = 7.40 x 60/365 = 1.22 %
+        //   -> +1.22 BNB per 100 BNB ~ +$730.
         //
         // Realise the delta as +1.22 BNB-equivalent in asBNB:
         uint256 simNetBnbE18 = (PRINCIPAL_BNB * 122) / 10_000; // 1.22 %

@@ -13,10 +13,10 @@ import {IStandardizedYield} from "src/interfaces/pendle/IStandardizedYield.sol";
 import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B04-06 — PT-USDe BSC + Lista CDP recursive loop (3-mechanism)
+/// @title B04-06 - PT-USDe BSC + Lista CDP recursive loop (3-mechanism)
 ///
 /// @notice Buy PT-USDe (or PT-sUSDe) on Pendle BSC, deposit it as collateral
-///         into Lista's CDP module, mint lisUSD against it, swap lisUSD → USDC
+///         into Lista's CDP module, mint lisUSD against it, swap lisUSD -> USDC
 ///         via PCS v3, and recycle into a second PT-USDe lot. Two iterations
 ///         of this loop give ~1.5x effective PT exposure while keeping the
 ///         lisUSD debt non-volatile (USD-denominated).
@@ -33,7 +33,7 @@ contract B04_06_PtUsdeListaCdpRecursiveTest is BSCStrategyBase {
 
     // ---- Equity & loop config ----
     uint256 constant EQUITY_USDC = 500_000e18;
-    /// @dev Conservative LTV — Lista's PT-class collateral typically 50-65%.
+    /// @dev Conservative LTV - Lista's PT-class collateral typically 50-65%.
     uint256 constant TARGET_LTV_BPS = 5_500; // 55 %
     uint8 constant LOOP_ITERS = 2;
 

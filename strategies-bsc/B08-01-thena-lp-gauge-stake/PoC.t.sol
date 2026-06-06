@@ -19,7 +19,7 @@ interface IThenaGauge {
     function rewardRate(address token) external view returns (uint256);
 }
 
-/// @dev Lista StakeManager fragment — only the calls the PoC needs.
+/// @dev Lista StakeManager fragment - only the calls the PoC needs.
 interface IListaStakeManagerMin {
     function deposit() external payable;
     function convertSnBnbToBnb(uint256) external view returns (uint256);
@@ -43,7 +43,7 @@ contract B08_01_ThenaLpGaugeStakeTest is BSCStrategyBase {
     ///      live and earning THE emissions. Lock when BSC_RPC_URL available.
     uint256 internal constant FORK_BLOCK = 40_000_000;
 
-    /// @dev Thena Voter — canonical voter contract that exposes `gauges(pair)`.
+    /// @dev Thena Voter - canonical voter contract that exposes `gauges(pair)`.
     ///      Family rules forbid editing BSC.sol from this dir, so the address
     ///      lives here as a LOCAL_ constant. TODO verify on bscscan.
     address internal constant LOCAL_THENA_VOTER = 0x374cc2276b842fEcD65af36D7C60A5B78373EdE1;
@@ -55,7 +55,7 @@ contract B08_01_ThenaLpGaugeStakeTest is BSCStrategyBase {
     uint256 internal constant ASSUMED_GAUGE_APR_BPS = 4_500;
     /// @dev Assumed THE price in USD, 1e8 scale ($0.30).
     uint256 internal constant ASSUMED_THE_PRICE_E8 = 0.30e8;
-    /// @dev Slippage applied to THE → WBNB harvest sell (bps).
+    /// @dev Slippage applied to THE -> WBNB harvest sell (bps).
     uint256 internal constant HARVEST_SLIPPAGE_BPS = 30;
     /// @dev Assumed weekly LP fee accrual on our share (bps of notional).
     uint256 internal constant ASSUMED_LP_FEE_BPS_WEEKLY = 5; // 0.05 %
@@ -72,7 +72,7 @@ contract B08_01_ThenaLpGaugeStakeTest is BSCStrategyBase {
         vm.deal(address(this), PRINCIPAL_BNB);
         _startPnL();
 
-        // ---- 1. Split principal: half → slisBNB, half → WBNB ----
+        // ---- 1. Split principal: half -> slisBNB, half -> WBNB ----
         uint256 halfBnb = PRINCIPAL_BNB / 2;
         IListaStakeManagerMin sm = IListaStakeManagerMin(BSC.LISTA_STAKE_MANAGER);
         sm.deposit{value: halfBnb}();
@@ -153,7 +153,7 @@ contract B08_01_ThenaLpGaugeStakeTest is BSCStrategyBase {
         uint256 theAmount = (weeklyThePnlUsdE6 * 1e18) / (ASSUMED_THE_PRICE_E8 / 1e2); // 1e18 THE
         _fund(BSC.THE, address(this), IERC20(BSC.THE).balanceOf(address(this)) + theAmount);
 
-        // ---- 7. Sell THE → WBNB (Thena volatile) with assumed slippage ----
+        // ---- 7. Sell THE -> WBNB (Thena volatile) with assumed slippage ----
         // Modeled: convert THE balance to WBNB at $0.30/THE and $600/BNB
         // minus HARVEST_SLIPPAGE_BPS.
         uint256 thBal = IERC20(BSC.THE).balanceOf(address(this));
@@ -168,16 +168,16 @@ contract B08_01_ThenaLpGaugeStakeTest is BSCStrategyBase {
         uint256 lpFeesWbnb = (PRINCIPAL_BNB * ASSUMED_LP_FEE_BPS_WEEKLY) / 10_000;
         _fund(BSC.WBNB, address(this), IERC20(BSC.WBNB).balanceOf(address(this)) + lpFeesWbnb);
 
-        // ---- 9. Withdraw LP from gauge — represented by setting LP price
+        // ---- 9. Withdraw LP from gauge - represented by setting LP price
         //         override so the LP balance is marked at its WBNB-equivalent.
         //         The gauge token is non-priced by default; we mark it 1:1
-        //         to its underlying notional (≈ half-half slisBNB/WBNB). ----
+        //         to its underlying notional (~ half-half slisBNB/WBNB). ----
         // For the PoC we keep LP staked (track-token shows zero LP balance in
         // wallet but full balance in gauge). To get a clean PnL we withdraw.
         IThenaGauge(gauge).withdraw(lpMinted);
 
         // Set LP price = (rSlis * slisPrice + rWbnb * bnbPrice) / totalSupply
-        // Approx: total LP notional ≈ 100 BNB → priceE8 per LP =
+        // Approx: total LP notional ~ 100 BNB -> priceE8 per LP =
         // (100 BNB * 600e8) / totalSupply (1e18). Use a conservative override.
         uint256 lpTotal = IERC20(pair).totalSupply();
         if (lpTotal > 0) {

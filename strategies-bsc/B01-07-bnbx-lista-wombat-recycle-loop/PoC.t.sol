@@ -15,14 +15,14 @@ interface IStaderStakeManager {
     function getExchangeRate() external view returns (uint256);
 }
 
-/// @title B01-07 BNBx → Lista Lending → borrow WBNB → Wombat WBNB/BNBx recycle (3-mech)
+/// @title B01-07 BNBx -> Lista Lending -> borrow WBNB -> Wombat WBNB/BNBx recycle (3-mech)
 ///
 /// @notice Three-mechanism stack:
-///         1. **Stader BNBx**   — mint LST from BNB at internal rate.
-///         2. **Lista Lending** — supply BNBx as collateral, borrow WBNB.
-///         3. **Wombat WBNB / BNBx StableSwap-style pool** — instead of
+///         1. **Stader BNBx**   - mint LST from BNB at internal rate.
+///         2. **Lista Lending** - supply BNBx as collateral, borrow WBNB.
+///         3. **Wombat WBNB / BNBx StableSwap-style pool** - instead of
 ///            re-staking the borrowed WBNB into Stader (slow async unwind,
-///            same-rate roundtrip), swap WBNB → BNBx in the Wombat
+///            same-rate roundtrip), swap WBNB -> BNBx in the Wombat
 ///            dynamic-asset pool. When Wombat's BNBx-side ratio is short
 ///            (i.e. pool is depleted of BNBx), the swap delivers BNBx at a
 ///            **better effective rate than Stader's mint**, producing a
@@ -47,7 +47,7 @@ contract B01_07_BNBxListaWombatRecycleLoopTest is BSCStrategyBase {
     address internal constant LOCAL_LISTA_LENDING = 0xAa0F8C41E3DC22a8C4d4Da6Da1A1caF048D7e4B5;
 
     /// @dev Wombat BNBx / WBNB dynamic pool (separate from the main stable
-    ///      pool — has its own contract for BNB-LST pairs). Placeholder;
+    ///      pool - has its own contract for BNB-LST pairs). Placeholder;
     ///      verify against Wombat's BSC pool registry.
     address internal constant LOCAL_WOMBAT_BNBX_POOL = 0x10010078a54396F62c96dF8532dc2B4847d47ED3;
 
@@ -82,7 +82,7 @@ contract B01_07_BNBxListaWombatRecycleLoopTest is BSCStrategyBase {
         wbnb.approve(LOCAL_LISTA_LENDING, type(uint256).max);
         wbnb.approve(LOCAL_WOMBAT_BNBX_POOL, type(uint256).max);
 
-        // ---- Initial: BNB → BNBx via Stader (cold-start: no Wombat liquidity
+        // ---- Initial: BNB -> BNBx via Stader (cold-start: no Wombat liquidity
         //               check needed; full principal goes through canonical mint).
         stader.deposit{value: PRINCIPAL_BNB}();
         lending.supply(LOCAL_BNBX, bnbx.balanceOf(address(this)), address(this));
@@ -99,8 +99,8 @@ contract B01_07_BNBxListaWombatRecycleLoopTest is BSCStrategyBase {
             if (wbnbBal == 0) break;
 
             // 2. Compare paths:
-            //    A. Stader mint: WBNB → BNB → Stader → BNBx at internal rate.
-            //    B. Wombat swap: WBNB → BNBx at pool's marginal rate.
+            //    A. Stader mint: WBNB -> BNB -> Stader -> BNBx at internal rate.
+            //    B. Wombat swap: WBNB -> BNBx at pool's marginal rate.
             uint256 staderBnbx = (wbnbBal * 1e18) / stader.getExchangeRate();
 
             uint256 wombatBnbx = 0;

@@ -11,7 +11,7 @@ import {IPYieldToken} from "src/interfaces/pendle/IPYieldToken.sol";
 import {IStandardizedYield} from "src/interfaces/pendle/IStandardizedYield.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B04-04 — PT-sUSDe BSC near-maturity redemption arb (4-day carry)
+/// @title B04-04 - PT-sUSDe BSC near-maturity redemption arb (4-day carry)
 ///
 /// @notice Buy PT-sUSDe ~4 days before expiry at a residual BSC-specific
 ///         discount; warp past maturity; redeem 1:1 USDC. The carry is
@@ -88,7 +88,7 @@ contract B04_04_PtSusdeBscMaturityRedemptionTest is BSCStrategyBase {
         }
         console2.log("pt_received_1e18=", ptOut);
 
-        // Implied entry price (1e18 scaled). Near maturity, expect ≥ 0.998.
+        // Implied entry price (1e18 scaled). Near maturity, expect >= 0.998.
         uint256 entryPriceE18 = (EQUITY_USDC * 1e18) / ptOut;
         console2.log("pt_entry_price_1e18=", entryPriceE18);
 

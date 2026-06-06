@@ -13,7 +13,7 @@ interface IVenusVAIController {
     function getVAIRepayAmount(address account) external view returns (uint256);
 }
 
-/// @title B06-04 VAI depeg — atomic PCS v3 flash + StableSwap arb
+/// @title B06-04 VAI depeg - atomic PCS v3 flash + StableSwap arb
 /// @notice Two variants: (A) round-trip StableSwap-only when no debt
 ///         exists; (B) when the contract carries Venus VAI debt, repay
 ///         it at par with cheaply-bought VAI for a wider margin.
@@ -33,7 +33,7 @@ contract B06_04_VAIDepegPCSFlashArbTest is BSCStrategyBase, IPancakeV3FlashCallb
 
     // ---- Strategy parameters ----
     uint256 internal constant FLASH_USDT = 1_000_000e18;
-    /// @dev Minimum depeg (bps) below which we skip — gas isn't worth it.
+    /// @dev Minimum depeg (bps) below which we skip - gas isn't worth it.
     uint256 internal constant MIN_DEPEG_BPS = 30;
     /// @dev Pre-funded USDT buffer to cover flash fee + slippage.
     uint256 internal constant BUFFER = 10_000e18;

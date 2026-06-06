@@ -12,7 +12,7 @@ import {IPancakeStableRouter} from "src/interfaces/bsc/amm/IPancakeStableRouter.
 ///         the stables Main Pool. The dynamic-weight invariant prices USDe at
 ///         a peg of $1 but the pool's `cov_USDe` drifts heavily whenever
 ///         Ethena's bridged-OFT USDe supply is pumped onto BSC (cross-chain
-///         mints land asymmetrically — large LP-side adds without matching
+///         mints land asymmetrically - large LP-side adds without matching
 ///         counterflow). At `cov_USDe > 1.3`, Wombat over-pays USDe sellers
 ///         vs the PCS Stable USDe/USDT pool's flatter curve.
 ///

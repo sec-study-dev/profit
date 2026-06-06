@@ -10,7 +10,7 @@ import {IERC20} from "src/interfaces/common/IERC20.sol";
 //
 // Mechanism (2-leg, single-venue concentration arb):
 //   PCS StableSwap pools use a Curve-style invariant `Ann*sum + D = Ann*D*n +
-//   D^(n+1)/(n^n*prod)`. The trade-fee on PCS Stable is *not* fixed — when an
+//   D^(n+1)/(n^n*prod)`. The trade-fee on PCS Stable is *not* fixed - when an
 //   incoming swap pushes the pool further from balance (one side > 60-70% of
 //   reserves) the "dynamic-fee" surcharge multiplies the nominal fee by up to
 //   4x. *Reverse* swaps that re-balance the pool collect a fee discount.
@@ -40,7 +40,7 @@ interface IPancakeV3FlashCallback {
 }
 
 interface IPancakeStableSwap {
-    /// @notice Curve-fork "exchange" — Pancake StableSwap uses signed token
+    /// @notice Curve-fork "exchange" - Pancake StableSwap uses signed token
     ///         indices. `i` = token in index, `j` = token out index.
     function exchange(uint256 i, uint256 j, uint256 dx, uint256 min_dy) external returns (uint256);
     function get_dy(uint256 i, uint256 j, uint256 dx) external view returns (uint256);
@@ -65,7 +65,7 @@ contract B02_05_slisBNB_PCSStable_DynamicFee is BSCStrategyBase, IPancakeV3Flash
     ///      Pancake deploys a per-pair stableswap; placeholder address chosen so
     ///      the on-chain branch falls back to extcodesize==0 -> offline mode.
     address constant LOCAL_PCS_STABLE_SLISBNB_WBNB =
-        0x1B2A23dE26822A0E2c1c5fF000C0C5b58f8b3a96;
+        0x1B2a23DE26822A0e2c1C5fF000c0c5B58F8B3a96;
 
     /// @dev Flash source: PCS v3 WBNB/USDT 0.05% pool (deep). TODO verify.
     address constant LOCAL_PCS_V3_POOL_WBNB_USDT_500 =
@@ -100,7 +100,7 @@ contract B02_05_slisBNB_PCSStable_DynamicFee is BSCStrategyBase, IPancakeV3Flash
         _trackToken(LOCAL_WBNB);
         _trackToken(LOCAL_slisBNB);
         _setOraclePrice(LOCAL_WBNB, 600e8);
-        // slisBNB priced at internal rate ≈ 1.082 BNB → $649.20
+        // slisBNB priced at internal rate ~ 1.082 BNB -> $649.20
         _setOraclePrice(LOCAL_slisBNB, 649_2000_0000);
     }
 
@@ -189,7 +189,7 @@ contract B02_05_slisBNB_PCSStable_DynamicFee is BSCStrategyBase, IPancakeV3Flash
     }
 
     function _offlinePnLCheck() internal {
-        // Assumed surface: pool 70%/30% slisBNB-heavy → dynamic-fee discount
+        // Assumed surface: pool 70%/30% slisBNB-heavy -> dynamic-fee discount
         // gives 1.012 slisBNB per WBNB (versus internal-rate fair 1/1.082 = 0.924).
         // Net edge: 1.012 * 1.082 - 1 = +9.5%. Conservatively clamp to 28 bp
         // after slippage on a 2000-WBNB ticket plus 5 bp flash fee.
@@ -206,7 +206,7 @@ contract B02_05_slisBNB_PCSStable_DynamicFee is BSCStrategyBase, IPancakeV3Flash
 
         slisBnbReceived = simSlisOut;
         internalRateBnbValue = simBnbValue;
-        preTradeImbalanceBps = 2_000; // simulated 70/30 → 20% imbalance
+        preTradeImbalanceBps = 2_000; // simulated 70/30 -> 20% imbalance
 
         _endPnL("B02-05[offline]: slisBNB PCS StableSwap dynamic-fee restoration");
     }

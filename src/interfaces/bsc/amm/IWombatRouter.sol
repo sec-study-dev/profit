@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice Wombat Router — multi-pool routed swaps.
+/// @notice Wombat Router - multi-pool routed swaps.
 interface IWombatRouter {
     function swapExactTokensForTokens(
         address[] calldata tokenPath,

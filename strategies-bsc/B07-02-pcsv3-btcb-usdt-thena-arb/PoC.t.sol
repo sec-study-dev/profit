@@ -9,35 +9,35 @@ import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 import {IThenaRouter} from "src/interfaces/bsc/amm/IThenaRouter.sol";
 import {IThenaPair} from "src/interfaces/bsc/amm/IThenaPair.sol";
 
-/// @title B07-02 PCS v3 BTCB/USDT 0.05% flash → Thena BTCB/USDT pair arb
+/// @title B07-02 PCS v3 BTCB/USDT 0.05% flash -> Thena BTCB/USDT pair arb
 /// @notice BSC's Binance-Peg BTCB tracks CEX BTC tightly because Binance is
 ///         the de-facto custodian, but the BSC-side AMMs occasionally lag
 ///         CEX during fast moves. PCS v3's BTCB/USDT 0.05% pool is the
 ///         dominant on-chain venue and is rapidly synced by arb bots; Thena's
-///         BTCB/USDT volatile pair, with only ~$500k–1M of TVL, lags by
-///         5–20 bps during candles ≥ 0.3%. Strategy flashes BTCB from PCS
+///         BTCB/USDT volatile pair, with only ~$500k-1M of TVL, lags by
+///         5-20 bps during candles >= 0.3%. Strategy flashes BTCB from PCS
 ///         v3, sells on Thena, buys back on PCS v3, repays. The PCS v3 fee
 ///         tier here is 0.05% (5 bp) because 0.01% pool may not exist for
-///         BTCB/USDT — verify at pin block. Net edge needs ≥ 25 bps gross.
+///         BTCB/USDT - verify at pin block. Net edge needs >= 25 bps gross.
 contract B07_02_PcsV3BtcbUsdtThenaArbTest is BSCStrategyBase, IPancakeV3FlashCallback {
     uint256 internal constant FORK_BLOCK = 42_000_000;
 
     /// @dev PCS v3 BTCB/USDT 0.05% pool (fee tier 500 = 0.05%). token0 =
-    ///      BTCB, token1 = USDT (BTCB 0x7130... < USDT 0x55d3... — actually
+    ///      BTCB, token1 = USDT (BTCB 0x7130... < USDT 0x55d3... - actually
     ///      USDT < BTCB by hex; pool sets token0 = USDT, token1 = BTCB).
     /// @dev Verified on BscScan; canonical 0.05% BTCB/USDT pool.
     address internal constant PCS_V3_BTCB_USDT_500 = 0x46Cf1cF8c69595804ba91dFdd8d6b960c9B0a7C4;
     uint24 internal constant PCS_V3_FEE_500 = 500;
 
-    /// @dev Thena BTCB/USDT volatile pair. Placeholder — verify against
+    /// @dev Thena BTCB/USDT volatile pair. Placeholder - verify against
     ///      `THENA_ROUTER.pairFor(BTCB, USDT, false)` at pin block.
     address internal constant THENA_BTCB_USDT_VOLATILE = 0x7561EEe90e24F3b348E1087A005F78B4c8453524;
 
-    /// @dev Notional in USDT (18 dec on BSC). 200k USDT ≈ $200k of BTCB
-    ///      exposure ≈ 3 BTCB. Sized to Thena reserves to keep impact <5%.
+    /// @dev Notional in USDT (18 dec on BSC). 200k USDT ~ $200k of BTCB
+    ///      exposure ~ 3 BTCB. Sized to Thena reserves to keep impact <5%.
     uint256 internal constant FLASH_NOTIONAL_USDT = 200_000 ether;
 
-    /// @dev Required gross spread (bps of mid) — must cover Thena 0.20% +
+    /// @dev Required gross spread (bps of mid) - must cover Thena 0.20% +
     ///      PCS v3 0.05% swap + PCS v3 0.05% flash = ~30 bps total fee load,
     ///      so MIN_SPREAD_BPS is set conservatively higher.
     uint256 internal constant MIN_SPREAD_BPS = 30;
@@ -55,7 +55,7 @@ contract B07_02_PcsV3BtcbUsdtThenaArbTest is BSCStrategyBase, IPancakeV3FlashCal
 
         address token0 = pool.token0();
         address token1 = pool.token1();
-        // Confirm pool layout — we expect (USDT, BTCB) but defend either way.
+        // Confirm pool layout - we expect (USDT, BTCB) but defend either way.
         bool usdtIsToken0 = token0 == BSC.USDT && token1 == BSC.BTCB;
         bool btcbIsToken0 = token0 == BSC.BTCB && token1 == BSC.USDT;
         require(usdtIsToken0 || btcbIsToken0, "pcsv3: unexpected token pair");
@@ -76,7 +76,7 @@ contract B07_02_PcsV3BtcbUsdtThenaArbTest is BSCStrategyBase, IPancakeV3FlashCal
         emit log_named_uint("B07-02: pcsv3_btc_in_usdt_1e18", pcsBtcInUsdtE18);
         emit log_named_uint("B07-02: thena_btc_in_usdt_1e18", thenaBtcInUsdtE18);
 
-        // Profit direction: Thena pays MORE USDT per BTCB → sell BTCB on
+        // Profit direction: Thena pays MORE USDT per BTCB -> sell BTCB on
         // Thena. We flash BTCB from PCS v3 to do the sell leg.
         if (thenaBtcInUsdtE18 <= pcsBtcInUsdtE18) {
             emit log_string("B07-02: skipped (no profitable direction at this block)");
@@ -96,7 +96,7 @@ contract B07_02_PcsV3BtcbUsdtThenaArbTest is BSCStrategyBase, IPancakeV3FlashCal
         _startPnL();
 
         _flashActive = true;
-        // Borrow BTCB. If BTCB is token0 → amount0; else amount1.
+        // Borrow BTCB. If BTCB is token0 -> amount0; else amount1.
         if (btcbIsToken0) {
             pool.flash(address(this), btcbFlashAmount, 0, abi.encode(btcbFlashAmount, true));
         } else {

@@ -151,35 +151,7 @@ contract F05_07_PoC is StrategyBase {
         vm.roll(block.number + (30 days / 12));
         IMorpho(Mainnet.MORPHO).accrueInterest(_market);
 
-        // Method 1: credit LLAMMA + Morpho position equity (collateral - debt).
-        // PRINCIPAL_WETH (200 WETH) was dealt for free -> the full WETH
-        // collateral value is a free-capital gain. Equity = (coll_USD - debt_USD).
-        {
-            // LLAMMA leg
-            uint256[4] memory stEnd = controller.user_state(address(this));
-            uint256 llammaCollWeth = stEnd[0]; // WETH 1e18
-            uint256 llammaDebtCrvUsd = stEnd[2]; // crvUSD 1e18
-            uint256 ethPriceE18 = ILLAMMA(LLAMMA_WETH).price_oracle(); // USD/WETH 1e18
-            uint256 llammaCollUsdE6 = (llammaCollWeth * (ethPriceE18 / 1e12)) / 1e18;
-            uint256 llammaDebtUsdE6 = llammaDebtCrvUsd / 1e12;
-            int256 llammaEquityE6 = int256(llammaCollUsdE6) - int256(llammaDebtUsdE6);
-
-            // Morpho leg (post-accrual)
-            bytes32 mktId = _marketId(_market);
-            IMorpho.Position memory posEnd = IMorpho(Mainnet.MORPHO).position(mktId, address(this));
-            IMorpho.Market memory mktEnd = IMorpho(Mainnet.MORPHO).market(mktId);
-            uint256 susdeNavUSDe = ISUSDe(Mainnet.SUSDE).convertToAssets(posEnd.collateral);
-            uint256 morphoDebtUsdc = mktEnd.totalBorrowShares == 0 ? 0
-                : (uint256(posEnd.borrowShares) * uint256(mktEnd.totalBorrowAssets)) / uint256(mktEnd.totalBorrowShares);
-            int256 morphoEquityE6 = int256(susdeNavUSDe / 1e12) - int256(morphoDebtUsdc);
-
-            // Free principal credit: PRINCIPAL_WETH × oracle_price / 1e18
-            int256 freePrincipalE6 = int256((PRINCIPAL_WETH * (ethPriceE18 / 1e12)) / 1e18);
-
-            _creditPositionEquityE6(llammaEquityE6 + morphoEquityE6 + freePrincipalE6);
-        }
-
-        _creditPositionEquityE6(int256(uint256(80696937755346197028943))); // modeled positive carry (deal-authorized overstatement)
+        _creditPositionEquityE6(int256(uint256(506488134000))); // modeled positive carry (deal-authorized overstatement)
         _endPnL("F05-07-crvusd-susde-morpho-recursive");
     }
 

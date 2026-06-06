@@ -21,7 +21,7 @@ import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
 ///      mainnet `verify-cycle` PoCs that use `vm.warp` and direct token
 ///      balance writes to model rewards.
 contract B09_03_VeWOM_Boost_LPCarry is BSCStrategyBase {
-    /// @dev TODO: pin real BSC blocks for entry and exit. ~3s blocks * 30d ≈ 864_000.
+    /// @dev TODO: pin real BSC blocks for entry and exit. ~3s blocks * 30d ~ 864_000.
     uint256 constant FORK_BLOCK_START = 45_000_000;
     uint256 constant FORK_BLOCK_END   = 45_864_000;
 
@@ -131,7 +131,7 @@ contract B09_03_VeWOM_Boost_LPCarry is BSCStrategyBase {
             _fund(BSC.USDT, address(this), LP_USDT_NOTIONAL);
         }
 
-        // veWOM stays locked across the snapshot window — booked as a
+        // veWOM stays locked across the snapshot window - booked as a
         // realized cost: the $25k of WOM is consumed (sent to dead) so the
         // PnL accounts for it via the WOM-token balance delta.
 
