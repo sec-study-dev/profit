@@ -1,148 +1,148 @@
 strategy,category,fee_eth,net_usd,cross_block,status
-F01-01-wsteth-aave-emode-loop,1a 质押息差杠杆,0.04316266,-60.62,yes,PASS
-F01-02-wsteth-morpho-flashloan-loop,1a 质押息差杠杆,0.00344489,36.48,yes,PASS
-F01-03-reth-aave-flashloan-loop,1a 质押息差杠杆,0.01828810,2372719.17,yes,PASS
-F01-04-cbeth-aave-emode-loop,1a 质押息差杠杆,0.04754681,-71.86,yes,PASS
-F01-05-sfrxeth-fraxlend-frax-loop,1a 质押息差杠杆,0.00133528,46.65,yes,PASS
-F01-06-wsteth-compound-v3-weth-comet,1a 质押息差杠杆,0.01685547,6.81,yes,PASS
-F01-07-reth-spark-dai-sdai-carry,1a 质押息差杠杆,0.00783272,146416.82,yes,PASS
-F01-08-wsteth-aave-pendle-pt-hedge,1a 质押息差杠杆,0.01637446,-14.28,yes,PASS
-F02-01-weeth-morpho-flashloop,1a 质押息差杠杆,0.01553820,11.21,yes,PASS
-F02-04-weeth-aave-emode-loop,1a 质押息差杠杆,0.00735439,25.43,no,PASS
-F02-06-pufeth-symbiotic-aave-emode-triple,1a 质押息差杠杆,0.00296769,39.46,yes,PASS
-F02-08-weeth-fluid-smart-collateral-loop,1a 质押息差杠杆,0.00063660,47.99,no,PASS
-F05-03-wsteth-crvusd-leverage-loop,1a 质押息差杠杆,0.00726823,142818.55,no,PASS
-F05-05-sfrxeth-crvusd-leverage-loop,1a 质押息差杠杆,0.05498929,342095.99,yes,PASS
-F06-04-bold-wsteth-leveraged-loop,1a 质押息差杠杆,0.00031677,175955.73,yes,PASS
-F09-01-wsteth-morpho-flashloop-curve,1a 质押息差杠杆,0.00329043,1949.92,no,PASS
-F09-06-rseth-morpho-flashloop-curve,1a 质押息差杠杆,0.00488672,30.82,no,PASS
-F11-01-comet-usdc-weth-leverage-loop,1a 质押息差杠杆,0.00097958,47.44,yes,PASS
-F11-02-fluid-wsteth-eth-smart-collateral-loop,1a 质押息差杠杆,0.00482345,37.28,no,PASS
-F11-06-comet-eth-lido-wsteth-loop,1a 质押息差杠杆,0.01014310,-1.97,yes,PASS
-F11-07-fluid-wsteth-usdc-dssflash-bootstrap,1a 质押息差杠杆,0.00463963,33.05,yes,PASS
-F17-06-oeth-redeem-aave-emode-loop,1a 质押息差杠杆,0.00025701,49.16,no,PASS
-F04-02-sdai-spark-collateral-loop,1b 稳定币息差杠杆,0.05165564,1770.07,no,PASS
-F04-03-susds-spark-savings-rate-loop,1b 稳定币息差杠杆,0.01546952,3821.07,no,PASS
-F04-06-sdai-morpho-usdc-recursive,1b 稳定币息差杠杆,0.01444873,461.82,no,PASS
-F04-08-sdai-spark-usdc-borrow-curve-recycle,1b 稳定币息差杠杆,0.07705857,-105.05,no,PASS
-F05-07-crvusd-susde-morpho-recursive,1b 稳定币息差杠杆,0.00310516,5006.82,yes,PASS
-F05-08-crvusd-llamma-curve-convex-loop,1b 稳定币息差杠杆,0.00564848,283824.13,yes,PASS
-F08-01-susde-morpho-usdc-loop,1b 稳定币息差杠杆,0.00025818,3245.77,yes,PASS
-F08-04-susde-aave-stable-emode-loop,1b 稳定币息差杠杆,0.00019002,35341.85,yes,PASS
-F08-07-usde-morpho-collateral-susde-loop,1b 稳定币息差杠杆,,,,FAIL
-F09-02-susde-dai-morpho-flashloop,1b 稳定币息差杠杆,0.00418640,44.76,yes,PASS
-F09-03-metamorpho-idle-vault-supply,1b 稳定币息差杠杆,0.00261925,9989.72,no,PASS
-F10-01-gho-mint-balancer-carry,1b 稳定币息差杠杆,0.00108028,8864.81,yes,PASS
-F10-02-emode-sdai-dai-spark-loop,1b 稳定币息差杠杆,0.04151309,9744.78,yes,PASS
-F10-04-gho-stkaave-discounted-mint,1b 稳定币息差杠杆,0.00533635,28821.71,yes,PASS
-F10-05-gho-curve-convex-3mech-boost,1b 稳定币息差杠杆,0.00410035,59.34,yes,PASS
-F10-06-sdai-aave-usdc-spark-recursive,1b 稳定币息差杠杆,0.00181500,4323.75,yes,PASS
-F10-07-gho-usde-curve-aave-3mech,1b 稳定币息差杠杆,0.01301004,859.62,yes,PASS
-F10-08-aave-isolation-mode-farm,1b 稳定币息差杠杆,0.00294577,-10.76,yes,PASS
-F16-01-lusd-trove-aave-usdc-supply-carry,1b 稳定币息差杠杆,0.03062555,1767.49,no,PASS
-F16-04-gho-mint-lusd-stability-pool-carry,1b 稳定币息差杠杆,0.00152238,676.54,no,PASS
-F16-06-crvusd-llamma-gho-collateral-loop,1b 稳定币息差杠杆,0.00239008,1452.79,no,PASS
-F16-08-lusd-trove-crvusd-curve-convex-boost,1b 稳定币息差杠杆,0.00434795,1086.52,no,PASS
-F17-01-usdm-curve-rebase-harvest,1b 稳定币息差杠杆,0.00032186,3520.46,yes,PASS
-F17-02-syrupusdc-vs-susds-carry-rotation,1b 稳定币息差杠杆,0.00653580,1060.97,no,PASS
-F17-04-ousd-rebase-aave-loop,1b 稳定币息差杠杆,0.00077914,323.04,no,PASS
-F17-05-sUSDe-sUSDS-aave-emode-rotation,1b 稳定币息差杠杆,0.00038070,1149.99,no,PASS
-F17-08-usdm-crvusd-llamma-amplified-carry,1b 稳定币息差杠杆,0.00029740,49.3,no,PASS
-F18-03-ethena-curve-aave-usde-carry,1b 稳定币息差杠杆,0.00222136,9994.22,no,PASS
-F02-07-weeth-pendle-pt-yt-split-flashloop,2 固定收益,0.00586449,34.54,no,PASS
-F07-01-pt-susde-morpho-loop,2 固定收益,0.00007947,0.73,no,PASS
-F07-02-pt-weeth-morpho-loop,2 固定收益,0.00006535,249772.7,no,PASS
-F07-04-pt-sy-maturity-arb,2 固定收益,0.00138311,138.73,yes,PASS
-F07-05-pt-rseth-morpho-kelp-loop,2 固定收益,,,,SKIP
-F07-06-pt-usd0pp-cash-and-carry,2 固定收益,0.00491322,98887.93,no,PASS
-F07-07-pt-gho-aave-borrow-loop,2 固定收益,0.00091056,999205.63,no,PASS
-F07-08-pt-susds-spark-dssflash-loop,2 固定收益,,,,SKIP
-F08-03-pt-susde-morpho-pendle-flashloop,2 固定收益,,,,FAIL
-F08-05-pt-susde-aave-emode-dssflash-loop,2 固定收益,0.00018428,40273.37,yes,PASS
-F09-05-pt-weeth-morpho-flashloop,2 固定收益,,,,FAIL
-F09-07-pt-susde-pendle-hedged-morpho,2 固定收益,,,,FAIL
-F11-05-fluid-susde-usdc-pendle-pt-loop,2 固定收益,0.00235662,607920.11,yes,PASS
-F17-07-syrupUSDC-morpho-pendle-hedge,2 固定收益,0.00022343,49.49,no,PASS
-F18-02-wsteth-pendle-pt-morpho-tier,2 固定收益,,,,FAIL
-F18-04-balancer-pendle-morpho-pt-susde,2 固定收益,,,,FAIL
-F02-02-ezeth-pendle-yt-points,3 积分空投,0.00153587,45.95,no,PASS
-F02-03-pufeth-symbiotic-restack,3 积分空投,0.00161735,44.97,no,PASS
-F02-05-rseth-karak-pendle-yt-morpho,3 积分空投,0.00120791,52.48,no,PASS
-F07-03-yt-weeth-points-speculation,3 积分空投,0.00032297,107136.69,yes,PASS
-F07-09-yt-pufeth-symbiotic-stack,3 积分空投,0.00006950,82808.04,yes,PASS
-F15-01-steth-direct-eigen-vs-ezeth,3 积分空投,0.02463879,3993.25,no,PASS
-F15-02-eigen-cap-race-first-deposit,3 积分空投,0.00201154,1349.19,yes,PASS
-F15-03-eigen-withdrawal-queue-secondary,3 积分空投,0.00205336,73.42,yes,PASS
-F15-04-native-eigen-symbiotic-dualstack,3 积分空投,0.00131239,72.36,no,PASS
-F15-05-eigen-operator-multi-avs-delegation,3 积分空投,0.00044572,1552.47,no,PASS
-F15-06-eigenpod-native-validator-restake,3 积分空投,0.00040562,5278.94,no,PASS
-F15-07-karak-multi-lrt-basket-vault,3 积分空投,0.00114402,47.38,no,PASS
-F15-08-symbiotic-eigen-pendle-yt-triple,3 积分空投,0.01596820,1331.78,no,PASS
-F18-05-eigen-symbiotic-karak-triple-restake,3 积分空投,0.00031916,1306.37,no,PASS
-F03-01-steth-curve-depeg-lido-queue,4 脱锚套利,0.01002955,37182.46,no,PASS
-F03-02-ezeth-balancer-depeg-renzo,4 脱锚套利,0.00085871,6270.42,no,PASS
-F03-09-weeth-pectra-depeg,4 脱锚套利,0.00155641,14668.29,no,PASS
-F04-01-dssflash-psm-curve-3pool-depeg,4 脱锚套利,0.00070578,48.91,no,PASS
-F05-04-crvusd-peg-flashmint-arb,4 脱锚套利,0.02268075,259.19,no,PASS
-F08-02-usde-usdt-balancer-flash-curve-peg-arb,4 脱锚套利,0.00053335,998.26,no,PASS
-F08-06-susde-cooldown-curve-arb,4 脱锚套利,0.00434782,752.16,yes,PASS
-F08-09-ethena-mint-curve-balancer-arb,4 脱锚套利,,,,FAIL
-F13-07-univ3-usdc-weth-flash-balancer-curve-peg-arb,4 脱锚套利,0.00741080,30.46,no,PASS
-F14-02-susd-3pool-depeg-atomic,4 脱锚套利,0.00392382,59993.92,no,PASS
-F14-06-susd-deep-depeg-sbtc-backstop,4 脱锚套利,,,,PASS
-F17-03-oeth-curve-depeg-redeem-arb,4 脱锚套利,0.00015711,861.49,no,PASS
-F18-01-dssflash-crvusd-pegkeeper-arb,4 脱锚套利,0.00081048,47.89,no,PASS
-F03-03-reth-balancer-rateprovider-lag,5 跨场所/滞后套利,0.00202295,3258.88,no,PASS
-F03-04-multi-lst-triangular-curve,5 跨场所/滞后套利,0.00135076,4747.86,no,PASS
-F03-05-wsteth-curve-univ3-triangular,5 跨场所/滞后套利,0.00135153,3322.73,no,PASS
-F03-06-multi-lrt-triangular-balancer,5 跨场所/滞后套利,0.00178182,4952.91,no,PASS
-F03-07-cbeth-rate-update-curve-univ3,5 跨场所/滞后套利,0.00937487,134.18,no,PASS
-F03-08-frxeth-sfrxeth-rate-mismatch,5 跨场所/滞后套利,0.00097050,7303.39,no,PASS
-F04-04-dssflash-psm-aave-usdc-supply-arb,5 跨场所/滞后套利,0.00111097,-1.28,no,PASS
-F04-05-daiusds-roundtrip-susds-slippage,5 跨场所/滞后套利,0.00179844,19544.13,no,PASS
-F06-07-lusd-gho-crvusd-triangle,5 跨场所/滞后套利,0.02669696,17.73,no,PASS
-F08-08-susde-susds-funding-rotate,5 跨场所/滞后套利,,,,FAIL
-F09-04-morpho-cross-market-rate-arb,5 跨场所/滞后套利,0.00128006,1883.02,yes,PASS
-F09-08-cross-metamorpho-idle-rebalance,5 跨场所/滞后套利,0.00372751,11990.36,yes,PASS
-F10-03-spark-dai-aave-rate-arb,5 跨场所/滞后套利,0.01063434,1057.38,yes,PASS
-F11-03-euler-evc-batch-rate-arb,5 跨场所/滞后套利,0.00058713,48.14,no,PASS
-F11-04-cross-mm-comet-aave-usdc-supply-arb,5 跨场所/滞后套利,0.00147273,46.62,yes,PASS
-F11-08-euler-cross-vault-usdc-rate-sniffer,5 跨场所/滞后套利,0.00171231,44.37,yes,PASS
-F12-09-convex-crvusd-usdc-llamma-arb,5 跨场所/滞后套利,0.04972096,3081.97,yes,PASS
-F13-01-univ3-wsteth-flash-balancer-cspeg-arb,5 跨场所/滞后套利,,,,PASS
-F13-02-balancer-reth-rateprovider-univ3-arb,5 跨场所/滞后套利,,,,PASS
-F13-06-balancer-weeth-rateprovider-univ3-flash-curve,5 跨场所/滞后套利,,,,PASS
-F14-01-seth-susd-atomic-vs-uniswap-triangular,5 跨场所/滞后套利,0.02647609,86497.19,no,PASS
-F14-03-sbtc-seth-susd-triangular,5 跨场所/滞后套利,,,,PASS
-F14-04-atomic-oracle-update-sandwich,5 跨场所/滞后套利,0.03802742,-18.45,no,PASS
-F14-05-sbtc-wbtc-balancer-flash-atomic,5 跨场所/滞后套利,,,,PASS
-F14-08-sbtc-chainlink-update-presandwich,5 跨场所/滞后套利,,,,PASS
-F16-02-gho-vs-crvusd-rate-arb,5 跨场所/滞后套利,0.00123521,122324.23,no,PASS
-F16-03-dssflash-triangular-gho-crvusd-dai,5 跨场所/滞后套利,,,,PASS
-F16-05-dssflash-susds-gho-mint-crvusd-swap,5 跨场所/滞后套利,0.00258628,25938.61,yes,PASS
-F16-07-five-stable-cross-cdp-basis-scan,5 跨场所/滞后套利,0.00009056,49.69,no,PASS
-F18-06-synthetix-curve-aave-susd-rotation,5 跨场所/滞后套利,0.00009865,-0.31,no,PASS
-F05-01-wsteth-llamma-band-arb,6 清算收割,0.02139439,18805.91,no,PASS
-F05-02-wbtc-llamma-softliq-harvest,6 清算收割,0.02196073,8019.56,no,PASS
-F05-06-tbtc-crvusd-softliq-harvest,6 清算收割,0.03400202,6977.76,no,PASS
-F09-09-morpho-liquidation-flash-harvest,6 清算收割,0.00344482,4646.01,no,PASS
-F04-07-dssflash-lusd-liquity-redemption-curve,7 债仓赎回,0.00070620,48.91,no,PASS
-F06-01-lusd-redemption-arb-flashmint,7 债仓赎回,0.04501153,-53.79,no,PASS
-F06-02-stability-pool-eth-gain-loop,7 债仓赎回,0.01182108,2480.12,no,PASS
-F06-03-bold-redemption-sniper-v2,7 债仓赎回,0.00076886,4998.08,no,PASS
-F06-05-bold-collateral-registry-redemption-flash,7 债仓赎回,0.00106108,47.35,no,PASS
-F06-06-lusd-trove-sp-convex-boost,7 债仓赎回,0.49455460,-64.88,yes,PASS
-F06-08-bold-sp-mint-recycle,7 债仓赎回,0.00033140,49.17,yes,PASS
-F12-01-convex-frxeth-boost-loop,8 锁仓贿赂,0.05916752,-145.25,yes,PASS
-F12-02-vlcvx-votium-bribe-claim,8 锁仓贿赂,0.01784208,341.12,yes,PASS
-F12-03-convex-steth-triple-reward,8 锁仓贿赂,0.07382341,-243.57,yes,PASS
-F12-04-curve-gauge-weight-vote-snipe,8 锁仓贿赂,0.01555539,-1.33,yes,PASS
-F12-05-aura-reth-weth-hiddenhand,8 锁仓贿赂,0.05493993,-68.69,yes,PASS
-F12-06-penpie-pendle-pt-weeth-hiddenhand,8 锁仓贿赂,0.00123367,43.05,yes,PASS
-F12-07-convex-frxeth-fxs-compound,8 锁仓贿赂,0.05935661,-145.88,yes,PASS
-F12-08-hiddenhand-multi-protocol-bribe,8 锁仓贿赂,0.01819138,-10.03,yes,PASS
-F13-03-balancer-boosted-aave-stable-lp,9 LP手续费,0.00209803,44.95,yes,PASS
-F13-04-univ3-wsteth-weth-narrow-lp,9 LP手续费,0.00167297,45.97,yes,PASS
-F13-05-univ3-wsteth-jit-lp-backrun,9 LP手续费,0.00194958,7.16,no,PASS
-F13-08-balancer-wsteth-bpt-aura-stake,9 LP手续费,0.00784285,31.11,yes,PASS
-F14-07-synthetix-v3-vault-research-probe,10 金库存款,0.00029350,49.27,no,PASS
+F01-01-wsteth-aave-emode-loop,Staking-yield leveraged carry,0.04316266,-60.62,yes,PASS
+F01-02-wsteth-morpho-flashloan-loop,Staking-yield leveraged carry,0.00344489,36.48,yes,PASS
+F01-03-reth-aave-flashloan-loop,Staking-yield leveraged carry,0.01828810,2372719.17,yes,PASS
+F01-04-cbeth-aave-emode-loop,Staking-yield leveraged carry,0.04754681,-71.86,yes,PASS
+F01-05-sfrxeth-fraxlend-frax-loop,Staking-yield leveraged carry,0.00133528,46.65,yes,PASS
+F01-06-wsteth-compound-v3-weth-comet,Staking-yield leveraged carry,0.01685547,6.81,yes,PASS
+F01-07-reth-spark-dai-sdai-carry,Staking-yield leveraged carry,0.00783272,146416.82,yes,PASS
+F01-08-wsteth-aave-pendle-pt-hedge,Staking-yield leveraged carry,0.01637446,-14.28,yes,PASS
+F02-01-weeth-morpho-flashloop,Staking-yield leveraged carry,0.01553820,11.21,yes,PASS
+F02-04-weeth-aave-emode-loop,Staking-yield leveraged carry,0.00735439,25.43,no,PASS
+F02-06-pufeth-symbiotic-aave-emode-triple,Staking-yield leveraged carry,0.00296769,39.46,yes,PASS
+F02-08-weeth-fluid-smart-collateral-loop,Staking-yield leveraged carry,0.00063660,47.99,no,PASS
+F05-03-wsteth-crvusd-leverage-loop,Staking-yield leveraged carry,0.00726823,142818.55,no,PASS
+F05-05-sfrxeth-crvusd-leverage-loop,Staking-yield leveraged carry,0.05498929,342095.99,yes,PASS
+F06-04-bold-wsteth-leveraged-loop,Staking-yield leveraged carry,0.00031677,175955.73,yes,PASS
+F09-01-wsteth-morpho-flashloop-curve,Staking-yield leveraged carry,0.00329043,1949.92,no,PASS
+F09-06-rseth-morpho-flashloop-curve,Staking-yield leveraged carry,0.00488672,30.82,no,PASS
+F11-01-comet-usdc-weth-leverage-loop,Staking-yield leveraged carry,0.00097958,47.44,yes,PASS
+F11-02-fluid-wsteth-eth-smart-collateral-loop,Staking-yield leveraged carry,0.00482345,37.28,no,PASS
+F11-06-comet-eth-lido-wsteth-loop,Staking-yield leveraged carry,0.01014310,-1.97,yes,PASS
+F11-07-fluid-wsteth-usdc-dssflash-bootstrap,Staking-yield leveraged carry,0.00463963,33.05,yes,PASS
+F17-06-oeth-redeem-aave-emode-loop,Staking-yield leveraged carry,0.00025701,49.16,no,PASS
+F04-02-sdai-spark-collateral-loop,Stablecoin-yield leveraged carry,0.05165564,1770.07,no,PASS
+F04-03-susds-spark-savings-rate-loop,Stablecoin-yield leveraged carry,0.01546952,3821.07,no,PASS
+F04-06-sdai-morpho-usdc-recursive,Stablecoin-yield leveraged carry,0.01444873,461.82,no,PASS
+F04-08-sdai-spark-usdc-borrow-curve-recycle,Stablecoin-yield leveraged carry,0.07705857,-105.05,no,PASS
+F05-07-crvusd-susde-morpho-recursive,Stablecoin-yield leveraged carry,0.00310516,5006.82,yes,PASS
+F05-08-crvusd-llamma-curve-convex-loop,Stablecoin-yield leveraged carry,0.00564848,283824.13,yes,PASS
+F08-01-susde-morpho-usdc-loop,Stablecoin-yield leveraged carry,0.00025818,3245.77,yes,PASS
+F08-04-susde-aave-stable-emode-loop,Stablecoin-yield leveraged carry,0.00019002,35341.85,yes,PASS
+F08-07-usde-morpho-collateral-susde-loop,Stablecoin-yield leveraged carry,,,,FAIL
+F09-02-susde-dai-morpho-flashloop,Stablecoin-yield leveraged carry,0.00418640,44.76,yes,PASS
+F09-03-metamorpho-idle-vault-supply,Stablecoin-yield leveraged carry,0.00261925,9989.72,no,PASS
+F10-01-gho-mint-balancer-carry,Stablecoin-yield leveraged carry,0.00108028,8864.81,yes,PASS
+F10-02-emode-sdai-dai-spark-loop,Stablecoin-yield leveraged carry,0.04151309,9744.78,yes,PASS
+F10-04-gho-stkaave-discounted-mint,Stablecoin-yield leveraged carry,0.00533635,28821.71,yes,PASS
+F10-05-gho-curve-convex-3mech-boost,Stablecoin-yield leveraged carry,0.00410035,59.34,yes,PASS
+F10-06-sdai-aave-usdc-spark-recursive,Stablecoin-yield leveraged carry,0.00181500,4323.75,yes,PASS
+F10-07-gho-usde-curve-aave-3mech,Stablecoin-yield leveraged carry,0.01301004,859.62,yes,PASS
+F10-08-aave-isolation-mode-farm,Stablecoin-yield leveraged carry,0.00294577,-10.76,yes,PASS
+F16-01-lusd-trove-aave-usdc-supply-carry,Stablecoin-yield leveraged carry,0.03062555,1767.49,no,PASS
+F16-04-gho-mint-lusd-stability-pool-carry,Stablecoin-yield leveraged carry,0.00152238,676.54,no,PASS
+F16-06-crvusd-llamma-gho-collateral-loop,Stablecoin-yield leveraged carry,0.00239008,1452.79,no,PASS
+F16-08-lusd-trove-crvusd-curve-convex-boost,Stablecoin-yield leveraged carry,0.00434795,1086.52,no,PASS
+F17-01-usdm-curve-rebase-harvest,Stablecoin-yield leveraged carry,0.00032186,3520.46,yes,PASS
+F17-02-syrupusdc-vs-susds-carry-rotation,Stablecoin-yield leveraged carry,0.00653580,1060.97,no,PASS
+F17-04-ousd-rebase-aave-loop,Stablecoin-yield leveraged carry,0.00077914,323.04,no,PASS
+F17-05-sUSDe-sUSDS-aave-emode-rotation,Stablecoin-yield leveraged carry,0.00038070,1149.99,no,PASS
+F17-08-usdm-crvusd-llamma-amplified-carry,Stablecoin-yield leveraged carry,0.00029740,49.3,no,PASS
+F18-03-ethena-curve-aave-usde-carry,Stablecoin-yield leveraged carry,0.00222136,9994.22,no,PASS
+F02-07-weeth-pendle-pt-yt-split-flashloop,Fixed-yield discount-to-par,0.00586449,34.54,no,PASS
+F07-01-pt-susde-morpho-loop,Fixed-yield discount-to-par,0.00007947,0.73,no,PASS
+F07-02-pt-weeth-morpho-loop,Fixed-yield discount-to-par,0.00006535,249772.7,no,PASS
+F07-04-pt-sy-maturity-arb,Fixed-yield discount-to-par,0.00138311,138.73,yes,PASS
+F07-05-pt-rseth-morpho-kelp-loop,Fixed-yield discount-to-par,,,,SKIP
+F07-06-pt-usd0pp-cash-and-carry,Fixed-yield discount-to-par,0.00491322,98887.93,no,PASS
+F07-07-pt-gho-aave-borrow-loop,Fixed-yield discount-to-par,0.00091056,999205.63,no,PASS
+F07-08-pt-susds-spark-dssflash-loop,Fixed-yield discount-to-par,,,,SKIP
+F08-03-pt-susde-morpho-pendle-flashloop,Fixed-yield discount-to-par,,,,FAIL
+F08-05-pt-susde-aave-emode-dssflash-loop,Fixed-yield discount-to-par,0.00018428,40273.37,yes,PASS
+F09-05-pt-weeth-morpho-flashloop,Fixed-yield discount-to-par,,,,FAIL
+F09-07-pt-susde-pendle-hedged-morpho,Fixed-yield discount-to-par,,,,FAIL
+F11-05-fluid-susde-usdc-pendle-pt-loop,Fixed-yield discount-to-par,0.00235662,607920.11,yes,PASS
+F17-07-syrupUSDC-morpho-pendle-hedge,Fixed-yield discount-to-par,0.00022343,49.49,no,PASS
+F18-02-wsteth-pendle-pt-morpho-tier,Fixed-yield discount-to-par,,,,FAIL
+F18-04-balancer-pendle-morpho-pt-susde,Fixed-yield discount-to-par,,,,FAIL
+F05-01-wsteth-llamma-band-arb,Liquidation harvesting,0.02139439,18805.91,no,PASS
+F05-02-wbtc-llamma-softliq-harvest,Liquidation harvesting,0.02196073,8019.56,no,PASS
+F05-06-tbtc-crvusd-softliq-harvest,Liquidation harvesting,0.03400202,6977.76,no,PASS
+F09-09-morpho-liquidation-flash-harvest,Liquidation harvesting,0.00344482,4646.01,no,PASS
+F13-03-balancer-boosted-aave-stable-lp,LP fee income,0.00209803,44.95,yes,PASS
+F13-04-univ3-wsteth-weth-narrow-lp,LP fee income,0.00167297,45.97,yes,PASS
+F13-05-univ3-wsteth-jit-lp-backrun,LP fee income,0.00194958,7.16,no,PASS
+F13-08-balancer-wsteth-bpt-aura-stake,LP fee income,0.00784285,31.11,yes,PASS
+F03-03-reth-balancer-rateprovider-lag,Cross-venue/lag arbitrage,0.00202295,3258.88,no,PASS
+F03-04-multi-lst-triangular-curve,Cross-venue/lag arbitrage,0.00135076,4747.86,no,PASS
+F03-05-wsteth-curve-univ3-triangular,Cross-venue/lag arbitrage,0.00135153,3322.73,no,PASS
+F03-06-multi-lrt-triangular-balancer,Cross-venue/lag arbitrage,0.00178182,4952.91,no,PASS
+F03-07-cbeth-rate-update-curve-univ3,Cross-venue/lag arbitrage,0.00937487,134.18,no,PASS
+F03-08-frxeth-sfrxeth-rate-mismatch,Cross-venue/lag arbitrage,0.00097050,7303.39,no,PASS
+F04-04-dssflash-psm-aave-usdc-supply-arb,Cross-venue/lag arbitrage,0.00111097,-1.28,no,PASS
+F04-05-daiusds-roundtrip-susds-slippage,Cross-venue/lag arbitrage,0.00179844,19544.13,no,PASS
+F06-07-lusd-gho-crvusd-triangle,Cross-venue/lag arbitrage,0.02669696,17.73,no,PASS
+F08-08-susde-susds-funding-rotate,Cross-venue/lag arbitrage,,,,FAIL
+F09-04-morpho-cross-market-rate-arb,Cross-venue/lag arbitrage,0.00128006,1883.02,yes,PASS
+F09-08-cross-metamorpho-idle-rebalance,Cross-venue/lag arbitrage,0.00372751,11990.36,yes,PASS
+F10-03-spark-dai-aave-rate-arb,Cross-venue/lag arbitrage,0.01063434,1057.38,yes,PASS
+F11-03-euler-evc-batch-rate-arb,Cross-venue/lag arbitrage,0.00058713,48.14,no,PASS
+F11-04-cross-mm-comet-aave-usdc-supply-arb,Cross-venue/lag arbitrage,0.00147273,46.62,yes,PASS
+F11-08-euler-cross-vault-usdc-rate-sniffer,Cross-venue/lag arbitrage,0.00171231,44.37,yes,PASS
+F12-09-convex-crvusd-usdc-llamma-arb,Cross-venue/lag arbitrage,0.04972096,3081.97,yes,PASS
+F13-01-univ3-wsteth-flash-balancer-cspeg-arb,Cross-venue/lag arbitrage,,,,PASS
+F13-02-balancer-reth-rateprovider-univ3-arb,Cross-venue/lag arbitrage,,,,PASS
+F13-06-balancer-weeth-rateprovider-univ3-flash-curve,Cross-venue/lag arbitrage,,,,PASS
+F14-01-seth-susd-atomic-vs-uniswap-triangular,Cross-venue/lag arbitrage,0.02647609,86497.19,no,PASS
+F14-03-sbtc-seth-susd-triangular,Cross-venue/lag arbitrage,,,,PASS
+F14-04-atomic-oracle-update-sandwich,Cross-venue/lag arbitrage,0.03802742,-18.45,no,PASS
+F14-05-sbtc-wbtc-balancer-flash-atomic,Cross-venue/lag arbitrage,,,,PASS
+F14-08-sbtc-chainlink-update-presandwich,Cross-venue/lag arbitrage,,,,PASS
+F16-02-gho-vs-crvusd-rate-arb,Cross-venue/lag arbitrage,0.00123521,122324.23,no,PASS
+F16-03-dssflash-triangular-gho-crvusd-dai,Cross-venue/lag arbitrage,,,,PASS
+F16-05-dssflash-susds-gho-mint-crvusd-swap,Cross-venue/lag arbitrage,0.00258628,25938.61,yes,PASS
+F16-07-five-stable-cross-cdp-basis-scan,Cross-venue/lag arbitrage,0.00009056,49.69,no,PASS
+F18-06-synthetix-curve-aave-susd-rotation,Cross-venue/lag arbitrage,0.00009865,-0.31,no,PASS
+F02-02-ezeth-pendle-yt-points,Points/airdrop farming,0.00153587,45.95,no,PASS
+F02-03-pufeth-symbiotic-restack,Points/airdrop farming,0.00161735,44.97,no,PASS
+F02-05-rseth-karak-pendle-yt-morpho,Points/airdrop farming,0.00120791,52.48,no,PASS
+F07-03-yt-weeth-points-speculation,Points/airdrop farming,0.00032297,107136.69,yes,PASS
+F07-09-yt-pufeth-symbiotic-stack,Points/airdrop farming,0.00006950,82808.04,yes,PASS
+F15-01-steth-direct-eigen-vs-ezeth,Points/airdrop farming,0.02463879,3993.25,no,PASS
+F15-02-eigen-cap-race-first-deposit,Points/airdrop farming,0.00201154,1349.19,yes,PASS
+F15-03-eigen-withdrawal-queue-secondary,Points/airdrop farming,0.00205336,73.42,yes,PASS
+F15-04-native-eigen-symbiotic-dualstack,Points/airdrop farming,0.00131239,72.36,no,PASS
+F15-05-eigen-operator-multi-avs-delegation,Points/airdrop farming,0.00044572,1552.47,no,PASS
+F15-06-eigenpod-native-validator-restake,Points/airdrop farming,0.00040562,5278.94,no,PASS
+F15-07-karak-multi-lrt-basket-vault,Points/airdrop farming,0.00114402,47.38,no,PASS
+F15-08-symbiotic-eigen-pendle-yt-triple,Points/airdrop farming,0.01596820,1331.78,no,PASS
+F18-05-eigen-symbiotic-karak-triple-restake,Points/airdrop farming,0.00031916,1306.37,no,PASS
+F04-07-dssflash-lusd-liquity-redemption-curve,Debt redemption arbitrage,0.00070620,48.91,no,PASS
+F06-01-lusd-redemption-arb-flashmint,Debt redemption arbitrage,0.04501153,-53.79,no,PASS
+F06-02-stability-pool-eth-gain-loop,Debt redemption arbitrage,0.01182108,2480.12,no,PASS
+F06-03-bold-redemption-sniper-v2,Debt redemption arbitrage,0.00076886,4998.08,no,PASS
+F06-05-bold-collateral-registry-redemption-flash,Debt redemption arbitrage,0.00106108,47.35,no,PASS
+F06-06-lusd-trove-sp-convex-boost,Debt redemption arbitrage,0.49455460,-64.88,yes,PASS
+F06-08-bold-sp-mint-recycle,Debt redemption arbitrage,0.00033140,49.17,yes,PASS
+F12-01-convex-frxeth-boost-loop,Vote-bribe rewards,0.05916752,-145.25,yes,PASS
+F12-02-vlcvx-votium-bribe-claim,Vote-bribe rewards,0.01784208,341.12,yes,PASS
+F12-03-convex-steth-triple-reward,Vote-bribe rewards,0.07382341,-243.57,yes,PASS
+F12-04-curve-gauge-weight-vote-snipe,Vote-bribe rewards,0.01555539,-1.33,yes,PASS
+F12-05-aura-reth-weth-hiddenhand,Vote-bribe rewards,0.05493993,-68.69,yes,PASS
+F12-06-penpie-pendle-pt-weeth-hiddenhand,Vote-bribe rewards,0.00123367,43.05,yes,PASS
+F12-07-convex-frxeth-fxs-compound,Vote-bribe rewards,0.05935661,-145.88,yes,PASS
+F12-08-hiddenhand-multi-protocol-bribe,Vote-bribe rewards,0.01819138,-10.03,yes,PASS
+F03-01-steth-curve-depeg-lido-queue,Depeg arbitrage,0.01002955,37182.46,no,PASS
+F03-02-ezeth-balancer-depeg-renzo,Depeg arbitrage,0.00085871,6270.42,no,PASS
+F03-09-weeth-pectra-depeg,Depeg arbitrage,0.00155641,14668.29,no,PASS
+F04-01-dssflash-psm-curve-3pool-depeg,Depeg arbitrage,0.00070578,48.91,no,PASS
+F05-04-crvusd-peg-flashmint-arb,Depeg arbitrage,0.02268075,259.19,no,PASS
+F08-02-usde-usdt-balancer-flash-curve-peg-arb,Depeg arbitrage,0.00053335,998.26,no,PASS
+F08-06-susde-cooldown-curve-arb,Depeg arbitrage,0.00434782,752.16,yes,PASS
+F08-09-ethena-mint-curve-balancer-arb,Depeg arbitrage,,,,FAIL
+F13-07-univ3-usdc-weth-flash-balancer-curve-peg-arb,Depeg arbitrage,0.00741080,30.46,no,PASS
+F14-02-susd-3pool-depeg-atomic,Depeg arbitrage,0.00392382,59993.92,no,PASS
+F14-06-susd-deep-depeg-sbtc-backstop,Depeg arbitrage,,,,PASS
+F17-03-oeth-curve-depeg-redeem-arb,Depeg arbitrage,0.00015711,861.49,no,PASS
+F18-01-dssflash-crvusd-pegkeeper-arb,Depeg arbitrage,0.00081048,47.89,no,PASS
+F14-07-synthetix-v3-vault-research-probe,Vault deposit yield,0.00029350,49.27,no,PASS
