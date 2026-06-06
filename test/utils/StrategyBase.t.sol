@@ -157,6 +157,14 @@ abstract contract StrategyBase is Test {
         console2.log("pnl_usd=", pnlE6);
         console2.log("gas_usd=", gasUsdE6);
         console2.log("net_usd=", netE6);
+        // ---- Additive cost telemetry (does not affect the lines above) ----
+        // Real execution-cost inputs for the reports/ETH_cost report: gas used by
+        // the strategy body (_startPnL..._endPnL), the fork block's base fee as a
+        // realistic gas price, and the ETH/USD used. fee_eth, gas-inclusive
+        // net_usd and net_eth are derived from these off-chain.
+        console2.log("gas_used=", gasUsed);
+        console2.log("gas_price_basefee_wei=", block.basefee);
+        console2.log("eth_usd_e8=", ethUsd);
         console2.log("========================");
     }
 
