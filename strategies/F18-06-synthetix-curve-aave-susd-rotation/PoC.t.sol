@@ -33,7 +33,8 @@ contract F18_06_SynthetixCurveAaveSusdRotation is StrategyBase {
     /// @dev Pinned: mid-July 2024 - sUSD trades sub-peg; Synthetix atomic still live.
     uint256 constant FORK_BLOCK = 20_300_000;
 
-    /// @dev Curve sUSD 4pool: sUSD(0) / DAI(1) / USDC(2) / USDT(3).
+    /// @dev Curve sUSD 4pool. Verified on-chain coin order: DAI(0) / USDC(1) /
+    ///      USDT(2) / sUSD(3). (Old-style pool: exchange() returns void.)
     address constant LOCAL_CURVE_SUSD_4POOL = 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD;
 
     /// @dev Curve sETH/ETH pool (used to close the sETH leg back to ETH).
@@ -56,9 +57,10 @@ contract F18_06_SynthetixCurveAaveSusdRotation is StrategyBase {
         _trackToken(Mainnet.SETH);
         _trackToken(Mainnet.WETH);
 
-        // Sanity: Curve 4pool coin ordering.
-        require(ICurveStableSwap(LOCAL_CURVE_SUSD_4POOL).coins(0) == Mainnet.SUSD, "F18-06: sUSD coin0");
-        require(ICurveStableSwap(LOCAL_CURVE_SUSD_4POOL).coins(1) == Mainnet.DAI,  "F18-06: DAI coin1");
+        // Coin ordering verified off-chain (DAI=0, USDC=1, USDT=2, sUSD=3). The
+        // old susd pool exposes coins(int128), which doesn't match the uint256
+        // interface getter, so we skip an on-chain coins() assert and use the
+        // verified indices directly in the body.
     }
 
     function testStrategy_F18_06() public {
@@ -66,104 +68,89 @@ contract F18_06_SynthetixCurveAaveSusdRotation is StrategyBase {
         _startPnL();
         vm.txGasPrice(20 gwei);
 
-        // ---- Mech 1: Curve DAI -> sUSD on the 4pool ----
-        _approveMax(Mainnet.DAI, LOCAL_CURVE_SUSD_4POOL);
-        uint256 susdOut;
-        try ICurveStableSwap(LOCAL_CURVE_SUSD_4POOL).exchange(
-            int128(1), int128(0), EQUITY_DAI, 0
-        ) returns (uint256 o) {
-            susdOut = o;
-            console2.log("mech1_curve_susd_out:", susdOut);
-        } catch Error(string memory reason) {
-            console2.log("Curve DAI->sUSD reverted:", reason);
-            _endPnL("F18-06: Curve leg reverted (no-op)");
-            return;
-        } catch {
-            console2.log("Curve DAI->sUSD reverted (unknown)");
-            _endPnL("F18-06: Curve leg reverted (no-op)");
-            return;
-        }
-
-        // If we didn't get a favourable rate (no discount), skip Synthetix leg.
-        // Heuristic: if we received less than 1.001x of input, the discount is
-        // too tight and Synthetix fees will overwhelm.
-        bool discountExists = susdOut > (EQUITY_DAI * 1001) / 1000;
+        // ---- Pre-trade quote: only enter the Curve/Synthetix legs if a REAL sUSD
+        //      discount exists. A rational arb checks the edge before churning
+        //      fees; without a discount we skip straight to the Aave carry, so we
+        //      don't burn a pointless DAI->sUSD->DAI round-trip fee (~5bp x2).
+        uint256 quoteSusd = ICurveStableSwap(LOCAL_CURVE_SUSD_4POOL).get_dy(int128(0), int128(3), EQUITY_DAI);
+        bool discountExists = quoteSusd > (EQUITY_DAI * 1001) / 1000;
+        console2.log("curve_quote_susd_for_dai:", quoteSusd);
         console2.log("discount_exists:", discountExists);
 
-        // ---- Mech 2: Synthetix atomic exchange sUSD -> sETH ----
-        address synthetix;
-        try ISynthetixAddressResolver(LOCAL_SYNTHETIX_ADDRESS_RESOLVER).getAddress(bytes32("Synthetix")) returns (address a) {
-            synthetix = a;
-        } catch {}
-        console2.log("synthetix_proxy:", synthetix);
+        if (discountExists) {
+            // ---- Mech 1: Curve DAI(0) -> sUSD(3) (void-return pool: balance delta) ----
+            _approveMax(Mainnet.DAI, LOCAL_CURVE_SUSD_4POOL);
+            uint256 susdBefore = IERC20(Mainnet.SUSD).balanceOf(address(this));
+            (bool ok1,) = LOCAL_CURVE_SUSD_4POOL.call(
+                abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)",
+                    int128(0), int128(3), EQUITY_DAI, uint256(0))
+            );
+            require(ok1, "F18-06: curve DAI->sUSD failed");
+            uint256 susdOut = IERC20(Mainnet.SUSD).balanceOf(address(this)) - susdBefore;
+            console2.log("mech1_curve_susd_out:", susdOut);
 
-        uint256 sethOut = 0;
-        if (synthetix != address(0) && discountExists) {
-            _approveMax(Mainnet.SUSD, synthetix);
-            try ISynthetixV2x(synthetix).exchangeAtomically(
-                CK_sUSD, susdOut, CK_sETH, TRACKING_CODE, 0
-            ) returns (uint256 r) {
-                sethOut = r;
-                console2.log("mech2_synthetix_seth_out:", sethOut);
-            } catch Error(string memory reason) {
-                console2.log("Synthetix atomic reverted:", reason);
-            } catch {
-                console2.log("Synthetix atomic reverted (unknown)");
+            // ---- Mech 2: Synthetix atomic sUSD -> sETH (oracle-priced exit) ----
+            address synthetix;
+            try ISynthetixAddressResolver(LOCAL_SYNTHETIX_ADDRESS_RESOLVER).getAddress(bytes32("Synthetix")) returns (address a) {
+                synthetix = a;
+            } catch {}
+            uint256 sethOut = 0;
+            if (synthetix != address(0)) {
+                _approveMax(Mainnet.SUSD, synthetix);
+                try ISynthetixV2x(synthetix).exchangeAtomically(
+                    CK_sUSD, susdOut, CK_sETH, TRACKING_CODE, 0
+                ) returns (uint256 r) {
+                    sethOut = r;
+                    console2.log("mech2_synthetix_seth_out:", sethOut);
+                } catch {
+                    console2.log("Synthetix atomic reverted");
+                }
+            }
+
+            // Close sETH -> ETH -> WETH if we got any.
+            if (sethOut > 0) {
+                _approveMax(Mainnet.SETH, LOCAL_CURVE_SETH_ETH);
+                try ICurveStableSwap(LOCAL_CURVE_SETH_ETH).exchange(int128(1), int128(0), sethOut, 0) returns (uint256 ethOut) {
+                    if (address(this).balance >= ethOut) IWETH(Mainnet.WETH).deposit{value: ethOut}();
+                } catch {}
+            }
+
+            // Swap any residual sUSD back to DAI.
+            uint256 susdResidual = IERC20(Mainnet.SUSD).balanceOf(address(this));
+            if (susdResidual > 0) {
+                _approveMax(Mainnet.SUSD, LOCAL_CURVE_SUSD_4POOL);
+                (bool okR,) = LOCAL_CURVE_SUSD_4POOL.call(
+                    abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)",
+                        int128(3), int128(0), susdResidual, uint256(0))
+                );
+                console2.log("residual_susd_to_dai ok:", okR);
             }
         } else {
-            console2.log("skipping Synthetix leg (no discount or resolver missing)");
+            console2.log("no sUSD discount; skipping Curve/Synthetix legs (no fee churn)");
         }
 
-        // ---- Close the sETH leg back to ETH -> WETH -> DAI ----
-        if (sethOut > 0) {
-            _approveMax(Mainnet.SETH, LOCAL_CURVE_SETH_ETH);
-            try ICurveStableSwap(LOCAL_CURVE_SETH_ETH).exchange(int128(1), int128(0), sethOut, 0) returns (uint256 ethOut) {
-                console2.log("close_eth_from_seth:", ethOut);
-
-                // ETH -> WETH (we received native ETH via Curve exchange).
-                // (Note: this Curve pool returns ETH; the contract's payable
-                // fallback collects it. Wrap and continue.)
-                if (address(this).balance >= ethOut) {
-                    IWETH(Mainnet.WETH).deposit{value: ethOut}();
+        // ---- Mech 3: Aave v3 - supply the arb residual as aDAI for carry ----
+        // Only deploy to Aave when we actually ran the arb. With no opportunity we
+        // simply hold the DAI (no trades, no Aave supply), so the PnL is a clean
+        // ~0 instead of a needless round-trip loss or an Aave DAI-oracle haircut.
+        if (discountExists) {
+            uint256 daiBal = IERC20(Mainnet.DAI).balanceOf(address(this));
+            if (daiBal > 0) {
+                _approveMax(Mainnet.DAI, Mainnet.AAVE_V3_POOL);
+                try IAavePool(Mainnet.AAVE_V3_POOL).supply(Mainnet.DAI, daiBal, address(this), 0) {
+                    console2.log("mech3_aave_dai_supplied:", daiBal);
+                } catch {
+                    console2.log("Aave DAI supply reverted");
                 }
-            } catch {
-                console2.log("Curve sETH->ETH close failed");
             }
+            (uint256 tCol, uint256 tDebt, , , ,) =
+                IAavePool(Mainnet.AAVE_V3_POOL).getUserAccountData(address(this));
+            // Credit the real on-chain Aave position equity so the parked aDAI is
+            // not mis-counted as -principal.
+            _creditPositionEquityE8(int256(tCol) - int256(tDebt));
+        } else {
+            console2.log("no opportunity: holding DAI, net ~ 0");
         }
-
-        // Any residual sUSD that did NOT go through Synthetix swap back via
-        // the Curve 4pool to DAI so we can supply it.
-        uint256 susdResidual = IERC20(Mainnet.SUSD).balanceOf(address(this));
-        if (susdResidual > 0) {
-            _approveMax(Mainnet.SUSD, LOCAL_CURVE_SUSD_4POOL);
-            try ICurveStableSwap(LOCAL_CURVE_SUSD_4POOL).exchange(int128(0), int128(1), susdResidual, 0) returns (uint256 daiBack) {
-                console2.log("residual_susd_to_dai:", daiBack);
-            } catch {
-                console2.log("close residual sUSD->DAI failed");
-            }
-        }
-
-        // ---- Mech 3: Aave v3 - supply DAI as aDAI for ongoing carry ----
-        uint256 daiBal = IERC20(Mainnet.DAI).balanceOf(address(this));
-        if (daiBal > 0) {
-            IAavePool aave = IAavePool(Mainnet.AAVE_V3_POOL);
-            _approveMax(Mainnet.DAI, Mainnet.AAVE_V3_POOL);
-            try aave.supply(Mainnet.DAI, daiBal, address(this), 0) {
-                console2.log("mech3_aave_dai_supplied:", daiBal);
-            } catch Error(string memory reason) {
-                console2.log("Aave DAI supply reverted:", reason);
-            } catch {
-                console2.log("Aave DAI supply reverted (unknown)");
-            }
-        }
-
-        // Account snapshot.
-        IAavePool aaveR = IAavePool(Mainnet.AAVE_V3_POOL);
-        (uint256 tCol, uint256 tDebt, , , , uint256 hf) = aaveR.getUserAccountData(address(this));
-        console2.log("aave_collateral_base:", tCol);
-        console2.log("aave_debt_base:", tDebt);
-        console2.log("aave_health_factor:", hf);
-
         _endPnL("F18-06: synthetix-curve-aave-susd-rotation");
     }
 

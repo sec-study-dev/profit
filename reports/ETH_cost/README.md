@@ -32,3 +32,18 @@ mainnet archive fork. Per-strategy gas telemetry emitted by
   (deal()/modeled/position-equity) - read reports/README.md.
 - 147 rows (136 PASS / 2 SKIP / 9 FAIL); 128 PASS rows carry cost data (the rest
   are graceful-skip tests that return before _endPnL). Total fee ~= 1.821871 ETH.
+
+## Added columns: cross_block / block_span
+- `cross_block` - `yes` if the strategy advances the chain between its first and
+  last operation (i.e. holds across blocks), `no` if everything happens in a
+  single block (atomic / flash-loan arb). Blank for SKIP/FAIL and for graceful-skip
+  PASS tests that return before `_endPnL`.
+- `block_span` - number of blocks from the first to the last operation, measured
+  as `block.number(_endPnL) - block.number(_startPnL)` (= total `vm.roll`
+  advance). 0 = single block. On Ethereum ~12s/block, so e.g. 216000 ~= 30 days,
+  648000 ~= 90 days, 1080000 ~= 150 days.
+- Summary: 56 cross_block=yes (span 1..1,080,000, median 216,000 ~= 30d),
+  72 single-block (span 0), 19 blank.
+- Caveat: this reflects what the PoC CODE does (its `vm.roll` usage), not
+  necessarily the real-world holding period. E.g. a depeg/withdrawal-queue
+  strategy modelled atomically shows span 0 even though live it would take days.

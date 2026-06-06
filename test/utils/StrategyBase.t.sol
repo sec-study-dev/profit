@@ -35,6 +35,9 @@ abstract contract StrategyBase is Test {
     ///      address-balance accounting. Strategies credit it via
     ///      `_creditPositionEquityE8` before calling `_endPnL`.
     int256 internal _positionPnlE6;
+    /// @dev block.number captured at _startPnL; used to report the strategy's
+    ///      block span (cross-block hold horizon) at _endPnL.
+    uint256 internal _blockStart;
 
     // ---- Fork helpers ----
 
@@ -96,6 +99,7 @@ abstract contract StrategyBase is Test {
     /// @notice Snapshot ETH + tracked-token balances and gasleft().
     function _startPnL() internal {
         _positionPnlE6 = 0;
+        _blockStart = block.number;
         _ethStart = address(this).balance;
         for (uint256 i = 0; i < _tracked.length; i++) {
             _balStart[_tracked[i]] = IERC20(_tracked[i]).balanceOf(address(this));
@@ -165,6 +169,9 @@ abstract contract StrategyBase is Test {
         console2.log("gas_used=", gasUsed);
         console2.log("gas_price_basefee_wei=", block.basefee);
         console2.log("eth_usd_e8=", ethUsd);
+        // Block span from first to last strategy operation (= total vm.roll
+        // advance between _startPnL and _endPnL). 0 => single-block / atomic.
+        console2.log("block_span=", block.number - _blockStart);
         console2.log("========================");
     }
 
