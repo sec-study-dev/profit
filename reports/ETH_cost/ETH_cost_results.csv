@@ -145,4 +145,4 @@ F18-02-wsteth-pendle-pt-morpho-tier,FAIL,,,,,,,,,,,
 F18-03-ethena-curve-aave-usde-carry,PASS,602939,3.6842,0.00222136,2600.0,10000.0,5.78,9994.22,3.84393249,OVERSTATED,no,0
 F18-04-balancer-pendle-morpho-pt-susde,FAIL,,,,,,,,,,,
 F18-05-eigen-symbiotic-karak-triple-restake,PASS,326949,0.9762,0.00031916,2614.41,1307.21,0.83,1306.37,0.49968084,OVERSTATED,no,0
-F18-06-synthetix-curve-aave-susd-rotation,PASS,713934,1.42,0.00101378,3163.22,-1025.45,3.21,-1028.65,-0.32519174,,no,0
+F18-06-synthetix-curve-aave-susd-rotation,PASS,69474,1.42,0.00009865,3163.22,0.0,0.31,-0.31,-0.00009865,,no,0
