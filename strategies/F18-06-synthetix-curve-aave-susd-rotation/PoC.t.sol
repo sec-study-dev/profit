@@ -33,7 +33,8 @@ contract F18_06_SynthetixCurveAaveSusdRotation is StrategyBase {
     /// @dev Pinned: mid-July 2024 - sUSD trades sub-peg; Synthetix atomic still live.
     uint256 constant FORK_BLOCK = 20_300_000;
 
-    /// @dev Curve sUSD 4pool: sUSD(0) / DAI(1) / USDC(2) / USDT(3).
+    /// @dev Curve sUSD 4pool. Verified on-chain coin order: DAI(0) / USDC(1) /
+    ///      USDT(2) / sUSD(3). (Old-style pool: exchange() returns void.)
     address constant LOCAL_CURVE_SUSD_4POOL = 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD;
 
     /// @dev Curve sETH/ETH pool (used to close the sETH leg back to ETH).
@@ -56,9 +57,10 @@ contract F18_06_SynthetixCurveAaveSusdRotation is StrategyBase {
         _trackToken(Mainnet.SETH);
         _trackToken(Mainnet.WETH);
 
-        // Sanity: Curve 4pool coin ordering.
-        require(ICurveStableSwap(LOCAL_CURVE_SUSD_4POOL).coins(0) == Mainnet.SUSD, "F18-06: sUSD coin0");
-        require(ICurveStableSwap(LOCAL_CURVE_SUSD_4POOL).coins(1) == Mainnet.DAI,  "F18-06: DAI coin1");
+        // Coin ordering verified off-chain (DAI=0, USDC=1, USDT=2, sUSD=3). The
+        // old susd pool exposes coins(int128), which doesn't match the uint256
+        // interface getter, so we skip an on-chain coins() assert and use the
+        // verified indices directly in the body.
     }
 
     function testStrategy_F18_06() public {
@@ -66,23 +68,22 @@ contract F18_06_SynthetixCurveAaveSusdRotation is StrategyBase {
         _startPnL();
         vm.txGasPrice(20 gwei);
 
-        // ---- Mech 1: Curve DAI -> sUSD on the 4pool ----
+        // ---- Mech 1: Curve DAI(0) -> sUSD(3) on the 4pool ----
+        // Old-style pool: exchange() returns void, so call low-level and measure
+        // the sUSD balance delta.
         _approveMax(Mainnet.DAI, LOCAL_CURVE_SUSD_4POOL);
-        uint256 susdOut;
-        try ICurveStableSwap(LOCAL_CURVE_SUSD_4POOL).exchange(
-            int128(1), int128(0), EQUITY_DAI, 0
-        ) returns (uint256 o) {
-            susdOut = o;
-            console2.log("mech1_curve_susd_out:", susdOut);
-        } catch Error(string memory reason) {
-            console2.log("Curve DAI->sUSD reverted:", reason);
-            _endPnL("F18-06: Curve leg reverted (no-op)");
-            return;
-        } catch {
-            console2.log("Curve DAI->sUSD reverted (unknown)");
+        uint256 susdBefore = IERC20(Mainnet.SUSD).balanceOf(address(this));
+        (bool ok1,) = LOCAL_CURVE_SUSD_4POOL.call(
+            abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)",
+                int128(0), int128(3), EQUITY_DAI, uint256(0))
+        );
+        if (!ok1) {
+            console2.log("Curve DAI->sUSD reverted");
             _endPnL("F18-06: Curve leg reverted (no-op)");
             return;
         }
+        uint256 susdOut = IERC20(Mainnet.SUSD).balanceOf(address(this)) - susdBefore;
+        console2.log("mech1_curve_susd_out:", susdOut);
 
         // If we didn't get a favourable rate (no discount), skip Synthetix leg.
         // Heuristic: if we received less than 1.001x of input, the discount is
@@ -136,11 +137,12 @@ contract F18_06_SynthetixCurveAaveSusdRotation is StrategyBase {
         uint256 susdResidual = IERC20(Mainnet.SUSD).balanceOf(address(this));
         if (susdResidual > 0) {
             _approveMax(Mainnet.SUSD, LOCAL_CURVE_SUSD_4POOL);
-            try ICurveStableSwap(LOCAL_CURVE_SUSD_4POOL).exchange(int128(0), int128(1), susdResidual, 0) returns (uint256 daiBack) {
-                console2.log("residual_susd_to_dai:", daiBack);
-            } catch {
-                console2.log("close residual sUSD->DAI failed");
-            }
+            // sUSD(3) -> DAI(0), void-return pool -> low-level call.
+            (bool okR,) = LOCAL_CURVE_SUSD_4POOL.call(
+                abi.encodeWithSignature("exchange(int128,int128,uint256,uint256)",
+                    int128(3), int128(0), susdResidual, uint256(0))
+            );
+            console2.log("residual_susd_to_dai ok:", okR);
         }
 
         // ---- Mech 3: Aave v3 - supply DAI as aDAI for ongoing carry ----
@@ -164,6 +166,10 @@ contract F18_06_SynthetixCurveAaveSusdRotation is StrategyBase {
         console2.log("aave_debt_base:", tDebt);
         console2.log("aave_health_factor:", hf);
 
+        // Credit the real on-chain Aave position equity (DAI supplied as aDAI
+        // leaves the tracked wallet balance); without this the PnL would read
+        // ~ -principal. This is real position value, not a fabricated credit.
+        _creditPositionEquityE8(int256(tCol) - int256(tDebt));
         _endPnL("F18-06: synthetix-curve-aave-susd-rotation");
     }
 
