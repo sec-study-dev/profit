@@ -53,10 +53,10 @@ Fixed-yield discount-to-par,51,F02-07-weeth-pendle-pt-yt-split-flashloop,3,"Spli
 Fixed-yield discount-to-par,52,F07-01-pt-susde-morpho-loop,2,"Buy a discounted *Pendle PT* and lever it on *Morpho lending* to maturity, earning fixed PT yield amplified by leverage.",0.00007947,0.73,no,PASS
 Fixed-yield discount-to-par,53,F07-02-pt-weeth-morpho-loop,2,"Lever a discounted *Pendle PT* on *Morpho lending*, earning fixed PT yield amplified by leverage.",0.00006535,249772.7,no,PASS
 Fixed-yield discount-to-par,54,F07-04-pt-sy-maturity-arb,2,"Arb *Pendle PT* maturity convergence against its *Pendle SY*, capturing the pull-to-par.",0.00138311,138.73,yes,PASS
-Fixed-yield discount-to-par,55,F07-05-pt-rseth-morpho-kelp-loop,3,"Lever a *Pendle PT* over *Kelp restaking* on *Morpho lending*, earning fixed PT yield amplified by leverage.",,,,SKIP
+Fixed-yield discount-to-par,55,F07-05-pt-rseth-morpho-kelp-loop,3,"Lever a *Pendle PT* over *Kelp restaking* on *Morpho lending*, earning fixed PT yield amplified by leverage.",,,,FAIL
 Fixed-yield discount-to-par,56,F07-06-pt-usd0pp-cash-and-carry,1,"Run a *Pendle PT* cash-and-carry, locking in the fixed discount-to-par at maturity.",0.00491322,98887.93,no,PASS
 Fixed-yield discount-to-par,57,F07-07-pt-gho-aave-borrow-loop,2,"Loop a *Pendle PT* against an *Aave GHO borrow*, earning fixed PT yield amplified by leverage.",0.00091056,999205.63,no,PASS
-Fixed-yield discount-to-par,58,F07-08-pt-susds-spark-dssflash-loop,3,"Lever a *Pendle PT* via *Maker DssFlash* on *Spark lending*, earning fixed PT yield amplified by leverage.",,,,SKIP
+Fixed-yield discount-to-par,58,F07-08-pt-susds-spark-dssflash-loop,3,"Lever a *Pendle PT* via *Maker DssFlash* on *Spark lending*, earning fixed PT yield amplified by leverage.",,,,FAIL
 Fixed-yield discount-to-par,59,F08-03-pt-susde-morpho-pendle-flashloop,3,"Lever a *Pendle PT* on *Morpho lending* via a *Pendle flashloop*, earning fixed PT yield amplified by leverage.",,,,FAIL
 Fixed-yield discount-to-par,60,F08-05-pt-susde-aave-emode-dssflash-loop,3,"Lever a *Pendle PT* in *Aave e-mode lending* via *Maker DssFlash*, earning fixed PT yield amplified by leverage.",0.00018428,40273.37,yes,PASS
 Fixed-yield discount-to-par,61,F09-05-pt-weeth-morpho-flashloop,3,"Lever a *Pendle PT* on *Morpho lending* via a *flashloop*, earning fixed PT yield amplified by leverage.",,,,FAIL
