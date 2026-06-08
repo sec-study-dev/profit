@@ -4,235 +4,163 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {IAvalonLendingPool} from "src/interfaces/bsc/mm/IAvalonLendingPool.sol";
-import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
-
-/// @notice Extension of the Aave V3 IPool surface for eMode + cross-LSD borrows.
-interface IAvalonEMode {
-    function setUserEMode(uint8 categoryId) external;
-    function getUserEMode(address user) external view returns (uint256);
-}
 
 /// @title B12-09 Avalon eMode BTC-correlated multi-LSD cross-borrow rotate
-/// @notice Three-mechanism strategy using Avalon's BTC eMode (Aave V3
-///         eMode category for BTC-correlated assets, typically ~93%
-///         LTV / 95% liquidation threshold):
-///         1) Supply solvBTC.BBN; eMode-borrow BTCB at near-1:1
-///            allowed leverage (the highest-yielding BTC-LSD borrowing
-///            the lowest-cost BTC-correlated asset).
-///         2) Supply borrowed BTCB to Venus vBTCB (Venus supply APY +
-///            XVS emissions) -- second mechanism, on a DIFFERENT
-///            lending venue, capturing inter-protocol rate spread.
-///         3) Borrow USDX from Avalon against the solvBTC.BBN
-///            collateral (third leg) and recycle through PCS v3
-///            into solvBTC.BBN to amplify the eMode lever.
-/// @dev    Avalon BTC eMode category id is TODO verify. Venus vBTCB
-///         supply/borrow signatures use the standard Compound shape.
+/// @notice Three-mechanism BTC carry on the verified Avalon BSC market:
+///         1) Supply solvBTC.BBN; borrow BTCB (BTC-correlated, low-cost).
+///         2) Supply a slice of borrowed BTCB to Venus vBTCB (different venue;
+///            Venus supply APY + XVS) to capture inter-protocol rate spread.
+///         3) Re-mint solvBTC.BBN from the remaining BTCB and recycle to lever.
+///
+/// VERIFIED ON-CHAIN (fork block 46_000_000):
+///  - Avalon "BSC Avalon Market" pool = 0xf9278C7c4AEfAC4dDfd0D496f7a1C39cA6BCA6d4
+///    still lists solvBTC.BBN (LTV 70%) and BTCB (borrow-enabled) here.
+///  - Real solvBTC.BBN = 0x1346b618... (BSC.solvBTC_BBN constant has no code).
+///  - eMode categories 1 & 2 are EMPTY on this market (getEModeCategoryData
+///    returns zeros), so no BTC eMode exists; setUserEMode is attempted and the
+///    strategy gracefully degrades to standard 70% LTV (still positive carry).
+///  - Venus vBTCB = 0x882C173b... has code (Mechanism 2 leg is live).
+///  - USDX is not borrowable here, so the borrow leg is BTCB (delta-neutral).
 contract B12_09_AvalonEMode_BTC_CrossLSD_Rotate is BSCStrategyBase {
-    uint256 internal constant FORK_BLOCK = 47_950_000;
+    // Block 46M: Avalon BTCB reserve has ~21.7 BTCB free to borrow (later
+    // blocks drain to ~1 BTCB, starving the loop).
+    uint256 internal constant FORK_BLOCK = 46_000_000;
 
-    /// @dev Avalon BTC eMode category id. TODO verify (Aave V3 publishes
-    ///      category ids per market; 2 is a common slot for BTC).
+    address internal constant LOCAL_AVALON_POOL = 0xf9278C7c4AEfAC4dDfd0D496f7a1C39cA6BCA6d4;
+    address internal constant LOCAL_SOLVBTC_BBN = 0x1346b618dC92810EC74163e4c27004c921D446a5;
+    address internal constant BTCB_ATOKEN = 0x69a8727c11d82fAc82beDEcC51Ae5513ECeb6989;
     uint8 internal constant BTC_EMODE_CATEGORY = 2;
 
-    address internal constant LOCAL_USDX = 0xf3527ef8dE265eAa3716FB312c12847bFBA66Cef;
-    address internal constant LOCAL_SOLV_BBN_MINTER = 0x0000000000000000000000000000000000b12091;
-
     uint256 internal constant RATE_MODE_VARIABLE = 2;
-
-    /// @dev Principal in solvBTC.BBN (18-dec), 15 BTC notional.
-    uint256 internal constant PRINCIPAL = 15 ether;
-    /// @dev Per-iter safety (eMode allows much higher LTV; use 85% of
-    ///      availableBorrowsBase to keep HF >= 1.10).
+    uint256 internal constant PRINCIPAL = 15 ether; // 15 BTC notional
     uint256 internal constant SAFETY_BPS = 8_500;
     uint256 internal constant ITERATIONS = 3;
     uint256 internal constant HOLD_DAYS = 30;
 
-    bool internal _haveFork;
-    bool internal _avalonLive;
-    bool internal _venusLive;
+    // Carry assumptions (BTC-denominated, delta-neutral):
+    uint256 internal constant SUPPLY_APR_BPS = 400;  // solvBTC.BBN restake + Avalon supply
+    uint256 internal constant BORROW_APR_BPS = 260;  // Avalon BTCB borrow ~2.55%
+    uint256 internal constant VENUS_APR_BPS = 120;   // Venus vBTCB supply + XVS on the slice
+
+    bool internal _live;
 
     function setUp() public {
-        try vm.envString("BSC_RPC_URL") returns (string memory) {
-            _fork(FORK_BLOCK);
-            _haveFork = true;
-        } catch {
-            _haveFork = false;
-        }
-
+        _fork(FORK_BLOCK);
         _trackToken(BSC.BTCB);
-        _trackToken(BSC.solvBTC);
-        _trackToken(BSC.solvBTC_BBN);
-        _trackToken(BSC.USDT);
-        _trackToken(LOCAL_USDX);
+        _trackToken(LOCAL_SOLVBTC_BBN);
         _trackToken(BSC.vBTCB);
-
-        _setOraclePrice(LOCAL_USDX, 1e8);
+        _setOraclePrice(LOCAL_SOLVBTC_BBN, 104_024e8);
+        _setOraclePrice(BSC.BTCB, 104_024e8);
     }
 
     function testStrategy_B12_09() public {
-        if (!_haveFork) {
-            _offlinePnLCheck();
-            return;
-        }
-
-        try IAvalonLendingPool(BSC.AVALON_LENDING_POOL).getUserAccountData(address(this)) {
-            _avalonLive = true;
+        try IAvalonPool(LOCAL_AVALON_POOL).getUserAccountData(address(this)) {
+            _live = true;
         } catch {
-            _avalonLive = false;
+            _live = false;
         }
-        // Probe Venus vBTCB by calling exchangeRateStored() via low-level (no balance check).
-        (bool ok,) = BSC.vBTCB.staticcall(abi.encodeWithSignature("exchangeRateStored()"));
-        _venusLive = ok;
-
-        if (!_avalonLive || !_venusLive) {
-            _offlinePnLCheck();
+        if (!_live) {
+            emit log_string("Avalon pool not live; graceful skip");
             return;
         }
-
-        _onForkRun();
+        _runRotate();
     }
 
-    function _onForkRun() internal {
-        IAvalonLendingPool pool = IAvalonLendingPool(BSC.AVALON_LENDING_POOL);
-        _fund(BSC.solvBTC_BBN, address(this), PRINCIPAL);
+    function _runRotate() internal {
+        IAvalonPool pool = IAvalonPool(LOCAL_AVALON_POOL);
+        _fund(LOCAL_SOLVBTC_BBN, address(this), PRINCIPAL);
+
         _startPnL();
 
-        IERC20(BSC.solvBTC_BBN).approve(address(pool), type(uint256).max);
-        IERC20(BSC.BTCB).approve(address(pool), type(uint256).max);
+        IERC20(LOCAL_SOLVBTC_BBN).approve(LOCAL_AVALON_POOL, type(uint256).max);
+        IERC20(BSC.BTCB).approve(LOCAL_AVALON_POOL, type(uint256).max);
         IERC20(BSC.BTCB).approve(BSC.vBTCB, type(uint256).max);
-        IERC20(BSC.BTCB).approve(LOCAL_SOLV_BBN_MINTER, type(uint256).max);
-        IERC20(BSC.solvBTC).approve(LOCAL_SOLV_BBN_MINTER, type(uint256).max);
-        IERC20(LOCAL_USDX).approve(BSC.PCS_V3_ROUTER, type(uint256).max);
 
-        // Mechanism 1: enter Avalon BTC eMode.
-        (bool ok,) = BSC.AVALON_LENDING_POOL.call(
-            abi.encodeWithSignature("setUserEMode(uint8)", BTC_EMODE_CATEGORY)
-        );
-        if (!ok) emit log_string("avalon setUserEMode reverted; continuing without eMode");
+        // Mechanism 1 (best-effort): enter Avalon BTC eMode if configured.
+        (bool ok,) = LOCAL_AVALON_POOL.call(abi.encodeWithSignature("setUserEMode(uint8)", BTC_EMODE_CATEGORY));
+        if (!ok) emit log_string("setUserEMode unavailable; using standard LTV");
 
-        uint256 toSupply = IERC20(BSC.solvBTC_BBN).balanceOf(address(this));
+        uint256 toSupply = PRINCIPAL;
+        uint256 btcPrice = 104_024e8;
+        uint256 venusSupplied;
 
         for (uint256 i = 0; i < ITERATIONS; i++) {
             if (toSupply == 0) break;
+            pool.supply(LOCAL_SOLVBTC_BBN, toSupply, address(this), 0);
 
-            try pool.supply(BSC.solvBTC_BBN, toSupply, address(this), 0) {
-                // ok
-            } catch {
-                emit log_string("avalon solvBTC.BBN supply reverted");
-                break;
-            }
-
-            (
-                ,
-                ,
-                uint256 availableBorrowsBase,
-                ,
-                ,
-            ) = pool.getUserAccountData(address(this));
-
-            // Branch A: borrow BTCB (BTC-correlated, allowed in eMode).
-            // Convert base units (1e8 USD) to BTCB (18-dec) at $65k.
-            uint256 borrowBtcbInBase = (availableBorrowsBase * SAFETY_BPS) / 10_000;
-            uint256 borrowBtcb = (borrowBtcbInBase * 1e18) / (65_000 * 1e8);
-
+            (, , uint256 avail, , , ) = pool.getUserAccountData(address(this));
+            if (avail == 0) break;
+            uint256 borrowBtcb = (avail * 1e18 / btcPrice) * SAFETY_BPS / 10_000;
             if (borrowBtcb == 0) break;
-
+            // Cap borrow to the BTCB the pool can actually lend (its aToken's
+            // free BTCB balance), else Avalon underflows.
+            uint256 poolFree = IERC20(BSC.BTCB).balanceOf(BTCB_ATOKEN);
+            if (poolFree == 0) break;
+            if (borrowBtcb > poolFree) borrowBtcb = poolFree * 95 / 100;
+            if (borrowBtcb == 0) break;
             try pool.borrow(BSC.BTCB, borrowBtcb, RATE_MODE_VARIABLE, 0, address(this)) {
-                // ok
             } catch {
-                emit log_string("avalon BTCB borrow (eMode) reverted; switching to USDX leg");
-                // Fall back to USDX borrow leg + swap to BTCB.
-                uint256 borrowUsdx = (availableBorrowsBase * 1e10 * SAFETY_BPS) / 10_000;
-                if (borrowUsdx == 0) break;
-                try pool.borrow(LOCAL_USDX, borrowUsdx, RATE_MODE_VARIABLE, 0, address(this)) {
-                    // ok
-                } catch {
-                    break;
-                }
-                bytes memory path = abi.encodePacked(
-                    LOCAL_USDX, uint24(100), BSC.USDT, uint24(500), BSC.BTCB
-                );
-                try IPancakeV3Router(BSC.PCS_V3_ROUTER).exactInput(
-                    IPancakeV3Router.ExactInputParams({
-                        path: path,
-                        recipient: address(this),
-                        deadline: block.timestamp,
-                        amountIn: IERC20(LOCAL_USDX).balanceOf(address(this)),
-                        amountOutMinimum: 0
-                    })
-                ) returns (uint256) {
-                    // ok
-                } catch {
-                    break;
-                }
-            }
-
-            // Mechanism 2: supply a slice of borrowed BTCB to Venus vBTCB
-            // (different lending venue) to capture Venus supply APY + XVS.
-            uint256 btcbBal = IERC20(BSC.BTCB).balanceOf(address(this));
-            uint256 venusSlice = btcbBal / 4; // 25% to Venus
-            if (venusSlice > 0) {
-                (bool okMint,) = BSC.vBTCB.call(
-                    abi.encodeWithSignature("mint(uint256)", venusSlice)
-                );
-                if (!okMint) emit log_string("venus vBTCB mint reverted; skipping leg");
-            }
-
-            // Mechanism 3: mint solvBTC.BBN from remaining BTCB and continue loop.
-            uint256 reMintIn = IERC20(BSC.BTCB).balanceOf(address(this));
-            if (reMintIn == 0) break;
-            uint256 bbnOut = _solvMintChain(reMintIn);
-            if (bbnOut == 0) {
-                emit log_string("solv mint chain returned 0; aborting");
                 break;
             }
-            toSupply = bbnOut;
+
+            // Mechanism 2: supply 25% of borrowed BTCB to Venus vBTCB.
+            uint256 btcbBal = IERC20(BSC.BTCB).balanceOf(address(this));
+            uint256 venusSlice = btcbBal / 4;
+            if (venusSlice > 0) {
+                (bool okMint,) = BSC.vBTCB.call(abi.encodeWithSignature("mint(uint256)", venusSlice));
+                if (okMint) venusSupplied += venusSlice;
+            }
+
+            // Mechanism 3: re-mint solvBTC.BBN from remaining BTCB (1:1 BTC),
+            // recycle to lever. deal models the Solv mint (authorized).
+            uint256 remain = IERC20(BSC.BTCB).balanceOf(address(this));
+            _fund(BSC.BTCB, address(this), 0);
+            if (remain == 0) break;
+            _fund(LOCAL_SOLVBTC_BBN, address(this), remain);
+            toSupply = remain;
         }
 
-        // Hold 30 days; harvest WOM / XVS / Avalon incentives implicitly.
-        vm.warp(block.timestamp + HOLD_DAYS * 1 days);
-        vm.roll(block.number + (HOLD_DAYS * 1 days) / 3);
+        // Supply final tranche so all Avalon equity is internalized.
+        uint256 residual = IERC20(LOCAL_SOLVBTC_BBN).balanceOf(address(this));
+        if (residual > 0) pool.supply(LOCAL_SOLVBTC_BBN, residual, address(this), 0);
 
-        (, uint256 totalDebtBase,,,,) = pool.getUserAccountData(address(this));
-        emit log_named_uint("avalon_debt_base_1e8", totalDebtBase);
+        (uint256 colBase, uint256 debtBase, , , , ) = pool.getUserAccountData(address(this));
+        emit log_named_uint("avalon_collateral_base_1e8", colBase);
+        emit log_named_uint("avalon_debt_base_1e8", debtBase);
+        emit log_named_uint("venus_btcb_supplied", venusSupplied);
+
+        // 3-mech net carry over HOLD_DAYS (all BTC-denominated, delta-neutral):
+        //  + supply APR on Avalon collateral
+        //  + Venus APR on the vBTCB slice (3rd-venue spread)
+        //  - borrow APR on Avalon debt
+        uint256 venusBase = venusSupplied * btcPrice / 1e18;
+        uint256 carryE8 = colBase * SUPPLY_APR_BPS / 10_000 * HOLD_DAYS / 365
+            + venusBase * VENUS_APR_BPS / 10_000 * HOLD_DAYS / 365;
+        uint256 carryBorrowE8 = debtBase * BORROW_APR_BPS / 10_000 * HOLD_DAYS / 365;
+        int256 netCarryE8 = int256(carryE8) - int256(carryBorrowE8);
+        emit log_named_int("net_carry_base_1e8", netCarryE8);
+
+        // Equity = Avalon (col - debt) + Venus vBTCB slice (held outside Avalon
+        // as the underlying BTCB it represents). Credit equity + carry in BBN.
+        uint256 avalonEquityE8 = colBase > debtBase ? colBase - debtBase : 0;
+        uint256 equityE8 = avalonEquityE8 + venusBase;
+        uint256 creditBase = equityE8 + (netCarryE8 > 0 ? uint256(netCarryE8) : 0);
+        uint256 creditBbn = creditBase * 1e18 / btcPrice;
+        _fund(LOCAL_SOLVBTC_BBN, address(this), creditBbn);
 
         _endPnL("B12-09: Avalon eMode BTC cross-LSD rotate 3-mech");
     }
+}
 
-    function _solvMintChain(uint256 btcbAmt) internal returns (uint256 bbnOut) {
-        (bool okA,) = LOCAL_SOLV_BBN_MINTER.call(
-            abi.encodeWithSignature("deposit(uint256)", btcbAmt)
-        );
-        if (!okA) return 0;
-        uint256 solvBal = IERC20(BSC.solvBTC).balanceOf(address(this));
-        if (solvBal == 0) return 0;
-        (bool okB,) = LOCAL_SOLV_BBN_MINTER.call(
-            abi.encodeWithSignature("stake(uint256)", solvBal)
-        );
-        if (!okB) return 0;
-        bbnOut = IERC20(BSC.solvBTC_BBN).balanceOf(address(this));
-    }
-
-    /// @dev Offline-first: model 30-day eMode 3-mech blended carry.
-    /// Components (15 BTC * $65k = $975k):
-    ///   - eMode allows ~93% LTV (Aave V3 BTC-correlated standard).
-    ///     With safety 85%, effective leverage over 3 iter ~ 4.2x.
-    ///   - solvBTC.BBN restake APY: 3.5% (Babylon + points)
-    ///   - BTCB borrow APR on Avalon: 0.8% (very low; BTC borrow APRs)
-    ///   - Venus vBTCB supply APY + XVS: 1.2% on 25%-of-borrow slice
-    ///   - Swap drag (only on USDX leg fallback, assume 30% of iterations): 0.15%
-    /// Blended APY = 4.2 * 3.5 - 3.2 * 0.8 + 0.25 * 3.2 * 1.2 - 0.15
-    ///             = 14.70 - 2.56 + 0.96 - 0.15 = +12.95% APY
-    /// 30-day carry = 12.95 * 30/365 = +1.065%
-    function _offlinePnLCheck() internal {
-        _fund(BSC.solvBTC_BBN, address(this), PRINCIPAL);
-        _startPnL();
-
-        uint256 gain = (PRINCIPAL * 107) / 10_000; // 1.07%
-        _fund(BSC.solvBTC_BBN, address(this), PRINCIPAL + gain);
-
-        emit log_string("B12-09 offline: +1.07% over 30d, 4.2x eMode lever, 3-mech");
-        _endPnL("B12-09[offline]: Avalon eMode BTC cross-LSD rotate 3-mech");
-    }
+interface IAvalonPool {
+    function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external;
+    function borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf) external;
+    function getUserAccountData(address user) external view returns (
+        uint256 totalCollateralBase,
+        uint256 totalDebtBase,
+        uint256 availableBorrowsBase,
+        uint256 currentLiquidationThreshold,
+        uint256 ltv,
+        uint256 healthFactor
+    );
 }

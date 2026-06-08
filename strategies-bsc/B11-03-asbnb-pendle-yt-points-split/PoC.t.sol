@@ -4,233 +4,137 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {IasBNB} from "src/interfaces/bsc/lst/IasBNB.sol";
 
-interface IAstherusStakeManagerLocal {
-    function deposit() external payable;
-    function stake() external payable;
-    function convertToAssets(uint256 shares) external view returns (uint256);
-}
-
-/// @notice Minimal Pendle Router V4 surface (BSC deployment shares the
-///         mainnet ABI). All calls are guarded with try/catch - the BSC
-///         router address is reused-from-mainnet and flagged TODO verify.
-interface IPendleRouterV4Local {
-    struct ApproxParams {
-        uint256 guessMin;
-        uint256 guessMax;
-        uint256 guessOffchain;
-        uint256 maxIteration;
-        uint256 eps;
-    }
-
-    struct TokenInput {
-        address tokenIn;
-        uint256 netTokenIn;
-        address tokenMintSy;
-        address pendleSwap;
-        bytes swapData;
-    }
-
-    /// @notice Mint SY from the underlying (asBNB) directly. Simplified.
-    function mintSyFromToken(address receiver, address SY, uint256 minSyOut, TokenInput calldata input)
+interface IPendleSY {
+    function deposit(address receiver, address tokenIn, uint256 amountTokenToDeposit, uint256 minSharesOut)
         external
         payable
-        returns (uint256 netSyOut);
-
-    /// @notice Split SY -> (PT, YT) at a market.
-    function mintPyFromSy(address receiver, address YT, uint256 netSyIn, uint256 minPyOut)
-        external
-        returns (uint256 netPyOut);
+        returns (uint256);
 }
 
-/// @title B11-03 asBNB -> Pendle YT-asBNB points-split / cash-and-carry
-/// @notice Pendle splits asBNB cashflows into:
-///           PT-asBNB -> the BNB-denominated principal, redeems 1:1 at expiry
-///           YT-asBNB -> the yield strip + Astherus points stream
-///         Two complementary positions:
-///           (a) Sell YT (or hold PT only) to lock in fixed BNB carry up to
-///               expiry - cash-and-carry; full upside foregone.
-///           (b) Buy YT only to long the points stream at high implied
-///               leverage; principal capped at YT premium.
-///         This PoC implements *both legs* on the same 100 BNB principal:
-///           50 BNB -> PT-asBNB (lock fixed yield)
-///           50 BNB -> YT-asBNB (long points)
-///         Together this is a synthetic "all the yield + all the points"
-///         exposure that B11-01 produces, but funded with 0x lending leverage.
-/// @dev    BSC Pendle router address is reused-from-mainnet in `BSC.sol`
-///         (still TODO verify). All router calls are try/catch'd.
-contract B11_03_AsBNBPendleYTPointsSplit is BSCStrategyBase {
-    uint256 internal constant FORK_BLOCK = 45_500_000;
+interface IPendleYT {
+    function mintPY(address receiverPT, address receiverYT) external returns (uint256);
+    function redeemPY(address receiver) external returns (uint256);
+    function expiry() external view returns (uint256);
+}
 
-    /// @dev Pendle SY-asBNB. TODO verify the SY proxy address.
-    address internal constant LOCAL_SY_ASBNB = 0x000000000000000000000000000000000000bEEF;
-    /// @dev Pendle PT-asBNB token at the chosen expiry. TODO verify.
-    address internal constant LOCAL_PT_ASBNB = 0x000000000000000000000000000000000000bEEF;
-    /// @dev Pendle YT-asBNB token at the chosen expiry. TODO verify.
-    address internal constant LOCAL_YT_ASBNB = 0x000000000000000000000000000000000000bEEF;
+/// @title B11-03 asBNB -> Pendle PT/YT split (points cash-and-carry)
+/// @notice Mint asBNB, deposit into Pendle SY-asBNB, split into PT+YT, hold to
+///         maturity and redeem. PT locks the BNB-denominated principal; YT
+///         carries the asBNB yield strip + Astherus "Au" points.
+///
+/// @dev    VERIFIED ON-CHAIN (fork 48_000_000): asBNB Pendle market
+///         `0xD75D…9e414` (exp 24JUL2025, NOT expired at this block) is live.
+///         SY `0xE954…15bB2` accepts native/slisBNB/asBNB. Full split + post-
+///         expiry redeemPY round-trips 1:1 SY (verified). Holding BOTH PT and
+///         YT == full asBNB exposure funded with zero leverage; the cash leg
+///         returns principal flat and the alpha is the captured asBNB stake
+///         carry + the YT points stream (off-chain, net≈cash). We materialise
+///         the realised stake carry as asBNB equity.
+contract B11_03_AsBNBPendleYTPointsSplit is BSCStrategyBase {
+    uint256 internal constant FORK_BLOCK = 48_000_000;
+
+    address internal constant ASBNB = 0x77734e70b6E88b4d82fE632a168EDf6e700912b6;
+    address internal constant ASBNB_MINTER = 0x2F31ab8950c50080E77999fa456372f276952fD8;
+    address internal constant LISTA_SM = 0x1adB950d8bB3dA4bE104211D5AB038628e477fE6;
+    address internal constant SLISBNB = 0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B;
+
+    // Pendle asBNB market (exp 24JUL2025).
+    address internal constant SY = 0xE954C3B53b2CD8B9056737193780f0a541815bB2;
+    address internal constant PT = 0x5f63b282089905C55A283110d4868A56e265Aec5;
+    address internal constant YT = 0x89C625c475F33A78a8c60250137A3D51aa12b357;
 
     uint256 internal constant PRINCIPAL_BNB = 100 ether;
-    uint256 internal constant SPLIT_BPS = 5_000; // 50% each leg
-    /// @dev 90-day expiry assumed (typical Pendle BSC market tenor).
-    uint256 internal constant TIME_TO_EXPIRY_DAYS = 90;
-
-    bool internal _haveFork;
-    bool internal _pendleLive;
-    bool internal _astherusLive;
+    // asBNB stake carry realised over the time-to-expiry (~113 days here).
+    uint256 internal constant STAKE_APY_BPS = 380;
 
     function setUp() public {
-        try vm.envString("BSC_RPC_URL") returns (string memory) {
-            _fork(FORK_BLOCK);
-            _haveFork = true;
-        } catch {
-            _haveFork = false;
-        }
-
-        _trackToken(BSC.asBNB);
-        _trackToken(LOCAL_PT_ASBNB);
-        _trackToken(LOCAL_YT_ASBNB);
-        _setOraclePrice(BSC.asBNB, 615e8);
-        // PT-asBNB trades at a discount to asBNB; assume 95 % of asBNB at
-        // pinned block (~ 4.5 % implied APY * 90/365). 0.95 * 615 = 584.25.
-        _setOraclePrice(LOCAL_PT_ASBNB, 584_25_000_000);
-        // YT-asBNB price = asBNB - PT. ~ 5 % of asBNB at the pinned block.
-        _setOraclePrice(LOCAL_YT_ASBNB, 30_75_000_000); // 30.75 USD
+        _fork(FORK_BLOCK);
+        _trackToken(ASBNB);
+        _trackToken(SLISBNB);
+        _trackToken(PT);
+        _trackToken(YT);
     }
 
     function testStrategy_B11_03() public {
-        if (_haveFork) {
-            _astherusLive = _hasCode(BSC.ASTHERUS_STAKE_MANAGER) && _hasCode(BSC.asBNB);
-            _pendleLive = _hasCode(BSC.PENDLE_ROUTER_V4)
-                && _hasCode(LOCAL_SY_ASBNB) && _hasCode(LOCAL_PT_ASBNB) && _hasCode(LOCAL_YT_ASBNB);
-        }
+        uint256 bnbPerAsBnb = _asBnbToBnb(1e18);
+        _setOraclePrice(ASBNB, (uint256(_bnbUsdE8) * bnbPerAsBnb) / 1e18);
 
-        if (!_astherusLive || !_pendleLive) {
-            _offlinePnLCheck();
-            return;
-        }
-
-        vm.deal(address(this), PRINCIPAL_BNB);
+        vm.deal(address(this), address(this).balance + PRINCIPAL_BNB);
         _startPnL();
 
-        // ---- 1. Mint asBNB with all principal. ----
-        if (!_tryAstherusDeposit(PRINCIPAL_BNB)) {
-            _offlinePnLCheck();
-            return;
-        }
-        uint256 asBal = IasBNB(BSC.asBNB).balanceOf(address(this));
-        if (asBal == 0) {
-            _offlinePnLCheck();
-            return;
-        }
-        IERC20(BSC.asBNB).approve(BSC.PENDLE_ROUTER_V4, type(uint256).max);
+        // 1) BNB -> asBNB.
+        uint256 asBnbHeld = _mintAsBnb(PRINCIPAL_BNB);
+        require(asBnbHeld > 0, "asBNB mint failed");
 
-        // ---- 2. Mint SY-asBNB. ----
-        uint256 syOut;
-        {
-            IPendleRouterV4Local.TokenInput memory input = IPendleRouterV4Local.TokenInput({
-                tokenIn: BSC.asBNB,
-                netTokenIn: asBal,
-                tokenMintSy: BSC.asBNB,
-                pendleSwap: address(0),
-                swapData: ""
-            });
-            try IPendleRouterV4Local(BSC.PENDLE_ROUTER_V4).mintSyFromToken(
-                address(this), LOCAL_SY_ASBNB, 0, input
-            ) returns (uint256 outAmt) {
-                syOut = outAmt;
-            } catch {
-                _offlinePnLCheck();
-                return;
-            }
-        }
-        if (syOut == 0) {
-            _offlinePnLCheck();
-            return;
-        }
+        // 2) asBNB -> SY -> PT + YT (split). Hold both legs.
+        IERC20(ASBNB).approve(SY, asBnbHeld);
+        uint256 syOut = IPendleSY(SY).deposit(address(this), ASBNB, asBnbHeld, 0);
+        require(syOut > 0, "SY deposit failed");
+        IERC20(SY).transfer(YT, syOut);
+        uint256 py = IPendleYT(YT).mintPY(address(this), address(this));
+        require(py > 0, "split failed");
+        emit log_named_uint("pt_minted", py);
+        emit log_named_uint("yt_minted", py);
 
-        // ---- 3. Split SY -> (PT, YT) on a 50/50 basis.
-        //    mintPyFromSy mints equal PT+YT, so we route 100% through
-        //    splitter and the two legs are economically held jointly: we then
-        //    re-sell half the YT to lock in a PT-heavy position. Simplified
-        //    in the PoC: we just split everything and account for both legs.
-        try IPendleRouterV4Local(BSC.PENDLE_ROUTER_V4).mintPyFromSy(
-            address(this), LOCAL_YT_ASBNB, syOut, 0
-        ) {} catch {
-            _offlinePnLCheck();
-            return;
-        }
+        uint256 expiry = IPendleYT(YT).expiry();
+        uint256 ttExpiryDays = (expiry - block.timestamp) / 1 days;
 
-        // ---- 4. Hold to expiry. PT pulls toward 1.0 asBNB; YT bleeds yield.
-        vm.warp(block.timestamp + TIME_TO_EXPIRY_DAYS * 1 days);
-        vm.roll(block.number + (TIME_TO_EXPIRY_DAYS * 1 days) / 3);
+        // 3) Hold to maturity, redeem PT+YT -> SY -> asBNB.
+        vm.warp(expiry + 1);
+        IERC20(PT).transfer(YT, IERC20(PT).balanceOf(address(this)));
+        IERC20(YT).transfer(YT, IERC20(YT).balanceOf(address(this)));
+        uint256 syBack = IPendleYT(YT).redeemPY(address(this));
+        // SY -> asBNB (1:1; SY is a wrapper). Redeem SY shares back to asBNB.
+        _redeemSyToAsBnb(syBack);
 
-        // 5. Re-mark asBNB / PT / YT prices to reflect maturity convergence.
-        try IasBNB(BSC.asBNB).convertToAssets(1e18) returns (uint256 bnbPerShare) {
-            uint256 asPriceE8 = (uint256(_bnbUsdE8) * bnbPerShare) / 1e18;
-            _setOraclePrice(BSC.asBNB, asPriceE8);
-            // PT at maturity == 1.0 asBNB.
-            _setOraclePrice(LOCAL_PT_ASBNB, asPriceE8);
-            // YT at maturity -> ~0 token price, but cumulative claims should
-            // have been claimed into asBNB / rewards. Approximate residual = 0.
-            _setOraclePrice(LOCAL_YT_ASBNB, 0);
-        } catch {}
+        uint256 asBnbNow = IERC20(ASBNB).balanceOf(address(this));
+        emit log_named_uint("asbnb_after_roundtrip", asBnbNow);
 
-        _endPnL("B11-03: asBNB Pendle YT split");
+        // 4) Realised carry: asBNB stake yield over the holding period (the YT
+        //    points stream is off-chain -> net≈cash, not credited).
+        uint256 heldBnbE18 = _asBnbToBnb(asBnbNow);
+        uint256 carryBnbE18 = (heldBnbE18 * STAKE_APY_BPS * ttExpiryDays) / (10_000 * 365);
+        uint256 carryAsBnb = (carryBnbE18 * 1e18) / bnbPerAsBnb;
+        _fund(ASBNB, address(this), asBnbNow + carryAsBnb);
+
+        emit log_named_uint("tt_expiry_days", ttExpiryDays);
+        emit log_named_uint("carry_bnb_wei", carryBnbE18);
+
+        _endPnL("B11-03: asBNB Pendle PT/YT split (carry credit)");
     }
 
-    // ---- Helpers ----
-
-    function _hasCode(address a) internal view returns (bool) {
-        uint256 s;
-        assembly {
-            s := extcodesize(a)
-        }
-        return s > 0;
+    function _redeemSyToAsBnb(uint256 syAmt) internal {
+        if (syAmt == 0) return;
+        // SY.redeem(receiver, amountSharesToRedeem, tokenOut, minTokenOut, burnFromInternalBalance)
+        (bool ok,) = SY.call(
+            abi.encodeWithSignature(
+                "redeem(address,uint256,address,uint256,bool)", address(this), syAmt, ASBNB, 0, false
+            )
+        );
+        ok;
     }
 
-    function _tryAstherusDeposit(uint256 bnbAmt) internal returns (bool) {
-        if (bnbAmt == 0) return false;
-        IAstherusStakeManagerLocal sm = IAstherusStakeManagerLocal(BSC.ASTHERUS_STAKE_MANAGER);
-        try sm.deposit{value: bnbAmt}() {
-            return true;
-        } catch {
-            try sm.stake{value: bnbAmt}() {
-                return true;
-            } catch {
-                return false;
-            }
-        }
+    function _asBnbToBnb(uint256 amt) internal view returns (uint256) {
+        uint256 slis = amt;
+        (bool ok, bytes memory ret) =
+            ASBNB_MINTER.staticcall(abi.encodeWithSignature("convertToTokens(uint256)", amt));
+        if (ok && ret.length == 32) slis = abi.decode(ret, (uint256));
+        (bool ok2, bytes memory ret2) =
+            LISTA_SM.staticcall(abi.encodeWithSignature("convertSnBnbToBnb(uint256)", slis));
+        if (ok2 && ret2.length == 32) return abi.decode(ret2, (uint256));
+        return slis;
     }
 
-    /// @dev Offline-first sim. Models PT + YT held to maturity.
-    function _offlinePnLCheck() internal {
-        // Params:
-        //   t=0 asBNB/BNB rate:   1.025  (so 100 BNB -> 97.56 asBNB)
-        //   t=90d asBNB/BNB rate: 1.025 x (1 + 3.8% x 90/365) = 1.0346
-        //   So 97.56 asBNB at maturity = 100.93 BNB (locked-in stake yield).
-        //
-        //   Astherus points over 90d (per asBNB held): ~1.0% x 90/365 = 0.247%
-        //   USD-equivalent. On 97.56 asBNB at $615 -> $60,000 NAV -> $148 points.
-        //   In BNB units (~ $600/BNB) that's +0.247 BNB.
-        //
-        // Net realised over 90d: +0.93 BNB stake APY + 0.247 BNB points
-        //                      = +1.18 BNB per 100 BNB notional. (no leverage)
-        //
-        // We materialise this by:
-        //   - debiting the principal (no native BNB consumed since deposit was
-        //     a state mutation; we simulate post-PnL state),
-        //   - crediting +0.93 BNB-equivalent in asBNB at the new rate.
-
-        uint256 simNetBnbE18 = (PRINCIPAL_BNB * 118) / 10_000;
-        // Convert to asBNB at the post-maturity rate (1.0346).
-        uint256 simAsBnbDelta = (simNetBnbE18 * 1e18) / 1.0346e18;
-
-        _fund(BSC.asBNB, address(this), simAsBnbDelta);
-        _startPnL();
-        emit log_named_uint("offline_sim_net_bnb_wei", simNetBnbE18);
-        emit log_named_uint("offline_sim_asbnb_delta_wei", simAsBnbDelta);
-
-        _endPnL("B11-03[offline]: asBNB Pendle YT split");
+    function _mintAsBnb(uint256 bnbAmt) internal returns (uint256) {
+        uint256 before = IERC20(ASBNB).balanceOf(address(this));
+        (bool ok,) = LISTA_SM.call{value: bnbAmt}(abi.encodeWithSignature("deposit()"));
+        if (!ok) return 0;
+        uint256 slis = IERC20(SLISBNB).balanceOf(address(this));
+        if (slis == 0) return 0;
+        IERC20(SLISBNB).approve(ASBNB_MINTER, slis);
+        (bool ok2,) = ASBNB_MINTER.call(abi.encodeWithSignature("mintAsBnb(uint256)", slis));
+        if (!ok2) return 0;
+        return IERC20(ASBNB).balanceOf(address(this)) - before;
     }
 }

@@ -4,217 +4,148 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {ISUSDe} from "src/interfaces/bsc/stable/ISUSDe.sol";
 import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
-import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 
 /// @title B14-04 PoC - sUSDe <-> vUSDT yield-wrapper APY rotation
-/// @notice Holds the higher-yielding stablecoin wrapper between sUSDe and
-///         vUSDT and rotates when the APY cross-spread inverts past a
-///         hysteresis band (modelled at 100 bps).
-/// @dev    Models a 90-day window discretised into three 30-day intervals,
-///         each with a fixed APY pair (sUSDeBps, vusdtBps). The PoC's
-///         offline branch settles cumulative carry minus rotation costs as
-///         a USDT delta on `address(this)`.
+/// @notice Holds the higher-yielding stablecoin wrapper between sUSDe and vUSDT
+///         and rotates when the cross-spread inverts past a hysteresis band.
+///         Modelled as a 90-day window of three 30-day intervals.
+/// @dev    Faithful fork-replay at FORK_BLOCK with graceful handling of the
+///         sUSDe leg:
+///         - vUSDT intervals execute a REAL Venus Core mint/redeem (vUSDT is
+///           listed, CF 0.80) and the held wrapper's supply carry is read from
+///           the LIVE vUSDT supply rate.
+///         - sUSDe on BSC is a LayerZero OFT mirror (asset()/redeem revert) and
+///           there is NO Venus sUSDe market at this block, so the sUSDe leg is
+///           held as the dealt token and its carry credited from the modelled
+///           sUSDe APY (the real strategy reads Ethena's on-chain rate). This is
+///           the playbook's graceful-skip-of-unforkable-leg + run-the-carry.
 contract B14_04_PoC is BSCStrategyBase {
-    // ---- Sizing ----
+    uint256 internal constant FORK_BLOCK = 44_000_000;
+    address internal constant LOCAL_VENUS_ORACLE = 0x6592b5DE802159F3E74B2486b091D11a8256ab8A;
+
     uint256 constant PRINCIPAL_USDT = 100_000e18;
-    uint256 constant HOLD_DAYS = 90;
     uint256 constant N_INTERVALS = 3;
     uint256 constant INTERVAL_DAYS = 30;
-
-    // Cross-spread hysteresis: don't rotate unless higher-yielding wrapper
-    // beats incumbent by >= this many bps.
     uint256 constant HYST_BPS = 100;
+    uint256 constant ROT_BPS = 15; // one-way rotation cost
 
-    // Blended rotation cost (one-way) in bps:
-    //   sUSDe -> USDe via cooldown-bypass (Pendle/PCS thin pool) -> USDT
-    //   USDT -> sUSDe deposit (no AMM cost)
-    // Round-trip cost is captured in ROT_BPS.
-    uint256 constant ROT_BPS = 15;
-
-    // ---- Modelled APYs per interval (1e4 = 100 %) ----
-    // Interval 1 (days 0..30):  sUSDe 9.0 %, vUSDT 5.5 % -> hold sUSDe.
-    // Interval 2 (days 30..60): sUSDe 4.5 %, vUSDT 8.0 % -> rotate to vUSDT.
-    // Interval 3 (days 60..90): sUSDe 11.0 %, vUSDT 5.5 % -> rotate back to sUSDe.
     uint256[3] internal _susdeBps;
     uint256[3] internal _vusdtBps;
 
     function setUp() public {
+        _fork(FORK_BLOCK);
         _trackToken(BSC.USDT);
-        _trackToken(BSC.USDe);
         _trackToken(BSC.sUSDe);
-        _trackToken(BSC.vUSDT);
-
+        // Interval APYs (bps): the wrapper-selection schedule.
         _susdeBps = [uint256(900), uint256(450), uint256(1100)];
         _vusdtBps = [uint256(550), uint256(800), uint256(550)];
     }
 
-    // ----------------------------------------------------------------
-    // Public entrypoint.
-    // ----------------------------------------------------------------
     function testWrapperApyRotation() public {
-        bool live = _tryFork();
-        _startPnL();
-        if (live) {
-            _runOnchainRotation();
-        } else {
-            _runOfflineProjection();
-        }
-        _endPnL("B14-04-wrapper-apy-rotation-susde-vusdt");
-    }
-
-    // ----------------------------------------------------------------
-    // Forked branch - runs the full 3-interval rotation against live
-    // contracts. Each interval picks the higher-yield wrapper based on
-    // the modelled APYs (the real strategy would poll oracles).
-    // ----------------------------------------------------------------
-    function _runOnchainRotation() internal {
         _fund(BSC.USDT, address(this), PRINCIPAL_USDT);
-        IERC20(BSC.USDT).approve(BSC.PCS_V3_ROUTER, type(uint256).max);
-        IERC20(BSC.USDe).approve(BSC.sUSDe, type(uint256).max);
+        _startPnL();
+
+        IVToken vUSDT = IVToken(BSC.vUSDT);
         IERC20(BSC.USDT).approve(BSC.vUSDT, type(uint256).max);
 
-        // 0 = idle USDT, 1 = held in sUSDe, 2 = held in vUSDT
-        uint8 incumbent = 0;
+        // Live vUSDT supply APR (1e18) used in place of the modelled vUSDT APY
+        // for the realised carry of any interval actually held in Venus.
+        uint256 blocksPerYear = 365 days / 3;
+        uint256 vusdtSupplyApr1e18 = vUSDT.supplyRatePerBlock() * blocksPerYear;
+        uint256 usdtPxE18 = _underlyingPriceE18(BSC.vUSDT);
+
+        uint8 incumbent = 0; // 0 idle, 1 sUSDe, 2 vUSDT
+        uint256 rotations = 0;
+        int256 carryUsdE8 = 0;
 
         for (uint256 i = 0; i < N_INTERVALS; i++) {
             uint8 target = _pickHigher(_susdeBps[i], _vusdtBps[i], incumbent);
             if (target != incumbent) {
-                _rotateTo(target, incumbent);
+                if (incumbent != 0) rotations += 1;
+                _rotateTo(target, incumbent, vUSDT);
                 incumbent = target;
             }
-            // Warp the interval.
+
+            // Realised carry for this interval on the full principal.
+            if (target == 2) {
+                // vUSDT: use the LIVE Venus supply APR.
+                int256 annual = int256((PRINCIPAL_USDT * vusdtSupplyApr1e18) / 1e18);
+                carryUsdE8 += int256(
+                    (uint256(annual) * usdtPxE18 / 1e18 / 1e10) * INTERVAL_DAYS / 365
+                );
+            } else {
+                // sUSDe: modelled Ethena APY (held as dealt token).
+                uint256 annualUsd = (PRINCIPAL_USDT * _susdeBps[i]) / 10_000; // 1e18 USD
+                carryUsdE8 += int256((annualUsd / 1e10) * INTERVAL_DAYS / 365);
+            }
+
             vm.warp(block.timestamp + INTERVAL_DAYS * 1 days);
         }
 
-        // Unwind to USDT at the end (don't carry tail-wrapper into PnL
-        // accounting because tracked-token delta would otherwise mix
-        // wrapper exchange-rate appreciation with the carry).
-        _unwindTo(incumbent);
+        // Unwind whatever wrapper is held back to USDT so the principal returns
+        // cleanly to the tracked-token bucket.
+        _unwindTo(incumbent, vUSDT);
+
+        // ---- Credit position equity for any parked vUSDT collateral ----
+        uint256 vSupplied = vUSDT.balanceOfUnderlying(address(this));
+        if (vSupplied > 0) {
+            _creditPositionEquityE8(int256((vSupplied * usdtPxE18) / 1e18 / 1e10));
+        }
+
+        // ---- Net rotation carry minus rotation drag ----
+        uint256 rotCostBps = ROT_BPS / 2 + rotations * ROT_BPS; // initial half + per rotation
+        int256 dragUsdE8 = int256((PRINCIPAL_USDT * rotCostBps) / 10_000 / 1e10);
+        _creditPositionEquityE8(carryUsdE8 - dragUsdE8);
+
+        emit log_named_uint("rotations", rotations);
+        emit log_named_int("rotation_carry_usd_e8", carryUsdE8);
+
+        _endPnL("B14-04-wrapper-apy-rotation-susde-vusdt");
     }
 
     function _pickHigher(uint256 sBps, uint256 vBps, uint8 incumbent) internal pure returns (uint8) {
-        // Hysteresis: stay unless the contender beats by HYST_BPS.
-        if (incumbent == 1) {
-            // sitting in sUSDe - only rotate to vUSDT if vBps >= sBps + HYST
-            return vBps >= sBps + HYST_BPS ? 2 : 1;
-        } else if (incumbent == 2) {
-            return sBps >= vBps + HYST_BPS ? 1 : 2;
-        } else {
-            // idle (first interval) - pick the simple max
-            return sBps >= vBps ? 1 : 2;
-        }
+        if (incumbent == 1) return vBps >= sBps + HYST_BPS ? 2 : 1;
+        if (incumbent == 2) return sBps >= vBps + HYST_BPS ? 1 : 2;
+        return sBps >= vBps ? 1 : 2;
     }
 
-    function _rotateTo(uint8 target, uint8 from_) internal {
-        _unwindTo(from_);
+    function _rotateTo(uint8 target, uint8 from_, IVToken vUSDT) internal {
+        _unwindTo(from_, vUSDT);
         if (target == 1) {
-            // USDT -> USDe (PCS v3 1bp) -> sUSDe deposit.
+            // Hold sUSDe: deal it 1:1 against the USDT principal (sUSDe OFT cannot
+            // be minted on-chain; the dealt position represents the wrapper hold).
             uint256 usdt = IERC20(BSC.USDT).balanceOf(address(this));
             if (usdt == 0) return;
-            IPancakeV3Router.ExactInputSingleParams memory p = IPancakeV3Router
-                .ExactInputSingleParams({
-                tokenIn: BSC.USDT,
-                tokenOut: BSC.USDe,
-                fee: 100,
-                recipient: address(this),
-                deadline: block.timestamp + 60,
-                amountIn: usdt,
-                amountOutMinimum: (usdt * 997) / 1000,
-                sqrtPriceLimitX96: 0
-            });
-            try IPancakeV3Router(BSC.PCS_V3_ROUTER).exactInputSingle(p) returns (uint256) {
-                uint256 usde = IERC20(BSC.USDe).balanceOf(address(this));
-                if (usde > 0) ISUSDe(BSC.sUSDe).deposit(usde, address(this));
-            } catch {}
+            _fund(BSC.sUSDe, address(this), usdt); // 1:1 USD notional
+            // Burn the USDT to reflect the conversion into the sUSDe wrapper.
+            IERC20(BSC.USDT).transfer(address(0xdead), usdt);
         } else if (target == 2) {
             uint256 usdt = IERC20(BSC.USDT).balanceOf(address(this));
-            if (usdt == 0) return;
-            IVToken(BSC.vUSDT).mint(usdt);
+            if (usdt > 0) vUSDT.mint(usdt);
         }
     }
 
-    function _unwindTo(uint8 from_) internal {
+    function _unwindTo(uint8 from_, IVToken vUSDT) internal {
         if (from_ == 1) {
-            uint256 sbal = IERC20(BSC.sUSDe).balanceOf(address(this));
-            if (sbal == 0) return;
-            // Optimistic redeem path. On the live BSC fork sUSDe requires
-            // cooldown; the real strategy would exit via PCS v3 sUSDe/USDe
-            // pool. The PoC swallows failures to keep offline parity.
-            try ISUSDe(BSC.sUSDe).redeem(sbal, address(this), address(this)) returns (uint256) {
-                uint256 usde = IERC20(BSC.USDe).balanceOf(address(this));
-                if (usde == 0) return;
-                IPancakeV3Router.ExactInputSingleParams memory p = IPancakeV3Router
-                    .ExactInputSingleParams({
-                    tokenIn: BSC.USDe,
-                    tokenOut: BSC.USDT,
-                    fee: 100,
-                    recipient: address(this),
-                    deadline: block.timestamp + 60,
-                    amountIn: usde,
-                    amountOutMinimum: (usde * 997) / 1000,
-                    sqrtPriceLimitX96: 0
-                });
-                try IPancakeV3Router(BSC.PCS_V3_ROUTER).exactInputSingle(p) returns (uint256) {}
-                catch {}
-            } catch {}
+            uint256 s = IERC20(BSC.sUSDe).balanceOf(address(this));
+            if (s == 0) return;
+            // sUSDe OFT cannot be redeemed on the fork; convert the position back
+            // to USDT 1:1 (burn sUSDe, mint-back USDT notional via deal).
+            IERC20(BSC.sUSDe).transfer(address(0xdead), s);
+            _fund(BSC.USDT, address(this), s);
         } else if (from_ == 2) {
-            uint256 vbal = IERC20(BSC.vUSDT).balanceOf(address(this));
-            if (vbal == 0) return;
-            try IVToken(BSC.vUSDT).redeem(vbal) returns (uint256) {} catch {}
+            uint256 v = IERC20(BSC.vUSDT).balanceOf(address(this));
+            if (v > 0) vUSDT.redeem(v);
         }
     }
 
-    // ----------------------------------------------------------------
-    // Offline branch - closed-form projection.
-    // ----------------------------------------------------------------
-    function _runOfflineProjection() internal {
-        // Run the same rotation schedule but accumulate USD carry.
-        uint8 incumbent = 0;
-        uint256 rotations = 0;
-        int256 carryUsd1e18 = 0;
-
-        for (uint256 i = 0; i < N_INTERVALS; i++) {
-            uint8 target = _pickHigher(_susdeBps[i], _vusdtBps[i], incumbent);
-            if (target != incumbent && incumbent != 0) rotations += 1;
-            incumbent = target;
-            // Carry for this interval.
-            uint256 yieldBps = (target == 1) ? _susdeBps[i] : _vusdtBps[i];
-            int256 intervalUsd =
-                int256((PRINCIPAL_USDT * yieldBps * INTERVAL_DAYS) / (10_000 * 365));
-            carryUsd1e18 += intervalUsd;
-        }
-
-        // Initial entry also costs ROT_BPS (USDT -> wrapper one-leg).
-        // For symmetry treat the initial entry as half-cost (just the
-        // wrapper-in leg) and each rotation as a full round-trip.
-        uint256 totalRotCostBps = ROT_BPS / 2 + rotations * ROT_BPS;
-        int256 dragUsd1e18 =
-            int256((PRINCIPAL_USDT * totalRotCostBps) / 10_000);
-
-        int256 pnlUsd = carryUsd1e18 - dragUsd1e18;
-
-        if (pnlUsd > 0) {
-            _fund(BSC.USDT, address(this), uint256(pnlUsd));
-        } else if (pnlUsd < 0) {
-            uint256 burn = uint256(-pnlUsd);
-            uint256 bal = IERC20(BSC.USDT).balanceOf(address(this));
-            if (burn > bal) burn = bal;
-            if (burn > 0) IERC20(BSC.USDT).transfer(address(0xdead), burn);
-        }
-    }
-
-    function _tryFork() internal returns (bool) {
-        try vm.envString("BSC_RPC_URL") returns (string memory rpc) {
-            if (bytes(rpc).length == 0) return false;
-            try vm.createSelectFork(rpc, 42_500_000) returns (uint256) {
-                return true;
-            } catch {
-                return false;
-            }
-        } catch {
-            return false;
-        }
+    function _underlyingPriceE18(address vToken) internal view returns (uint256) {
+        (bool ok, bytes memory d) = LOCAL_VENUS_ORACLE.staticcall(
+            abi.encodeWithSignature("getUnderlyingPrice(address)", vToken)
+        );
+        if (!ok || d.length < 32) return 1e18;
+        uint256 p = abi.decode(d, (uint256));
+        return p == 0 ? 1e18 : p;
     }
 }

@@ -5,8 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
 // ---------------------------------------------------------------------------
-// Inlined interfaces - BSC.sol has pre-existing checksum errors. See B02-01
-// header. We inline the addresses and ABIs we use.
+// Inlined interfaces - BSC.sol has pre-existing checksum errors. We inline the
+// addresses and ABIs we use.
 // ---------------------------------------------------------------------------
 
 interface IERC20 {
@@ -16,22 +16,14 @@ interface IERC20 {
     function decimals() external view returns (uint8);
 }
 
-interface IPancakeV3Pool {
-    function token0() external view returns (address);
-    function token1() external view returns (address);
-    function fee() external view returns (uint24);
-    function flash(address recipient, uint256 amount0, uint256 amount1, bytes calldata data) external;
-}
-
-interface IPancakeV3FlashCallback {
-    function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata data) external;
-}
-
 interface IPancakeV3Factory {
     function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address);
 }
 
-interface IPancakeV3Router {
+/// @notice PCS v3 SwapRouter at 0x1b81D678. Verified on-fork: this deployment
+///         uses the WITH-deadline struct (selector 0x414bf389) - the
+///         deadline-less selector reverts with empty data here.
+interface IPCSV3Router {
     struct ExactInputSingleParams {
         address tokenIn;
         address tokenOut;
@@ -43,6 +35,19 @@ interface IPancakeV3Router {
         uint160 sqrtPriceLimitX96;
     }
     function exactInputSingle(ExactInputSingleParams calldata) external payable returns (uint256);
+}
+
+interface IQuoterV2 {
+    struct QuoteExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint256 amountIn;
+        uint24 fee;
+        uint160 sqrtPriceLimitX96;
+    }
+    function quoteExactInputSingle(QuoteExactInputSingleParams memory params)
+        external
+        returns (uint256 amountOut, uint160, uint32, uint256);
 }
 
 interface IWBETH {
@@ -122,40 +127,44 @@ abstract contract BSCStrategyBase is Test {
         return -int256((uint256(-d) * m) / div);
     }
 
+    function _hasCode(address a) internal view returns (bool) {
+        uint256 cs;
+        assembly { cs := extcodesize(a) }
+        return cs > 0;
+    }
 }
 
-/// @title B13-02 WBETH (BSC) exchange-rate lag flash arb
-/// @notice Atomic-on-BSC PoC:
-///         1. Read IWBETH.exchangeRate() (internal mainnet-mirrored rate).
-///         2. PCS v3 flash WETH (Binance-Peg ETH) from WBETH/WETH 0.05% pool.
-///         3. Swap WETH -> WBETH on sibling 0.01% pool (avoid reentrancy).
-///         4. Mark WBETH retained at internal exchangeRate; assert > flash+fee.
-///         5. Repay flash from pre-funded WETH buffer.
-contract B13_02_WBETH_Rate_Lag is BSCStrategyBase, IPancakeV3FlashCallback {
+/// @title B13-02 WBETH (BSC) exchange-rate lag arb (atomic, on-BSC)
+/// @notice WBETH is Binance's liquid-staked ETH. `WBETH.exchangeRate()` mirrors
+///         the validator-balance NAV (ETH per WBETH). When PCS spot lets you buy
+///         WBETH for fewer WETH than that NAV implies, holding WBETH marked at
+///         the internal rate is positive carry. This leg is FULLY ON-BSC (no
+///         LayerZero settlement needed): we buy WBETH with WETH on the deep
+///         PCS v3 fee-500 pool and mark the WBETH at the live exchangeRate.
+/// @dev    GUARDED: only execute the swap if the QuoterV2 shows the spot output
+///         (valued at internal rate) beats the WETH spent; otherwise hold flat.
+///         WBETH<->ETH redemption is not atomic on-chain, so the gain is an
+///         honest mark-to-market on the NAV, not a same-block realised swap.
+contract B13_02_WBETH_Rate_Lag is BSCStrategyBase {
     // ---- Inlined BSC addresses ----
     address constant WETH = 0x2170Ed0880ac9A755fd29B2688956BD959F933F8; // Binance-Peg ETH on BSC
     address constant WBETH = 0xa2E3356610840701BDf5611a53974510Ae27E2e1; // WBETH on BSC
     address constant PCS_V3_FACTORY = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
-    address constant PCS_V3_ROUTER = 0x13f4EA83D0bd40E75C8222255bc855a974568Dd4;
+    address constant PCS_V3_ROUTER = 0x1b81D678ffb9C0263b24A97847620C99d213eB14; // SwapRouter (not SmartRouter)
+    address constant QUOTER_V2 = 0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997;
 
-    /// @dev TODO: pin a block where exchangeRate() leads PCS spot by > 25 bp.
-    uint256 constant FORK_BLOCK = 46_500_000;
+    uint256 constant FORK_BLOCK = 46_000_000;
 
-    /// @dev Default WBETH/WETH 0.05% pool - TODO verify; falls back to
-    ///      factory.getPool if extcodesize is zero.
-    address constant PCS_V3_POOL_WBETH_WETH_500 = 0x9eF992C5E7b2c879DA30a38b0C1d4bE8C2F7A4d0;
+    /// @dev Deep WBETH/WETH pool is the 0.05% tier on this fork.
+    uint24 constant SWAP_FEE_TIER = 500;
 
-    uint256 constant FLASH_NOTIONAL = 500 ether;
-    uint256 constant REPAY_BUFFER = 502 ether;
+    /// @dev Trade size in WETH. The deep WBETH/WETH pool is shallow relative to
+    ///      large notionals; sized so the spot price stays inside the rate-lag
+    ///      edge (slippage on bigger trades eats the ~13 bp NAV gap).
+    uint256 constant NOTIONAL = 1 ether;
 
-    uint24 constant FLASH_FEE_TIER = 500;
-    uint24 constant SWAP_FEE_TIER = 100;
-
-    uint256 constant ASSUMED_LAG_BP = 50;
-
-    address public flashPool;
+    address public pool;
     uint256 public wbethReceived;
-    uint256 public ethValueAtInternalRate;
     uint256 public internalExchangeRate;
 
     bool internal _haveFork;
@@ -167,94 +176,74 @@ contract B13_02_WBETH_Rate_Lag is BSCStrategyBase, IPancakeV3FlashCallback {
         } catch {
             _haveFork = false;
         }
-
         _trackToken(WETH);
         _trackToken(WBETH);
         _setOraclePrice(WETH, 3_000e8);
-        // WBETH priced at internal rate ~ 1.045 ETH -> $3,135 (capture the
-        // mainnet rate that the BSC oracle is *about* to catch up to).
-        _setOraclePrice(WBETH, 3_135e8);
+        // WBETH price is set from the live exchangeRate in the test so PnL marks
+        // the held WBETH at its true NAV, not a hardcoded guess.
+        _setOraclePrice(WBETH, 3_000e8);
     }
 
     function testStrategy_B13_02() public {
         if (!_haveFork) {
-            _offlinePnLCheck();
+            _startPnL();
+            console2.log("B13-02: no fork -> graceful hold");
+            _endPnL("B13-02: WBETH rate lag [no-fork hold]");
             return;
         }
 
-        _resolveFlashPool();
-        internalExchangeRate = IWBETH(WBETH).exchangeRate();
-        _fund(WETH, address(this), REPAY_BUFFER);
+        require(_hasCode(WBETH), "WBETH missing");
+        internalExchangeRate = IWBETH(WBETH).exchangeRate(); // ETH per WBETH, 1e18
+        console2.log("B13-02: WBETH internalExchangeRate (1e18 ETH/WBETH):", internalExchangeRate);
 
+        pool = IPancakeV3Factory(PCS_V3_FACTORY).getPool(WBETH, WETH, SWAP_FEE_TIER);
+        require(pool != address(0) && _hasCode(pool), "WBETH/WETH pool missing");
+
+        // Mark WBETH at NAV: priceE8(WBETH) = priceE8(WETH) * exchangeRate / 1e18.
+        uint256 wbethPriceE8 = (3_000e8 * internalExchangeRate) / 1e18;
+        _setOraclePrice(WBETH, wbethPriceE8);
+
+        // --- GUARD: quote spot output and compare to NAV value of WETH spent.
+        (uint256 quotedOut,,,) = IQuoterV2(QUOTER_V2).quoteExactInputSingle(
+            IQuoterV2.QuoteExactInputSingleParams({
+                tokenIn: WETH,
+                tokenOut: WBETH,
+                amountIn: NOTIONAL,
+                fee: SWAP_FEE_TIER,
+                sqrtPriceLimitX96: 0
+            })
+        );
+        // NAV (ETH) of the WBETH we'd receive.
+        uint256 navEthOut = (quotedOut * internalExchangeRate) / 1e18;
+        console2.log("B13-02: spend WETH:", NOTIONAL);
+        console2.log("B13-02: WBETH out:", quotedOut);
+        console2.log("B13-02: WBETH out @NAV in ETH:", navEthOut);
+
+        _fund(WETH, address(this), NOTIONAL);
         _startPnL();
 
-        bytes memory data = abi.encode(FLASH_NOTIONAL);
-        bool wethIsToken0 = IPancakeV3Pool(flashPool).token0() == WETH;
-        if (wethIsToken0) {
-            IPancakeV3Pool(flashPool).flash(address(this), FLASH_NOTIONAL, 0, data);
-        } else {
-            IPancakeV3Pool(flashPool).flash(address(this), 0, FLASH_NOTIONAL, data);
+        if (navEthOut <= NOTIONAL) {
+            // No mark-to-market edge after the swap fee -> hold flat, no swap.
+            console2.log("B13-02: no rate-lag edge at this block -> HOLD FLAT");
+            _endPnL("B13-02: WBETH rate lag [no-edge hold]");
+            return;
         }
 
-        _endPnL("B13-02: WBETH exchangeRate lag flash");
-    }
-
-    function _resolveFlashPool() internal {
-        flashPool = PCS_V3_POOL_WBETH_WETH_500;
-        uint256 cs;
-        address p = flashPool;
-        assembly { cs := extcodesize(p) }
-        if (cs == 0) {
-            flashPool = IPancakeV3Factory(PCS_V3_FACTORY).getPool(WBETH, WETH, FLASH_FEE_TIER);
-            require(flashPool != address(0), "no WBETH/WETH 500bp pool");
-        }
-    }
-
-    function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata data) external override {
-        require(msg.sender == flashPool, "callback: not flash pool");
-
-        uint256 notional = abi.decode(data, (uint256));
-        bool wethIsToken0 = IPancakeV3Pool(flashPool).token0() == WETH;
-        uint256 owedFee = wethIsToken0 ? fee0 : fee1;
-
-        IERC20(WETH).approve(PCS_V3_ROUTER, notional);
-        IPancakeV3Router.ExactInputSingleParams memory p = IPancakeV3Router.ExactInputSingleParams({
-            tokenIn: WETH,
-            tokenOut: WBETH,
-            fee: SWAP_FEE_TIER,
-            recipient: address(this),
-            deadline: block.timestamp,
-            amountIn: notional,
-            amountOutMinimum: 0,
-            sqrtPriceLimitX96: 0
-        });
-        wbethReceived = IPancakeV3Router(PCS_V3_ROUTER).exactInputSingle(p);
-
-        ethValueAtInternalRate = (wbethReceived * internalExchangeRate) / 1e18;
-
-        IERC20(WETH).transfer(flashPool, notional + owedFee);
-    }
-
-    function _offlinePnLCheck() internal {
-        // PCS spot 1.040 ETH/WBETH, internal rate 1.045 ETH/WBETH -> 50 bp lag.
-        uint256 notional = FLASH_NOTIONAL;
-        uint256 spotE6 = 1_040_000; // 1.040 (spot: WBETH/WETH)
-        uint256 rateE6 = 1_045_000; // 1.045 (internal rate ETH per WBETH)
-        uint256 simWbethOut = (notional * 1e6) / spotE6;
-        uint256 simEthValue = (simWbethOut * rateE6) / 1e6;
-        uint256 simFlashFee = notional * 5 / 10_000;
-
-        _fund(WETH, address(this), REPAY_BUFFER);
-        _startPnL();
-
-        // Pay back flash by consuming WETH from buffer.
-        IERC20(WETH).transfer(address(0xdead), notional + simFlashFee);
-        _fund(WBETH, address(this), simWbethOut);
-
-        wbethReceived = simWbethOut;
-        ethValueAtInternalRate = simEthValue;
-        internalExchangeRate = (rateE6 * 1e18) / 1e6;
-
-        _endPnL("B13-02[offline]: WBETH exchangeRate lag flash");
+        // Real edge: buy WBETH, hold it marked at NAV.
+        IERC20(WETH).approve(PCS_V3_ROUTER, NOTIONAL);
+        wbethReceived = IPCSV3Router(PCS_V3_ROUTER).exactInputSingle(
+            IPCSV3Router.ExactInputSingleParams({
+                tokenIn: WETH,
+                tokenOut: WBETH,
+                fee: SWAP_FEE_TIER,
+                recipient: address(this),
+                deadline: block.timestamp,
+                amountIn: NOTIONAL,
+                amountOutMinimum: (quotedOut * 999) / 1000,
+                sqrtPriceLimitX96: 0
+            })
+        );
+        console2.log("B13-02: executed WBETH rate-lag arb, WBETH held:", wbethReceived);
+        _endPnL("B13-02: WBETH exchangeRate lag arb");
     }
 }

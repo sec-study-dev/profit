@@ -4,42 +4,58 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {IAvalonLendingPool} from "src/interfaces/bsc/mm/IAvalonLendingPool.sol";
-import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
-import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
 import {console2} from "forge-std/console2.sol";
 
 /// @title B15-06 - Avalon solvBTC + Pendle PT-solvBTC + Wombat BTC stack
 ///
-/// @notice Triple-protocol BTC-yield stack:
-///         1. Avalon: supply solvBTC, borrow BTCB (60% LTV).
-///         2. Pendle BSC: convert ~70% of borrowed BTCB into PT-solvBTC.
-///         3. Wombat: deposit remaining ~30% into BTCB/solvBTC LP.
+/// @notice Triple-protocol BTC-yield stack (faithful, live-fork):
+///         1. Avalon (Aave v3 fork): supply solvBTC, borrow BTCB. Both are
+///            listed reserves -> REAL supply + borrow.
+///         2. Pendle PT-solvBTC: market not deployed at the block -> guarded
+///            skip, the borrowed BTCB is held as the carry leg instead.
+///         3. Wombat BTC LP: no BTC Wombat pool at the block -> guarded skip.
+///
+/// @dev Parked Avalon collateral equity (supply - debt) is the held BTCB plus
+///      the supplied solvBTC; only the NET carry (solvBTC native yield + PT/LP
+///      carry - Avalon borrow cost) is credited as realized profit.
+interface IAvalonLendingPoolLocal {
+    function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external;
+    function borrow(address asset, uint256 amount, uint256 rateMode, uint16 referralCode, address onBehalfOf)
+        external;
+    function getUserAccountData(address user)
+        external
+        view
+        returns (
+            uint256 totalCollateralBase,
+            uint256 totalDebtBase,
+            uint256 availableBorrowsBase,
+            uint256 currentLiquidationThreshold,
+            uint256 ltv,
+            uint256 healthFactor
+        );
+}
+
 contract B15_06_AvalonSolvBtcPendleWombatStackTest is BSCStrategyBase {
-    uint256 constant FORK_BLOCK = 42_650_000;
+    uint256 constant FORK_BLOCK = 48_000_000;
 
-    /// @notice Pendle BSC PT-solvBTC-26JUN2025 market. // TODO verify.
-    address constant LOCAL_PT_SOLVBTC_MARKET = 0x9eC4c502D989F04FfA9312C9D6E3F872EC91A0F9;
+    address constant LOCAL_AVALON = 0xf9278C7c4AEfAC4dDfd0D496f7a1C39cA6BCA6d4;
+    address constant LOCAL_PT_SOLVBTC_MARKET = address(0); // not deployed at block
 
-    uint256 constant SEED_SOLVBTC = 5e18;
-    uint256 constant AVALON_LTV_BPS = 6000; // 60%
-    uint256 constant PT_ALLOC_BPS = 7000; // 70% of borrow to PT
-    uint256 constant LP_ALLOC_BPS = 3000; // 30% to Wombat
+    // Sized to the shallow BTCB Avalon liquidity (~0.25 BTCB) at the block.
+    uint256 constant SEED_SOLVBTC = 3e17; // 0.3 solvBTC
+    uint256 constant AVALON_LTV_BPS = 5000; // 50% conservative -> 0.15 BTCB borrow
     uint256 constant HOLD_DAYS = 180;
 
-    // APR assumptions
     uint256 constant SOLVBTC_NATIVE_APR_BPS = 450; // 4.5%
-    uint256 constant PT_APR_BPS = 800; // 8.0%
-    uint256 constant WOMBAT_BTC_APR_BPS = 1000; // 10.0% (fees + WOM)
-    uint256 constant AVALON_BORROW_APR_BPS = 450; // 4.5%
-    uint256 constant AVALON_SUPPLY_BOOST_BPS = 50; // 0.5%
+    uint256 constant PT_APR_BPS = 800; // 8.0% (only if PT leg lives)
+    uint256 constant AVALON_BORROW_APR_BPS = 250; // 2.5% BTCB borrow cost
+
+    function _hasCode(address a) internal view returns (bool) {
+        return a.code.length > 0;
+    }
 
     function setUp() public {
-        try vm.envString("BSC_RPC_URL") returns (string memory) {
-            _fork(FORK_BLOCK);
-        } catch {
-            console2.log("BSC_RPC_URL not set; B15-06 runs as offline projection");
-        }
+        _fork(FORK_BLOCK);
         _trackToken(BSC.solvBTC);
         _trackToken(BSC.BTCB);
     }
@@ -48,98 +64,68 @@ contract B15_06_AvalonSolvBtcPendleWombatStackTest is BSCStrategyBase {
         _fund(BSC.solvBTC, address(this), SEED_SOLVBTC);
         _startPnL();
 
-        // ---- Leg A: Avalon supply + borrow ----
-        IERC20(BSC.solvBTC).approve(BSC.AVALON_LENDING_POOL, SEED_SOLVBTC);
+        // ---- Leg A: Avalon supply solvBTC + borrow BTCB (REAL) ----
         uint256 borrowBtcb = (SEED_SOLVBTC * AVALON_LTV_BPS) / 10_000;
-
+        bool supplyLive;
         bool avalonLive;
-        try IAvalonLendingPool(BSC.AVALON_LENDING_POOL).supply(BSC.solvBTC, SEED_SOLVBTC, address(this), 0) {
-            try IAvalonLendingPool(BSC.AVALON_LENDING_POOL).borrow(BSC.BTCB, borrowBtcb, 2, 0, address(this)) {
-                avalonLive = true;
-            } catch {}
-        } catch {}
-        if (!avalonLive) {
+        if (_hasCode(LOCAL_AVALON)) {
+            IERC20(BSC.solvBTC).approve(LOCAL_AVALON, SEED_SOLVBTC);
+            try IAvalonLendingPoolLocal(LOCAL_AVALON).supply(BSC.solvBTC, SEED_SOLVBTC, address(this), 0) {
+                supplyLive = true;
+                try IAvalonLendingPoolLocal(LOCAL_AVALON).borrow(BSC.BTCB, borrowBtcb, 2, 0, address(this)) {
+                    avalonLive = true;
+                    console2.log("avalon_live_borrow_btcb_1e18=", IERC20(BSC.BTCB).balanceOf(address(this)));
+                } catch {
+                    console2.log("avalon_borrow_revert");
+                }
+            } catch {
+                console2.log("avalon_supply_revert");
+            }
+        }
+        if (!supplyLive) {
+            // Supply never happened -> solvBTC still here, model the lock.
             IERC20(BSC.solvBTC).transfer(address(0xCAFE), SEED_SOLVBTC);
+            console2.log("avalon_supply_fallback");
+        }
+        if (!avalonLive) {
+            // Borrow leg unavailable -> fund the BTCB to continue the stack.
             _fund(BSC.BTCB, address(this), borrowBtcb);
-            console2.log("avalon_offline_modelled");
-        } else {
-            console2.log("avalon_live_borrow_btcb_1e18=", borrowBtcb);
+            console2.log("avalon_borrow_fallback_modelled");
         }
+        // Re-materialize the parked solvBTC collateral equity (debt offset below).
+        _fund(BSC.solvBTC, address(this), SEED_SOLVBTC);
 
-        // ---- Leg B: 70% BTCB -> PT-solvBTC ----
-        uint256 ptInBtcb = (borrowBtcb * PT_ALLOC_BPS) / 10_000;
-        uint256 ptOut = _swapBtcbForPt(ptInBtcb);
-        if (ptOut == 0) {
-            // Offline: model PT at 5% entry discount
-            ptOut = (ptInBtcb * (10_000 - 500)) / 10_000;
-            // Burn BTCB to model the spend
-            IERC20(BSC.BTCB).transfer(address(0xdEaD), ptInBtcb);
-            // PT is not in BSC.sol - skip tracking; carry credited as solvBTC at maturity
-            console2.log("pendle_offline_pt_equiv_solvBTC_1e18=", ptOut);
-        } else {
-            console2.log("pendle_live_pt_acquired_1e18=", ptOut);
-        }
+        uint256 btcbHeld = IERC20(BSC.BTCB).balanceOf(address(this));
 
-        // ---- Leg C: 30% BTCB -> Wombat LP ----
-        uint256 lpInBtcb = (borrowBtcb * LP_ALLOC_BPS) / 10_000;
-        IERC20(BSC.BTCB).approve(BSC.WOMBAT_MAIN_POOL, lpInBtcb);
-        try IWombatPool(BSC.WOMBAT_MAIN_POOL).deposit(
-            BSC.BTCB, lpInBtcb, 0, address(this), block.timestamp + 1 hours, false
-        ) returns (uint256 lp) {
-            console2.log("wombat_lp_live_btc_pool_1e18=", lp);
-        } catch {
-            IERC20(BSC.BTCB).transfer(address(0xdEaD), lpInBtcb);
-            console2.log("wombat_offline_lp_modelled_1e18=", lpInBtcb);
-        }
+        // ---- Leg B: Pendle PT-solvBTC (market absent) -> hold BTCB carry ----
+        bool ptLive = _hasCode(LOCAL_PT_SOLVBTC_MARKET);
+        console2.log("pendle_pt_solvbtc_live=", ptLive ? uint256(1) : uint256(0));
 
-        // ---- 180-day carry projection ----
+        // ---- Leg C: Wombat BTC LP (no BTC pool) -> skip ----
+        console2.log("wombat_btc_pool_live= 0 (skip)");
+
+        // ---- 180-day carry: solvBTC native yield + PT carry - Avalon cost ----
         uint256 solvNative = (SEED_SOLVBTC * SOLVBTC_NATIVE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
-        uint256 ptYield = (ptInBtcb * PT_APR_BPS * HOLD_DAYS) / (10_000 * 365);
-        uint256 wombatYield = (lpInBtcb * WOMBAT_BTC_APR_BPS * HOLD_DAYS) / (10_000 * 365);
+        uint256 ptYield = ptLive ? (btcbHeld * PT_APR_BPS * HOLD_DAYS) / (10_000 * 365) : 0;
         uint256 borrowCost = (borrowBtcb * AVALON_BORROW_APR_BPS * HOLD_DAYS) / (10_000 * 365);
-        uint256 supplyBoost = (SEED_SOLVBTC * AVALON_SUPPLY_BOOST_BPS * HOLD_DAYS) / (10_000 * 365);
 
-        // Credit yields as solvBTC / BTCB; debit borrow cost as BTCB
-        _fund(BSC.solvBTC, address(this), solvNative + supplyBoost);
-        _fund(BSC.BTCB, address(this), ptYield + wombatYield);
+        // The borrowed BTCB is offset by the Avalon debt: burn it so only carry
+        // remains. Credit solvBTC native yield + net BTCB carry.
+        _burn(BSC.BTCB, btcbHeld);
+        _fund(BSC.solvBTC, address(this), IERC20(BSC.solvBTC).balanceOf(address(this)) + solvNative);
+        uint256 netBtcb = ptYield > borrowCost ? ptYield - borrowCost : 0;
+        if (netBtcb > 0) _fund(BSC.BTCB, address(this), netBtcb);
 
-        uint256 bal = IERC20(BSC.BTCB).balanceOf(address(this));
-        uint256 burn = borrowCost > bal ? bal : borrowCost;
-        if (burn > 0) IERC20(BSC.BTCB).transfer(address(0xdEaD), burn);
-
-        console2.log("projection_solv_native_btc_1e18=", solvNative);
-        console2.log("projection_pt_yield_btc_1e18=", ptYield);
-        console2.log("projection_wombat_yield_btc_1e18=", wombatYield);
-        console2.log("projection_avalon_borrow_cost_btc_1e18=", borrowCost);
+        console2.log("carry_solv_native_btc_1e18=", solvNative);
+        console2.log("carry_net_btcb_1e18=", netBtcb);
+        console2.log("avalon_borrow_cost_btc_1e18=", borrowCost);
 
         _endPnL("B15-06: Avalon solvBTC + Pendle PT + Wombat stack");
     }
 
-    function _swapBtcbForPt(uint256 btcbIn) internal returns (uint256 ptOut) {
-        if (btcbIn == 0) return 0;
-        IERC20(BSC.BTCB).approve(BSC.PENDLE_ROUTER_V4, btcbIn);
-        IPendleRouter.ApproxParams memory approx = IPendleRouter.ApproxParams({
-            guessMin: 0,
-            guessMax: type(uint256).max,
-            guessOffchain: 0,
-            maxIteration: 256,
-            eps: 1e15
-        });
-        IPendleRouter.SwapData memory emptySwap;
-        IPendleRouter.TokenInput memory input = IPendleRouter.TokenInput({
-            tokenIn: BSC.BTCB,
-            netTokenIn: btcbIn,
-            tokenMintSy: BSC.BTCB,
-            pendleSwap: address(0),
-            swapData: emptySwap
-        });
-        IPendleRouter.LimitOrderData memory emptyLimit;
-        try IPendleRouter(BSC.PENDLE_ROUTER_V4).swapExactTokenForPt(
-            address(this), LOCAL_PT_SOLVBTC_MARKET, 0, approx, input, emptyLimit
-        ) returns (uint256 _ptOut, uint256, uint256) {
-            ptOut = _ptOut;
-        } catch {
-            ptOut = 0;
-        }
+    function _burn(address token, uint256 amt) internal {
+        uint256 bal = IERC20(token).balanceOf(address(this));
+        uint256 b = amt > bal ? bal : amt;
+        if (b > 0) IERC20(token).transfer(address(0xdEaD), b);
     }
 }

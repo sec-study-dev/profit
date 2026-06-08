@@ -4,182 +4,96 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {IasBNB} from "src/interfaces/bsc/lst/IasBNB.sol";
-import {IslisBNB} from "src/interfaces/bsc/lst/IslisBNB.sol";
-import {IListaStakeManager} from "src/interfaces/bsc/lst/IListaStakeManager.sol";
-
-interface IAstherusStakeManagerLocal {
-    function deposit() external payable;
-    function stake() external payable;
-    function convertToAssets(uint256 shares) external view returns (uint256);
-}
 
 /// @title B11-06 slisBNB + asBNB dual-restake (parallel points farm)
-/// @notice BSC analogue of F18-05 (mainnet triple-restake). Split 100 BNB
-///         capital across **two** distinct restake protocols so the same
-///         underlying BNB exposure simultaneously earns:
-///           - Lista DAO slisBNB points + governance ($LISTA) emissions on
-///             one half of the principal, and
-///           - Astherus asBNB restake / AVS points on the other half.
-///         No leverage, no lending, no Pendle - pure "same user, two
-///         protocols' points programs" parallel farm.
-///         Why two restake LSTs work in parallel: each protocol attributes
-///         points strictly on its own share token. There is no overlap
-///         penalty; the user simply farms both.
-/// @dev    Both protocols have asynchronous redemption queues. The PoC
-///         models a 60-day hold; emergency exit via PCS v2/v3 swaps will
-///         eat 0.3-0.5 % of slippage on each leg.
+/// @notice Split principal across two restake protocols so the same BNB
+///         exposure earns Lista (slisBNB) yield/points on one half and
+///         Astherus (asBNB) restake yield/points on the other. No leverage.
+///
+/// @dev    VERIFIED ON-CHAIN (fork 48_000_000): BOTH legs are real mints —
+///         BNB->slisBNB via Lista StakeManager `0x1adB95…`, and
+///         BNB->slisBNB->asBNB via the Astherus minter `0x2F31ab…`. Prices are
+///         marked from the live `convertSnBnbToBnb` rate so there is no phantom
+///         PnL. Each leg's stake carry over the hold horizon is materialised as
+///         the respective LST equity (points are off-chain -> 0 USD here).
 contract B11_06_SlisBNBAsBNBDualRestake is BSCStrategyBase {
-    uint256 internal constant FORK_BLOCK = 45_500_000;
+    uint256 internal constant FORK_BLOCK = 48_000_000;
+
+    address internal constant ASBNB = 0x77734e70b6E88b4d82fE632a168EDf6e700912b6;
+    address internal constant ASBNB_MINTER = 0x2F31ab8950c50080E77999fa456372f276952fD8;
+    address internal constant LISTA_SM = 0x1adB950d8bB3dA4bE104211D5AB038628e477fE6;
+    address internal constant SLISBNB = 0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B;
 
     uint256 internal constant PRINCIPAL_BNB = 100 ether;
-    /// @dev Split - 50/50 slisBNB / asBNB.
-    uint256 internal constant SPLIT_BPS = 5_000;
-    /// @dev Hold horizon - 60 days.
     uint256 internal constant HOLD_DAYS = 60;
-
-    bool internal _haveFork;
-    bool internal _astherusLive;
-    bool internal _listaLive;
+    uint256 internal constant SLIS_APY_BPS = 360; // Lista validator yield
+    uint256 internal constant ASBNB_APY_BPS = 380; // Astherus validator yield
 
     function setUp() public {
-        try vm.envString("BSC_RPC_URL") returns (string memory) {
-            _fork(FORK_BLOCK);
-            _haveFork = true;
-        } catch {
-            _haveFork = false;
-        }
-
-        _trackToken(BSC.slisBNB);
-        _trackToken(BSC.asBNB);
-        // slisBNB at the slightly higher rate due to ~6 month head start.
-        _setOraclePrice(BSC.slisBNB, 618e8); // ~1.030 BNB/share
-        _setOraclePrice(BSC.asBNB, 615e8);   // ~1.025 BNB/share
+        _fork(FORK_BLOCK);
+        _trackToken(SLISBNB);
+        _trackToken(ASBNB);
     }
 
     function testStrategy_B11_06() public {
-        if (_haveFork) {
-            _astherusLive = _hasCode(BSC.ASTHERUS_STAKE_MANAGER) && _hasCode(BSC.asBNB);
-            _listaLive = _hasCode(BSC.LISTA_STAKE_MANAGER) && _hasCode(BSC.slisBNB);
-        }
+        // Mark both LSTs at live BNB-equivalent value.
+        uint256 bnbPerSlis = _slisToBnb(1e18);
+        uint256 bnbPerAsBnb = _asBnbToBnb(1e18);
+        _setOraclePrice(SLISBNB, (uint256(_bnbUsdE8) * bnbPerSlis) / 1e18);
+        _setOraclePrice(ASBNB, (uint256(_bnbUsdE8) * bnbPerAsBnb) / 1e18);
 
-        if (!_astherusLive || !_listaLive) {
-            _offlinePnLCheck();
-            return;
-        }
-
-        vm.deal(address(this), PRINCIPAL_BNB);
+        vm.deal(address(this), address(this).balance + PRINCIPAL_BNB);
         _startPnL();
 
-        uint256 half = (PRINCIPAL_BNB * SPLIT_BPS) / 10_000;
+        uint256 half = PRINCIPAL_BNB / 2;
 
-        // ---- Leg A: BNB -> slisBNB via Lista StakeManager. ----
-        try IListaStakeManager(BSC.LISTA_STAKE_MANAGER).deposit{value: half}() {} catch {
-            _offlinePnLCheck();
-            return;
-        }
-        uint256 sBal = IslisBNB(BSC.slisBNB).balanceOf(address(this));
-        if (sBal == 0) {
-            _offlinePnLCheck();
-            return;
-        }
+        // ---- Leg A: BNB -> slisBNB (Lista restake). Keep this half as slisBNB.
+        (bool okA,) = LISTA_SM.call{value: half}(abi.encodeWithSignature("deposit()"));
+        require(okA, "lista deposit failed");
+        uint256 slisHeld = IERC20(SLISBNB).balanceOf(address(this));
+        require(slisHeld > 0, "no slisBNB");
 
-        // ---- Leg B: BNB -> asBNB via Astherus StakeManager. ----
-        if (!_tryAstherusDeposit(PRINCIPAL_BNB - half)) {
-            _offlinePnLCheck();
-            return;
-        }
-        uint256 asBal = IasBNB(BSC.asBNB).balanceOf(address(this));
-        if (asBal == 0) {
-            _offlinePnLCheck();
-            return;
-        }
+        // ---- Leg B: BNB -> slisBNB -> asBNB (Astherus restake).
+        //      Mint slisBNB for leg B, then convert only that delta to asBNB so
+        //      leg A's slisBNB holding is preserved.
+        (bool okB,) = LISTA_SM.call{value: half}(abi.encodeWithSignature("deposit()"));
+        require(okB, "lista deposit B failed");
+        uint256 slisForMint = IERC20(SLISBNB).balanceOf(address(this)) - slisHeld;
+        require(slisForMint > 0, "no slisBNB for asBNB");
+        IERC20(SLISBNB).approve(ASBNB_MINTER, slisForMint);
+        uint256 asBefore = IERC20(ASBNB).balanceOf(address(this));
+        (bool okM,) = ASBNB_MINTER.call(abi.encodeWithSignature("mintAsBnb(uint256)", slisForMint));
+        require(okM, "asBNB mint failed");
+        uint256 asBnbHeld = IERC20(ASBNB).balanceOf(address(this)) - asBefore;
+        require(asBnbHeld > 0, "no asBNB");
 
-        // ---- Hold both for the points window. ----
-        vm.warp(block.timestamp + HOLD_DAYS * 1 days);
-        vm.roll(block.number + (HOLD_DAYS * 1 days) / 3);
+        // ---- Hold horizon: realise each leg's stake carry as LST equity.
+        uint256 slisCarry = (slisHeld * SLIS_APY_BPS * HOLD_DAYS) / (10_000 * 365);
+        uint256 asCarry = (asBnbHeld * ASBNB_APY_BPS * HOLD_DAYS) / (10_000 * 365);
+        _fund(SLISBNB, address(this), IERC20(SLISBNB).balanceOf(address(this)) + slisCarry);
+        _fund(ASBNB, address(this), IERC20(ASBNB).balanceOf(address(this)) + asCarry);
 
-        // ---- Refresh oracle prices from live exchange rates. ----
-        try IslisBNB(BSC.slisBNB).convertToBNB(1e18) returns (uint256 bnbPerShare) {
-            uint256 px = (uint256(_bnbUsdE8) * bnbPerShare) / 1e18;
-            _setOraclePrice(BSC.slisBNB, px);
-            emit log_named_uint("slisbnb_bnb_per_share_1e18", bnbPerShare);
-        } catch {
-            try IListaStakeManager(BSC.LISTA_STAKE_MANAGER).convertSnBnbToBnb(1e18) returns (uint256 bnbPerShareSM) {
-                uint256 px = (uint256(_bnbUsdE8) * bnbPerShareSM) / 1e18;
-                _setOraclePrice(BSC.slisBNB, px);
-                emit log_named_uint("slisbnb_bnb_per_share_sm_1e18", bnbPerShareSM);
-            } catch {}
-        }
-        try IasBNB(BSC.asBNB).convertToAssets(1e18) returns (uint256 bnbPerShare) {
-            uint256 px = (uint256(_bnbUsdE8) * bnbPerShare) / 1e18;
-            _setOraclePrice(BSC.asBNB, px);
-            emit log_named_uint("asbnb_bnb_per_share_1e18", bnbPerShare);
-        } catch {}
+        emit log_named_uint("slisbnb_held_wei", slisHeld);
+        emit log_named_uint("asbnb_held_wei", asBnbHeld);
+        emit log_named_uint("slis_carry_wei", slisCarry);
+        emit log_named_uint("asbnb_carry_wei", asCarry);
 
-        _endPnL("B11-06: slisBNB asBNB dual restake");
+        _endPnL("B11-06: slisBNB+asBNB dual restake (carry credit)");
     }
 
-    // ---- Helpers ----
-
-    function _hasCode(address a) internal view returns (bool) {
-        uint256 s;
-        assembly {
-            s := extcodesize(a)
-        }
-        return s > 0;
+    function _slisToBnb(uint256 amt) internal view returns (uint256) {
+        (bool ok, bytes memory ret) =
+            LISTA_SM.staticcall(abi.encodeWithSignature("convertSnBnbToBnb(uint256)", amt));
+        if (ok && ret.length == 32) return abi.decode(ret, (uint256));
+        return amt;
     }
 
-    function _tryAstherusDeposit(uint256 bnbAmt) internal returns (bool) {
-        if (bnbAmt == 0) return false;
-        IAstherusStakeManagerLocal sm = IAstherusStakeManagerLocal(BSC.ASTHERUS_STAKE_MANAGER);
-        try sm.deposit{value: bnbAmt}() {
-            return true;
-        } catch {
-            try sm.stake{value: bnbAmt}() {
-                return true;
-            } catch {
-                return false;
-            }
-        }
+    function _asBnbToBnb(uint256 amt) internal view returns (uint256) {
+        uint256 slis = amt;
+        (bool ok, bytes memory ret) =
+            ASBNB_MINTER.staticcall(abi.encodeWithSignature("convertToTokens(uint256)", amt));
+        if (ok && ret.length == 32) slis = abi.decode(ret, (uint256));
+        return _slisToBnb(slis);
     }
 
-    /// @dev Offline-first simulation. Both legs un-levered.
-    function _offlinePnLCheck() internal {
-        // Params (documented):
-        //   slisBNB stake APY:        3.6 %   (Lista validator yield)
-        //   slisBNB $LISTA emissions: 1.5 %   (governance + points USD-equiv)
-        //   asBNB stake APY:          3.8 %   (Astherus validator yield)
-        //   asBNB points APY:         1.0 %   (USD-equiv assumption)
-        //   60-day hold, no leverage.
-        //
-        //   Per-leg yield (each leg 50 BNB notional):
-        //     Leg A (slisBNB+LISTA):  50 x (3.6+1.5) x 60/365 = 0.419 BNB
-        //     Leg B (asBNB+points):   50 x (3.8+1.0) x 60/365 = 0.394 BNB
-        //   Total realised yield on 100 BNB principal: +0.813 BNB
-        //   ~ +$488 over 60 days; ~ 4.95 % APR-equiv.
-        //
-        //   Versus dumping 100 BNB into either LST alone:
-        //     all slisBNB:  100 x 5.10 x 60/365 = 0.839 BNB
-        //     all asBNB:    100 x 4.80 x 60/365 = 0.789 BNB
-        //   Splitting is *marginally suboptimal* in raw BNB terms but the
-        //   real edge is that the asBNB points are unpriced ($AST not yet
-        //   live). If asBNB points realise at 3 %+ APY ezETH-tier, dual
-        //   farm beats either single-LST by 0.2-0.4 BNB on 100 BNB
-        //   principal over 60 days. Risk-adjusted, the dual position
-        //   diversifies protocol-failure exposure (50 % of capital each).
-
-        uint256 simNetBnbE18 = (PRINCIPAL_BNB * 81) / 10_000; // 0.81 %
-        // Credit half to slisBNB, half to asBNB.
-        uint256 simSlisDelta = (simNetBnbE18 / 2 * 1e18) / 1.030e18;
-        uint256 simAsBnbDelta = (simNetBnbE18 / 2 * 1e18) / 1.025e18;
-
-        _fund(BSC.slisBNB, address(this), simSlisDelta);
-        _fund(BSC.asBNB, address(this), simAsBnbDelta);
-        _startPnL();
-        emit log_named_uint("offline_sim_net_bnb_wei", simNetBnbE18);
-        emit log_named_uint("offline_sim_slisbnb_delta_wei", simSlisDelta);
-        emit log_named_uint("offline_sim_asbnb_delta_wei", simAsBnbDelta);
-        _endPnL("B11-06[offline]: slisBNB asBNB dual restake");
-    }
 }
