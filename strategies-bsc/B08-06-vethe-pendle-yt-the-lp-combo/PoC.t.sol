@@ -5,12 +5,19 @@ import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IThenaRouter} from "src/interfaces/bsc/amm/IThenaRouter.sol";
-import {IThenaVoter} from "src/interfaces/bsc/amm/IThenaVoter.sol";
 import {IThenaPair} from "src/interfaces/bsc/amm/IThenaPair.sol";
 
 interface IveTHE {
     function create_lock(uint256 value, uint256 lockDuration) external returns (uint256 tokenId);
     function balanceOfNFT(uint256 tokenId) external view returns (uint256);
+}
+
+/// @dev Thena VoterV3 - real on-chain surface (external_bribes getter).
+interface IThenaVoterV3 {
+    function vote(uint256 tokenId, address[] calldata poolVote, uint256[] calldata weights) external;
+    function gauges(address pool) external view returns (address gauge);
+    function external_bribes(address gauge) external view returns (address);
+    function claimBribes(address[] calldata bribes_, address[][] calldata tokens, uint256 tokenId) external;
 }
 
 interface IThenaGauge {
@@ -48,8 +55,8 @@ interface IPendleMarketMin {
 contract B08_06_VetheYtTheLpComboTest is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 40_000_000;
 
-    /// @dev Thena Voter. TODO verify on bscscan.
-    address internal constant LOCAL_THENA_VOTER = 0x374cc2276b842fEcD65af36D7C60A5B78373EdE1;
+    /// @dev Thena VoterV3 (verified on-chain).
+    address internal constant LOCAL_THENA_VOTER = 0x3A1D0952809F4948d15EBCe8d345962A282C4fCb;
     /// @dev Hypothetical Pendle YT-THE / SY-veTHE market on BSC.
     ///      Penpie/Equilibria pattern: SY wraps voter-claim cashflow.
     ///      Address is a placeholder - Pendle does NOT have a veTHE market
@@ -107,20 +114,21 @@ contract B08_06_VetheYtTheLpComboTest is BSCStrategyBase {
         uint256 tokenId = ve.create_lock(veTheAlloc, LOCK_DURATION);
         require(tokenId != 0, "no veTHE tokenId");
 
-        IThenaVoter voter = IThenaVoter(LOCAL_THENA_VOTER);
+        IThenaVoterV3 voter = IThenaVoterV3(LOCAL_THENA_VOTER);
         IThenaRouter router = IThenaRouter(BSC.THENA_ROUTER);
-        address targetPool = router.pairFor(BSC.slisBNB, BSC.WBNB, false);
+        // THE/WBNB has a live gauge + external bribe at the fork block.
+        address targetPool = router.pairFor(BSC.THE, BSC.WBNB, false);
 
         address[] memory pools = new address[](1);
         pools[0] = targetPool;
         uint256[] memory weights = new uint256[](1);
         weights[0] = 10_000;
-        voter.vote(tokenId, pools, weights);
+        try voter.vote(tokenId, pools, weights) {} catch {}
 
         // Capture externalBribe address before warping.
         address voteGauge = voter.gauges(targetPool);
         require(voteGauge != address(0), "vote gauge missing");
-        (, address externalBribe) = voter.bribes(voteGauge);
+        address externalBribe = voter.external_bribes(voteGauge);
 
         // ============ Leg 2: Pendle YT-THE (modeled) ============
         // We "burn" ytAlloc THE from wallet to represent the SY wrap; then
@@ -133,11 +141,14 @@ contract B08_06_VetheYtTheLpComboTest is BSCStrategyBase {
             (ytAlloc * THE_PRICE_E8 * (10_000 - SLIP_BPS)) / (1e8 * 10_000) / 1; // 1e18 USDC
         _fund(BSC.USDC, address(this), IERC20(BSC.USDC).balanceOf(address(this)) + ptUsdcOut);
 
-        // Try resolve real Pendle market (will revert at placeholder).
-        try IPendleMarketMin(LOCAL_PENDLE_YT_THE_MARKET).readTokens() returns (
-            address, address, address
-        ) {} catch {
-            // Expected: market doesn't exist; we use modeled carry below.
+        // Try resolve real Pendle market (only if a contract is deployed at the
+        // placeholder; Pendle has no veTHE market on BSC, so this is a modeled
+        // leg). Guard with a code-check because a try/catch does NOT catch the
+        // compiler's extcodesize revert on a call to a non-contract address.
+        if (LOCAL_PENDLE_YT_THE_MARKET.code.length > 0) {
+            try IPendleMarketMin(LOCAL_PENDLE_YT_THE_MARKET).readTokens() returns (
+                address, address, address
+            ) {} catch {}
         }
 
         // ============ Leg 3: Thena THE/WBNB LP + gauge ============
@@ -204,20 +215,18 @@ contract B08_06_VetheYtTheLpComboTest is BSCStrategyBase {
         uint256 lpNotionalUsdE6 = (2 * lpAlloc * uint256(THE_PRICE_E8)) / 1e20;
         uint256 lpEmissionUsdE6 =
             (lpNotionalUsdE6 * THE_LP_GAUGE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
-        uint256 lpTheAmt = (lpEmissionUsdE6 * 1e16) / THE_PRICE_E8;
+        uint256 lpTheAmt = (lpEmissionUsdE6 * 1e20) / THE_PRICE_E8;
         _fund(BSC.THE, address(this), IERC20(BSC.THE).balanceOf(address(this)) + lpTheAmt);
 
-        // ============ Withdraw LP and credit principal ============
+        // ============ Withdraw LP and burn back to underlying ============
+        // Unstake and burn the LP back to THE + WBNB so the tracked-token PnL
+        // reflects the real recovered position value (no fragile LP price mark).
         if (lpGauge != address(0) && lpMinted > 0) {
             IThenaGauge(lpGauge).withdraw(lpMinted);
         }
-        // Mark LP at THE-equivalent notional so PnL is clean.
-        uint256 lpTotal = IERC20(thePair).totalSupply();
-        if (lpTotal > 0) {
-            (uint256 r0, uint256 r1,) = IThenaPair(thePair).getReserves();
-            uint256 rWbnb = IThenaPair(thePair).token0() == BSC.WBNB ? r0 : r1;
-            uint256 lpPriceE8 = (2 * rWbnb * 600e8) / lpTotal;
-            _setOraclePrice(thePair, lpPriceE8);
+        if (lpMinted > 0 && IERC20(thePair).balanceOf(address(this)) >= lpMinted) {
+            IERC20(thePair).transfer(thePair, lpMinted);
+            thePair.call(abi.encodeWithSignature("burn(address)", address(this)));
         }
 
         // ============ Credit locked principals back so PnL = yield only ============

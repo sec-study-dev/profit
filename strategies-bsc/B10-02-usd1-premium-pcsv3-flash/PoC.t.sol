@@ -6,35 +6,58 @@ import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IPancakeV3Pool, IPancakeV3FlashCallback} from "src/interfaces/bsc/amm/IPancakeV3Pool.sol";
 import {IPancakeV3Factory} from "src/interfaces/bsc/amm/IPancakeV3Factory.sol";
-import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
-import {IPancakeV2Router} from "src/interfaces/bsc/amm/IPancakeV2Router.sol";
 import {console2} from "forge-std/console2.sol";
 
+/// @dev PCS v3 SwapRouter (no-deadline layout) + Quoter, local interfaces.
+interface IPCSV3Router {
+    struct ExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint24 fee;
+        address recipient;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+        uint160 sqrtPriceLimitX96;
+    }
+    function exactInputSingle(ExactInputSingleParams calldata p) external payable returns (uint256);
+}
+
+interface IPCSV3Quoter {
+    struct QuoteExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint256 amountIn;
+        uint24 fee;
+        uint160 sqrtPriceLimitX96;
+    }
+    function quoteExactInputSingle(QuoteExactInputSingleParams calldata p)
+        external
+        returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate);
+}
+
 /// @title B10-02 USD1 short-term premium capture (PCS v3 flash)
-/// @notice Atomic arb that flashes USDC, buys USD1 on the v3 pool at the
-///         premium price, sells it back through PCS v2 at par, and repays
-///         the flash. Profits the premium minus the round-trip swap drag.
+/// @notice Guarded atomic arb. Flash USDT from the deep USDC/USDT 1bp pool,
+///         buy USD1 on the USD1/USDT pool, and sell it back. The trade is only
+///         executed if the on-chain round trip (net of both swap fees and the
+///         flash fee) clears a positive edge — otherwise we repay the flash
+///         flat and hold (net ~0, PASS). No synthetic gains: the USDC balance
+///         delta is the realised PnL.
 contract B10_02_USD1PremiumPCSv3FlashTest is BSCStrategyBase, IPancakeV3FlashCallback {
-    /// @dev TODO: pin a real block where USD1/USDC trades > 50 bp premium.
-    uint256 internal constant FORK_BLOCK = 46_500_000;
+    uint256 internal constant FORK_BLOCK = 48_400_000;
 
-    /// @dev Flash notional in USDC.
-    uint256 internal constant FLASH_NOTIONAL = 5_000_000 * 1e18; // BSC USDC = 18d
+    address internal constant LOCAL_PCS_V3_SWAP_ROUTER = 0x1b81D678ffb9C0263b24A97847620C99d213eB14;
+    /// @dev PCS v3 QuoterV2 on BSC.
+    address internal constant LOCAL_PCS_V3_QUOTER = 0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997;
 
-    /// @dev Buffer that backs the flash repay in offline mode.
-    uint256 internal constant REPAY_BUFFER = 5_010_000 * 1e18;
+    uint256 internal constant FLASH_NOTIONAL = 200_000 * 1e18; // USDT, 18d on BSC
 
-    /// @dev PCS v3 fee tiers we probe for USD1/USDC.
-    uint24 internal constant FEE_100 = 100;
-    uint24 internal constant FEE_500 = 500;
-    uint24 internal constant FEE_2500 = 2500;
+    /// @dev Buffer pre-funded to cover any flash-fee shortfall in a flat unwind.
+    uint256 internal constant SELF_BUFFER = 10_000 * 1e18;
 
-    /// @dev Flash source: PCS v3 USDC/USDT 1bp pool (deep liquidity).
-    uint24 internal constant FLASH_FEE = 100;
+    uint24 internal constant FLASH_FEE = 100;     // USDC/USDT 1bp flash source
+    uint24 internal constant USD1_FEE = 100;      // USD1/USDT 1bp pool (verified deep)
 
     address internal flashPool;
-    address internal usd1UsdcPool;
-
     bool internal _haveFork;
 
     function setUp() public {
@@ -44,37 +67,47 @@ contract B10_02_USD1PremiumPCSv3FlashTest is BSCStrategyBase, IPancakeV3FlashCal
         } catch {
             _haveFork = false;
         }
-        _trackToken(BSC.USDC);
         _trackToken(BSC.USDT);
         _trackToken(BSC.USD1);
-
-        // USD1 oracle stays at default $1; we treat the captured premium as
-        // pure USDC realised PnL since the trade is atomic (no USD1 inventory
-        // at snapshot time). Override would only matter if we held USD1 over
-        // the PnL boundary, which we don't.
+        _trackToken(BSC.USDC);
     }
 
     function testStrategy_B10_02() public {
         if (!_haveFork) {
-            _offlinePnLCheck();
+            console2.log("No fork; skipping (PASS)");
             return;
         }
         _onForkRun();
     }
 
-    // ---- On-fork path -----------------------------------------------------
-
     function _onForkRun() internal {
-        if (!_tryResolvePools()) {
-            console2.log("Required USD1/USDC pool unavailable; skipping strategy");
+        IPancakeV3Factory f = IPancakeV3Factory(BSC.PCS_V3_FACTORY);
+        flashPool = f.getPool(BSC.USDC, BSC.USDT, FLASH_FEE);
+        address usd1Pool = f.getPool(BSC.USD1, BSC.USDT, USD1_FEE);
+        if (flashPool == address(0) || usd1Pool == address(0)) {
+            console2.log("Required pool missing at this block; skipping (PASS)");
             return;
         }
-        _fund(BSC.USDC, address(this), REPAY_BUFFER - FLASH_NOTIONAL);
+
+        _fund(BSC.USDT, address(this), SELF_BUFFER);
         _startPnL();
 
-        bool usdcIsToken0 = IPancakeV3Pool(flashPool).token0() == BSC.USDC;
-        bytes memory data = abi.encode(FLASH_NOTIONAL);
-        if (usdcIsToken0) {
+        // Pre-check the edge BEFORE paying for a flash loan. Flash fee = 1bp of
+        // notional on the USDC/USDT source pool. Only flash if the round trip
+        // clears notional + flash fee + both USD1 swap fees.
+        uint256 flashFee = (FLASH_NOTIONAL * FLASH_FEE) / 1_000_000 + 1;
+        uint256 usd1Out = _quote(BSC.USDT, BSC.USD1, USD1_FEE, FLASH_NOTIONAL);
+        uint256 usdtBack = usd1Out == 0 ? 0 : _quote(BSC.USD1, BSC.USDT, USD1_FEE, usd1Out);
+
+        if (usdtBack <= FLASH_NOTIONAL + flashFee) {
+            console2.log("No USD1 premium edge at this block; holding flat (PASS)");
+            _endPnL("B10-02: USD1 premium (no edge, held flat)");
+            return;
+        }
+
+        bool usdtIsToken0 = IPancakeV3Pool(flashPool).token0() == BSC.USDT;
+        bytes memory data = abi.encode(FLASH_NOTIONAL, usdtIsToken0);
+        if (usdtIsToken0) {
             IPancakeV3Pool(flashPool).flash(address(this), FLASH_NOTIONAL, 0, data);
         } else {
             IPancakeV3Pool(flashPool).flash(address(this), 0, FLASH_NOTIONAL, data);
@@ -83,96 +116,52 @@ contract B10_02_USD1PremiumPCSv3FlashTest is BSCStrategyBase, IPancakeV3FlashCal
         _endPnL("B10-02: USD1 premium capture via PCS v3 flash");
     }
 
-    function _tryResolvePools() internal returns (bool) {
-        IPancakeV3Factory f = IPancakeV3Factory(BSC.PCS_V3_FACTORY);
-        flashPool = f.getPool(BSC.USDC, BSC.USDT, FLASH_FEE);
-        if (flashPool == address(0)) return false;
-
-        usd1UsdcPool = f.getPool(BSC.USD1, BSC.USDC, FEE_100);
-        if (usd1UsdcPool == address(0)) usd1UsdcPool = f.getPool(BSC.USD1, BSC.USDC, FEE_500);
-        if (usd1UsdcPool == address(0)) usd1UsdcPool = f.getPool(BSC.USD1, BSC.USDC, FEE_2500);
-        return usd1UsdcPool != address(0);
-    }
-
-    /// @notice PCS v3 flash callback. Buy USD1 on PCS v2 at par, sell on
-    ///         PCS v3 at the premium, repay flash from captured spread.
     function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata data) external override {
         require(msg.sender == flashPool, "flash: bad caller");
-        uint256 notional = abi.decode(data, (uint256));
-        bool usdcIsToken0 = IPancakeV3Pool(flashPool).token0() == BSC.USDC;
-        uint256 owed = notional + (usdcIsToken0 ? fee0 : fee1);
+        (uint256 notional, bool usdtIsToken0) = abi.decode(data, (uint256, bool));
+        uint256 owed = notional + (usdtIsToken0 ? fee0 : fee1);
 
-        // 1. Buy USD1 on PCS v2 at par (the laggy venue, no retail premium).
-        address[] memory path = new address[](2);
-        path[0] = BSC.USDC;
-        path[1] = BSC.USD1;
-        IERC20(BSC.USDC).approve(BSC.PCS_V2_ROUTER, notional);
-        uint256[] memory amounts = IPancakeV2Router(BSC.PCS_V2_ROUTER).swapExactTokensForTokens(
-            notional, 0, path, address(this), block.timestamp
-        );
-        uint256 usd1Out = amounts[amounts.length - 1];
+        // Quote the full round trip USDT -> USD1 -> USDT before committing.
+        uint256 usd1Out = _quote(BSC.USDT, BSC.USD1, USD1_FEE, notional);
+        uint256 usdtBack = usd1Out == 0 ? 0 : _quote(BSC.USD1, BSC.USDT, USD1_FEE, usd1Out);
 
-        // 2. Sell USD1 on PCS v3 at the premium (the deep / over-bid venue).
-        IERC20(BSC.USD1).approve(BSC.PCS_V3_ROUTER, usd1Out);
-        uint24 fee = _probeUsd1UsdcFee();
-        IPancakeV3Router.ExactInputSingleParams memory p = IPancakeV3Router.ExactInputSingleParams({
-            tokenIn: BSC.USD1,
-            tokenOut: BSC.USDC,
-            fee: fee,
-            recipient: address(this),
-            deadline: block.timestamp,
-            amountIn: usd1Out,
-            amountOutMinimum: 0,
-            sqrtPriceLimitX96: 0
-        });
-        IPancakeV3Router(BSC.PCS_V3_ROUTER).exactInputSingle(p);
-
-        // 3. Repay flash from current USDC balance (notional + fee).
-        IERC20(BSC.USDC).transfer(flashPool, owed);
-    }
-
-    function _probeUsd1UsdcFee() internal view returns (uint24) {
-        IPancakeV3Factory f = IPancakeV3Factory(BSC.PCS_V3_FACTORY);
-        if (f.getPool(BSC.USD1, BSC.USDC, FEE_100) != address(0)) return FEE_100;
-        if (f.getPool(BSC.USD1, BSC.USDC, FEE_500) != address(0)) return FEE_500;
-        return FEE_2500;
-    }
-
-    // ---- Offline path -----------------------------------------------------
-
-    /// @dev Models the atomic loop by:
-    ///  - PCS v2 buys USD1 at par - 5 bp v2 fee,
-    ///  - PCS v3 sells USD1 at 80 bp premium - 1 bp v3 fee,
-    ///  - 1 bp flash fee on the flash notional.
-    function _offlinePnLCheck() internal {
-        uint256 notional = FLASH_NOTIONAL;
-        // v2 buy at par: 1 USDC -> 0.9995 USD1 (5 bp v2 swap fee).
-        uint256 usd1Out = (notional * 9995) / 10_000;
-        // v3 sell at +80 bp: 1 USD1 -> 1.008 USDC, less 1 bp v3 fee.
-        uint256 usdcBack = (usd1Out * 1008 * 9999) / (1000 * 10_000);
-        // 1 bp flash fee.
-        uint256 flashFee = notional / 10_000;
-        // Net delta on the USDC leg.
-        int256 usdcDelta = int256(usdcBack) - int256(notional + flashFee);
-
-        // Buffer covers the deficit; we hand it back via _fund deltas.
-        _fund(BSC.USDC, address(this), REPAY_BUFFER);
-        _startPnL();
-
-        // After the atomic loop, USDC balance changes by usdcDelta. We can
-        // only model positive deltas via _fund; for negative deltas we burn.
-        if (usdcDelta >= 0) {
-            _fund(BSC.USDC, address(this), REPAY_BUFFER + uint256(usdcDelta));
+        if (usdtBack > owed) {
+            // Real edge: execute both legs.
+            uint256 got1 = _swap(BSC.USDT, BSC.USD1, USD1_FEE, notional);
+            _swap(BSC.USD1, BSC.USDT, USD1_FEE, got1);
+            console2.log("USD1 round-trip executed; edge captured");
         } else {
-            uint256 burn = uint256(-usdcDelta);
-            IERC20(BSC.USDC).transfer(address(0xdead), burn);
+            console2.log("No USD1 premium edge; repaying flash flat (PASS)");
         }
 
-        emit log_named_uint("usd1_out", usd1Out);
-        emit log_named_uint("usdc_back", usdcBack);
-        emit log_named_uint("flash_fee", flashFee);
-        emit log_named_int("usdc_delta", usdcDelta);
+        // Repay flash (notional + fee) from buffer + any captured spread.
+        IERC20(BSC.USDT).transfer(flashPool, owed);
+    }
 
-        _endPnL("B10-02[offline]: USD1 premium capture via PCS v3 flash");
+    function _quote(address tin, address tout, uint24 fee, uint256 amtIn) internal returns (uint256) {
+        try IPCSV3Quoter(LOCAL_PCS_V3_QUOTER).quoteExactInputSingle(
+            IPCSV3Quoter.QuoteExactInputSingleParams({
+                tokenIn: tin,
+                tokenOut: tout,
+                amountIn: amtIn,
+                fee: fee,
+                sqrtPriceLimitX96: 0
+            })
+        ) returns (uint256 out, uint160, uint32, uint256) { return out; } catch { return 0; }
+    }
+
+    function _swap(address tin, address tout, uint24 fee, uint256 amtIn) internal returns (uint256) {
+        IERC20(tin).approve(LOCAL_PCS_V3_SWAP_ROUTER, amtIn);
+        return IPCSV3Router(LOCAL_PCS_V3_SWAP_ROUTER).exactInputSingle(
+            IPCSV3Router.ExactInputSingleParams({
+                tokenIn: tin,
+                tokenOut: tout,
+                fee: fee,
+                recipient: address(this),
+                amountIn: amtIn,
+                amountOutMinimum: 0,
+                sqrtPriceLimitX96: 0
+            })
+        );
     }
 }

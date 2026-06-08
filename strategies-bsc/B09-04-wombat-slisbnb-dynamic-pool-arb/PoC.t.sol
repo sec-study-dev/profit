@@ -4,34 +4,47 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
-import {IListaStakeManager} from "src/interfaces/bsc/lst/IListaStakeManager.sol";
 
-/// @title B09-04 Wombat slisBNB/BNB dynamic-pool weight-skew arb
-/// @notice Strategy:
-///         1. WBNB -> slisBNB through Wombat slisBNB sidecar pool.
-///         2. Mark slisBNB received at Lista internal rate.
-///         3. Profit = (rate-marked BNB value) - (WBNB consumed).
-///         Position retained as slisBNB; tracked-token oracle override prices
-///         slisBNB at internal-rate-adjusted USD so PnL reflects the bonus.
+/// @title B09-04 Wombat BNB-LST sidecar dynamic-pool weight-skew arb
+/// @notice Wombat runs dedicated BNB-LST side pools (distinct from the stables
+///         Main Pool). The verified ankrBNB side pool (0x6F1c…5bFa, coins
+///         [WBNB, ankrBNB]) is a genuine LST sidecar. At the pinned block its
+///         WBNB slot is under-allocated (cov_WBNB≈0.88) while ankrBNB is
+///         over-allocated (cov≈1.21). Selling the scarce asset (WBNB ->
+///         ankrBNB) restores coverage; Wombat pays a restoration bonus on top
+///         of the rate-fair amount. The Wombat asset's own oracle reports
+///         ankrBNB's BNB exchange rate via `getRelativePrice()` (≈1.0905), so
+///         the strategy marks the ankrBNB received at the rate-adjusted USD
+///         value and books the surplus over the WBNB spent.
+///
+///         The PoC sweeps swap sizes, picks the one whose rate-marked ankrBNB
+///         output exceeds the WBNB input by the most, executes the real swap,
+///         and keeps the LST. The pool uses the on-chain
+///         `quotePotentialSwap(address,address,int256)` signature (shared
+///         IWombatPool uses uint256), so a LOCAL interface is declared here.
+///
+///         (The slisBNB-specific Wombat side pool is not deployed at this fork
+///         block; ankrBNB is the deepest live BNB-LST sidecar exhibiting the
+///         same coverage-skew mechanism.)
 contract B09_04_Wombat_slisBNB_DynamicPool_Arb is BSCStrategyBase {
-    /// @dev TODO: pin a block where Wombat slisBNB sidecar pool has cov_BNB < 0.9.
-    uint256 constant FORK_BLOCK = 45_800_000;
+    uint256 constant FORK_BLOCK = 45_500_000;
 
-    /// @dev Wombat slisBNB sidecar pool (LST pool, distinct from Main Pool).
-    ///      TODO verify on BscScan: this is a placeholder; on-fork branch
-    ///      falls back to the Main Pool if extcodesize == 0.
-    address constant WOMBAT_SLISBNB_POOL = 0xB0219A90EF6A24a237bC038f7B7a6eAc5e01edB0;
+    /// @dev Wombat ankrBNB side pool [WBNB, ankrBNB].
+    address constant WOMBAT_BNB_POOL = 0x6F1c689235580341562cdc3304E923cC8fad5bFa;
+    address constant ankrBNB = 0x52F24a5e03aee338Da5fd9Df68D2b6FAe1178827;
 
-    /// @dev Notional in WBNB (18 decimals).
-    uint256 constant NOTIONAL = 1_000 ether;
+    uint256[6] internal _sizes = [
+        uint256(20 ether),
+        uint256(50 ether),
+        uint256(80 ether),
+        uint256(100 ether),
+        uint256(120 ether),
+        uint256(150 ether)
+    ];
 
-    /// @dev Default assumed Lista internal rate when running offline: 1.078 BNB/slisBNB.
-    uint256 constant INTERNAL_RATE_E18 = 1.078 ether;
-
-    uint256 public slisBnbReceived;
-    uint256 public bnbValueAtInternalRate;
-    address public wombatPool;
+    uint256 public chosenSize;
+    uint256 public lstReceived;
+    uint256 public relPriceE18;
 
     bool internal _haveFork;
 
@@ -42,76 +55,70 @@ contract B09_04_Wombat_slisBNB_DynamicPool_Arb is BSCStrategyBase {
         } catch {
             _haveFork = false;
         }
-
         _trackToken(BSC.WBNB);
-        _trackToken(BSC.slisBNB);
-
-        // Mark slisBNB at internal-rate-adjusted USD ($600 BNB * 1.078 = $646.80).
-        _setOraclePrice(BSC.slisBNB, 646_8000_0000);
+        _trackToken(ankrBNB);
     }
 
     function testStrategy_B09_04() public {
-        if (!_haveFork) {
-            _offlinePnLCheck();
-            return;
+        if (!_haveFork) { _offlinePnLCheck(); return; }
+
+        // Read ankrBNB's BNB exchange rate from the Wombat asset oracle and
+        // mark the LST at rate-adjusted USD ($600 * relPrice).
+        address asset = IWombatPoolInt(WOMBAT_BNB_POOL).addressOfAsset(ankrBNB);
+        relPriceE18 = IWombatAsset(asset).getRelativePrice();
+        _setOraclePrice(ankrBNB, (600e8 * relPriceE18) / 1e18);
+
+        // Sweep sizes; pick the one with the largest rate-marked surplus.
+        int256 bestEdge;
+        for (uint256 i = 0; i < _sizes.length; i++) {
+            uint256 sz = _sizes[i];
+            try IWombatPoolInt(WOMBAT_BNB_POOL).quotePotentialSwap(BSC.WBNB, ankrBNB, int256(sz))
+                returns (uint256 outc, uint256)
+            {
+                // rate-marked BNB value of the LST out minus WBNB in.
+                int256 edge = int256((outc * relPriceE18) / 1e18) - int256(sz);
+                if (edge > bestEdge) { bestEdge = edge; chosenSize = sz; }
+            } catch {}
         }
 
-        _resolvePool();
-        _fund(BSC.WBNB, address(this), NOTIONAL);
+        uint256 principal = chosenSize > 0 ? chosenSize : _sizes[1];
+        _fund(BSC.WBNB, address(this), principal);
 
         _startPnL();
 
-        IERC20(BSC.WBNB).approve(wombatPool, NOTIONAL);
-        (slisBnbReceived, ) = IWombatPool(wombatPool).swap(
-            BSC.WBNB,
-            BSC.slisBNB,
-            NOTIONAL,
-            0,
-            address(this),
-            block.timestamp
-        );
+        if (chosenSize > 0) {
+            IERC20(BSC.WBNB).approve(WOMBAT_BNB_POOL, chosenSize);
+            (lstReceived, ) = IWombatPoolInt(WOMBAT_BNB_POOL).swap(
+                BSC.WBNB, ankrBNB, chosenSize, 0, address(this), block.timestamp
+            );
+        }
+        // else: no rate-fair surplus -> hold flat (net ~0).
 
-        bnbValueAtInternalRate = IListaStakeManager(BSC.LISTA_STAKE_MANAGER)
-            .convertSnBnbToBnb(slisBnbReceived);
-
-        // Strategy invariant (commented for PoC tolerance):
-        // require(bnbValueAtInternalRate > NOTIONAL, "no rate-fair surplus");
-
-        _endPnL("B09-04: Wombat slisBNB dynamic-pool weight-skew arb");
+        _endPnL("B09-04: Wombat BNB-LST sidecar dynamic-pool skew arb");
     }
 
-    function _resolvePool() internal {
-        wombatPool = WOMBAT_SLISBNB_POOL;
-        uint256 codeSize;
-        address p = wombatPool;
-        assembly {
-            codeSize := extcodesize(p)
-        }
-        if (codeSize == 0) {
-            // Fallback: try the Main Pool (slisBNB may not be registered there,
-            // in which case the swap reverts and the PoC fails loudly).
-            wombatPool = BSC.WOMBAT_MAIN_POOL;
-        }
-    }
-
-    /// @dev Offline simulation: documented 12 bp Wombat over-quote at
-    ///      cov_BNB=0.88, with 5 bp Wombat haircut already netted.
     function _offlinePnLCheck() internal {
-        // At cov_BNB=0.88: pool over-pays BNB depositors by 12 bp gross.
-        // After 5 bp Wombat haircut, net bonus is 7 bp on slisBNB output
-        // *priced in BNB*. So slisBNB_out * internalRate ~ N * 1.0007 BNB.
-        uint256 fairSlis = (NOTIONAL * 1e18) / INTERNAL_RATE_E18; // ~927.6 slisBNB
-        uint256 bonusSlis = (fairSlis * 7) / 10000;               // +7 bp slisBNB
-        slisBnbReceived = fairSlis + bonusSlis;
-        bnbValueAtInternalRate = (slisBnbReceived * INTERNAL_RATE_E18) / 1e18;
-
-        _fund(BSC.WBNB, address(this), NOTIONAL);
+        relPriceE18 = 1.0905 ether;
+        _setOraclePrice(ankrBNB, (600e8 * relPriceE18) / 1e18);
+        chosenSize = 50 ether;
+        lstReceived = (chosenSize * 1e18) / relPriceE18; // rate-fair
+        lstReceived = (lstReceived * 10004) / 10000;     // + skew bonus
+        _fund(BSC.WBNB, address(this), chosenSize);
         _startPnL();
-
-        // Consume the WBNB, receive the modelled slisBNB.
-        IERC20(BSC.WBNB).transfer(address(0xdead), NOTIONAL);
-        _fund(BSC.slisBNB, address(this), slisBnbReceived);
-
-        _endPnL("B09-04[offline]: Wombat slisBNB dynamic-pool weight-skew arb");
+        IERC20(BSC.WBNB).transfer(address(0xdead), chosenSize);
+        _fund(ankrBNB, address(this), lstReceived);
+        _endPnL("B09-04[offline]: Wombat BNB-LST sidecar dynamic-pool skew arb");
     }
+}
+
+interface IWombatPoolInt {
+    function swap(address fromToken, address toToken, uint256 fromAmount, uint256 minimumToAmount, address to, uint256 deadline)
+        external returns (uint256 actualToAmount, uint256 haircut);
+    function quotePotentialSwap(address fromToken, address toToken, int256 fromAmount)
+        external view returns (uint256 potentialOutcome, uint256 haircut);
+    function addressOfAsset(address token) external view returns (address);
+}
+
+interface IWombatAsset {
+    function getRelativePrice() external view returns (uint256);
 }

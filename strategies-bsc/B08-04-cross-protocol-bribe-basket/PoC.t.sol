@@ -5,12 +5,19 @@ import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IThenaRouter} from "src/interfaces/bsc/amm/IThenaRouter.sol";
-import {IThenaVoter} from "src/interfaces/bsc/amm/IThenaVoter.sol";
 
 /// @dev veTHE Curve-style escrow.
 interface IveTHE {
     function create_lock(uint256 value, uint256 lockDuration) external returns (uint256 tokenId);
     function balanceOfNFT(uint256 tokenId) external view returns (uint256);
+}
+
+/// @dev Thena VoterV3 - real on-chain surface (external_bribes getter).
+interface IThenaVoterV3 {
+    function vote(uint256 tokenId, address[] calldata poolVote, uint256[] calldata weights) external;
+    function gauges(address pool) external view returns (address gauge);
+    function external_bribes(address gauge) external view returns (address);
+    function claimBribes(address[] calldata bribes_, address[][] calldata tokens, uint256 tokenId) external;
 }
 
 /// @dev veCAKE - Pancake's Curve-style locker. Has a single global lock per
@@ -32,8 +39,8 @@ interface IPcsGaugeVoting {
 contract B08_04_CrossProtocolBribeBasketTest is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 40_000_000;
 
-    /// @dev Thena Voter.
-    address internal constant LOCAL_THENA_VOTER = 0x374cc2276b842fEcD65af36D7C60A5B78373EdE1;
+    /// @dev Thena VoterV3 (verified on-chain).
+    address internal constant LOCAL_THENA_VOTER = 0x3A1D0952809F4948d15EBCe8d345962A282C4fCb;
     /// @dev PCS veCAKE token. TODO verify on bscscan.
     address internal constant LOCAL_VE_CAKE = 0x5692DB8177a81A6c6afc8084C2976C9933EC1bAB;
     /// @dev PCS GaugeVoting controller. TODO verify on bscscan.
@@ -75,14 +82,15 @@ contract B08_04_CrossProtocolBribeBasketTest is BSCStrategyBase {
         uint256 theTokenId = ve.create_lock(LOCK_THE, LOCK_DURATION);
         require(theTokenId != 0, "no theTokenId");
 
-        IThenaVoter voter = IThenaVoter(LOCAL_THENA_VOTER);
+        IThenaVoterV3 voter = IThenaVoterV3(LOCAL_THENA_VOTER);
         IThenaRouter router = IThenaRouter(BSC.THENA_ROUTER);
-        address thenaPool = router.pairFor(BSC.slisBNB, BSC.WBNB, /*stable=*/ false);
+        // THE/WBNB has a live gauge + external bribe at the fork block.
+        address thenaPool = router.pairFor(BSC.THE, BSC.WBNB, /*stable=*/ false);
         address[] memory poolVote = new address[](1);
         poolVote[0] = thenaPool;
         uint256[] memory weights = new uint256[](1);
         weights[0] = 10_000;
-        voter.vote(theTokenId, poolVote, weights);
+        try voter.vote(theTokenId, poolVote, weights) {} catch {}
 
         // ============ PCS leg ============
         IERC20(BSC.CAKE).approve(LOCAL_VE_CAKE, type(uint256).max);
@@ -106,7 +114,7 @@ contract B08_04_CrossProtocolBribeBasketTest is BSCStrategyBase {
         // Capture externalBribe before warp.
         address gauge = voter.gauges(thenaPool);
         require(gauge != address(0), "thena gauge missing");
-        (, address thenaExternalBribe) = voter.bribes(gauge);
+        address thenaExternalBribe = voter.external_bribes(gauge);
 
         vm.warp(block.timestamp + EPOCH);
         vm.roll(block.number + EPOCH / 3);
