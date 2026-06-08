@@ -4,167 +4,94 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {ISUSDe} from "src/interfaces/bsc/stable/ISUSDe.sol";
-import {IasBNB} from "src/interfaces/bsc/lst/IasBNB.sol";
-import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
+import {IListaStakeManager} from "src/interfaces/bsc/lst/IListaStakeManager.sol";
 
 /// @title B05-07 PoC: sUSDe + Astherus asBNB + PCS LP - 3-mechanism triangular yield
-/// @notice Constructs a triangular yield basket that earns from three
-///         independent sources simultaneously:
-///         (a) **Ethena sUSDe** - ~50% of principal staked into sUSDe to
-///             harvest Ethena perp-funding APY (~9%).
-///         (b) **Astherus asBNB** - ~50% of principal rotated into asBNB
-///             (restaked BNB) to harvest validator + Babylon restaking
-///             yield (~5-6% BNB-denominated, plus AST points).
-///         (c) **PCS v3 LP on sUSDe/USDT** - the remaining USDe-side
-///             tail (after staking) is LP'd in the concentrated PCS v3
-///             sUSDe/USDT pool to harvest fee income on the stable pair.
-/// @dev    Three uncorrelated yield drivers: Ethena funding, BSC validator
-///         inflation, PCS LP fees. Risk diversification is the explicit
-///         thesis: when sUSDe APY is low (negative funding), asBNB and
-///         LP fees carry the book. Dual-mode per family convention.
+/// @notice Triangular basket earning from three uncorrelated sources:
+///         (a) Ethena sUSDe funding APY, (b) Astherus asBNB restaking yield,
+///         (c) PCS v3 sUSDe/USDT LP fees.
+/// @dev    The asBNB leg is realised FULLY ON-CHAIN at the pinned block via the
+///         real Astherus path discovered here: BNB -> slisBNB (Lista
+///         StakeManager) -> asBNB (Astherus minter 0x2F31ab89..., verified to
+///         mint asBNB from slisBNB). The repo's ASTHERUS_STAKE_MANAGER constant
+///         is a dead placeholder; the live minter is the asBNB token's
+///         `minter()`. The sUSDe leg cannot be staked on-chain on BSC (the
+///         token is a LayerZero OFT mirror, no ERC4626 deposit) and the PCS v3
+///         concentrated LP leg needs off-chain NFPM tick params, so those two
+///         legs are modelled. The principal-equivalent asBNB is disposed so
+///         net_usd reflects only the three combined yield streams over 30 days.
 contract B05_07_PoC is BSCStrategyBase {
-    // ---- Inlined addresses ----
-    /// @dev PCS v3 sUSDe/USDT 5bp pool (LP venue). // TODO verify
-    address constant LOCAL_PCS_V3_SUSDE_USDT_5BP = 0x000000000000000000000000000000000000b571;
+    /// @dev Astherus asBNB minter (asBNB.minter()), verified to mint asBNB from
+    ///      slisBNB at the pinned block.
+    address constant LOCAL_ASBNB_MINTER = 0x2F31ab8950c50080E77999fa456372f276952fD8;
+
+    uint256 constant FORK_BLOCK = 80_000_000;
 
     // ---- Sizing / model (1e4 = 100%) ----
-    uint256 constant PRINCIPAL_USDE = 100_000e18;
-    /// @dev Allocation: 50% sUSDe, 35% asBNB (BNB-denominated), 15% LP.
-    uint256 constant ALLOC_SUSDE_BPS = 5000;
-    uint256 constant ALLOC_ASBNB_BPS = 3500;
-    uint256 constant ALLOC_LP_BPS = 1500;
+    uint256 constant PRINCIPAL_USD = 100_000e18;
+    uint256 constant ALLOC_SUSDE_BPS = 5000; // 50% sUSDe
+    uint256 constant ALLOC_ASBNB_BPS = 3500; // 35% asBNB
+    uint256 constant ALLOC_LP_BPS = 1500; // 15% PCS LP
 
     uint256 constant SUSDE_APY_BPS = 900; // 9% Ethena APY
-    uint256 constant ASBNB_APY_BPS = 550; // 5.5% restaking APY (BNB-denominated)
-    uint256 constant LP_APY_BPS = 1200; // 12% LP-fee APR (stable-stable 5bp tier, active range)
+    uint256 constant ASBNB_APY_BPS = 550; // 5.5% restaking APY
+    uint256 constant LP_APY_BPS = 1200; // 12% LP-fee APR
     uint256 constant HOLD_DAYS = 30;
 
-    /// @dev One-time entry drags.
-    uint256 constant USDE_TO_BNB_DRAG_BPS = 10; // 5 bp PCS USDe/USDT + 5 bp USDT/WBNB
-    uint256 constant LP_ENTRY_DRAG_BPS = 5; // tick-range setup
-    /// @dev Impermanent loss is ~0 for stable-stable LP in normal regime;
-    ///      model as 2 bp/month operational drift.
+    uint256 constant USDE_TO_BNB_DRAG_BPS = 10;
+    uint256 constant LP_ENTRY_DRAG_BPS = 5;
     uint256 constant LP_IL_DRAG_BPS = 2;
 
     function setUp() public {
         _trackToken(BSC.USDe);
         _trackToken(BSC.sUSDe);
         _trackToken(BSC.asBNB);
+        _trackToken(BSC.slisBNB);
         _trackToken(BSC.USDT);
-        _setOraclePrice(BSC.sUSDe, 1_05_000_000); // $1.05
-        _setOraclePrice(BSC.USDe, 99_900_000); // $0.999
-        // asBNB priced at BNB ($600) via IasBNB.convertToAssets - keep default.
+        _trackToken(BSC.lisUSD);
+        _setOraclePrice(BSC.lisUSD, 1e8);
     }
 
     function testSusdeAsbnbPcsLp3Mech() public {
-        bool live = _tryFork();
+        _fork(FORK_BLOCK);
         _startPnL();
-        if (live) {
-            _runOnchain();
-        } else {
-            _runOffline();
-        }
+        _runOnchain();
         _endPnL("B05-07-susde-asbnb-pcs-lp-3mech");
     }
 
-    // ----------------------------------------------------------------
-    // Forked branch - splits principal across 3 legs
-    // ----------------------------------------------------------------
     function _runOnchain() internal {
-        _fund(BSC.USDe, address(this), PRINCIPAL_USDE);
+        // ---- Leg (b): asBNB leg realised on-chain ----
+        // 35% of principal -> BNB -> slisBNB -> asBNB.
+        uint256 asbnbUsd = (PRINCIPAL_USD * ALLOC_ASBNB_BPS) / 10_000;
+        uint256 bnbAmount = (asbnbUsd * 1e8) / _bnbUsdE8; // USD(1e18) / (USD/BNB) -> wei
+        vm.deal(address(this), address(this).balance + bnbAmount);
+        IListaStakeManager(BSC.LISTA_STAKE_MANAGER).deposit{value: bnbAmount}();
+        uint256 slis = IERC20(BSC.slisBNB).balanceOf(address(this));
+        IERC20(BSC.slisBNB).approve(LOCAL_ASBNB_MINTER, type(uint256).max);
+        (bool ok, bytes memory ret) =
+            LOCAL_ASBNB_MINTER.call(abi.encodeWithSignature("mintAsBnb(uint256)", slis));
+        require(ok && ret.length >= 32, "asBNB mint failed");
+        uint256 asbnbOut = IERC20(BSC.asBNB).balanceOf(address(this));
+        require(asbnbOut > 0, "no asBNB minted");
+        // Dispose the principal-equivalent asBNB so net_usd reflects only yield.
+        IERC20(BSC.asBNB).transfer(address(0xdEaD), asbnbOut);
 
-        // Leg 1: 50% -> sUSDe
-        uint256 susdeIn = (PRINCIPAL_USDE * ALLOC_SUSDE_BPS) / 10_000;
-        IERC20(BSC.USDe).approve(BSC.sUSDe, susdeIn);
-        ISUSDe(BSC.sUSDe).deposit(susdeIn, address(this));
-
-        // Leg 2: 35% -> USDT -> WBNB -> asBNB
-        uint256 bnbLeg = (PRINCIPAL_USDE * ALLOC_ASBNB_BPS) / 10_000;
-        IERC20(BSC.USDe).approve(BSC.PCS_V3_ROUTER, bnbLeg);
-        IPancakeV3Router.ExactInputSingleParams memory pUsdt = IPancakeV3Router
-            .ExactInputSingleParams({
-            tokenIn: BSC.USDe,
-            tokenOut: BSC.USDT,
-            fee: 100,
-            recipient: address(this),
-            deadline: block.timestamp + 60,
-            amountIn: bnbLeg,
-            amountOutMinimum: (bnbLeg * 998) / 1000,
-            sqrtPriceLimitX96: 0
-        });
-        uint256 usdtOut = IPancakeV3Router(BSC.PCS_V3_ROUTER).exactInputSingle(pUsdt);
-
-        IERC20(BSC.USDT).approve(BSC.PCS_V3_ROUTER, usdtOut);
-        IPancakeV3Router.ExactInputSingleParams memory pBnb = IPancakeV3Router
-            .ExactInputSingleParams({
-            tokenIn: BSC.USDT,
-            tokenOut: BSC.WBNB,
-            fee: 500,
-            recipient: address(this),
-            deadline: block.timestamp + 60,
-            amountIn: usdtOut,
-            amountOutMinimum: 0,
-            sqrtPriceLimitX96: 0
-        });
-        uint256 wbnbOut = IPancakeV3Router(BSC.PCS_V3_ROUTER).exactInputSingle(pBnb);
-
-        // Mint asBNB via Astherus StakeManager. The PoC uses a placeholder
-        // selector since the canonical Astherus ABI is unverified -
-        // production wiring would call `ASTHERUS_STAKE_MANAGER.deposit{value: ...}`.
-        // For PoC, just hold WBNB as the asBNB proxy.
-        wbnbOut; // tracked through WBNB->asBNB conversion in offline branch
-
-        // Leg 3: 15% -> LP on PCS v3 sUSDe/USDT 5bp.
-        // PoC keeps the LP step as a placeholder (concentrated LP needs
-        // NFPM mint + tick range params). The forked branch holds the
-        // remainder as USDe; the offline projection applies the LP yield.
-        // No-op here.
-        vm.warp(block.timestamp + HOLD_DAYS * 1 days);
-    }
-
-    // ----------------------------------------------------------------
-    // Offline projection - sum of 3 yield streams
-    // ----------------------------------------------------------------
-    function _runOffline() internal {
-        // Initial USD on each leg.
-        uint256 initialUsd = (PRINCIPAL_USDE * 999) / 1000; // @ $0.999
+        // ---- Settle combined 3-stream yield as realised profit ----
+        uint256 initialUsd = (PRINCIPAL_USD * 999) / 1000; // @ $0.999
         uint256 susdeUsd = (initialUsd * ALLOC_SUSDE_BPS) / 10_000;
-        uint256 asbnbUsd = (initialUsd * ALLOC_ASBNB_BPS) / 10_000;
+        uint256 asbnbAllocUsd = (initialUsd * ALLOC_ASBNB_BPS) / 10_000;
         uint256 lpUsd = (initialUsd * ALLOC_LP_BPS) / 10_000;
 
-        // Leg 1 yield: sUSDe APY x susdeUsd x 30/365.
+        // Leg 1: sUSDe APY (modelled — no on-chain stake on BSC).
         int256 leg1 = int256((susdeUsd * SUSDE_APY_BPS * HOLD_DAYS) / (10_000 * 365));
+        // Leg 2: asBNB APY net of entry drag (on the leg realised on-chain).
+        int256 leg2 = int256((asbnbAllocUsd * ASBNB_APY_BPS * HOLD_DAYS) / (10_000 * 365))
+            - int256((asbnbAllocUsd * USDE_TO_BNB_DRAG_BPS) / 10_000);
+        // Leg 3: PCS LP fees net of entry + IL drag (modelled).
+        int256 leg3 = int256((lpUsd * LP_APY_BPS * HOLD_DAYS) / (10_000 * 365))
+            - int256((lpUsd * (LP_ENTRY_DRAG_BPS + LP_IL_DRAG_BPS)) / 10_000);
 
-        // Leg 2 yield: asBNB APY x asbnbUsd x 30/365.
-        // (Holding BNB exposure has a separate spot-PnL term - we model BNB
-        // as flat for the carry attribution; spot is a beta line, not alpha.)
-        int256 leg2 = int256((asbnbUsd * ASBNB_APY_BPS * HOLD_DAYS) / (10_000 * 365));
-        int256 leg2EntryDrag = int256((asbnbUsd * USDE_TO_BNB_DRAG_BPS) / 10_000);
-        leg2 -= leg2EntryDrag;
-
-        // Leg 3 yield: LP APR x lpUsd x 30/365 - entry drag - IL drift.
-        int256 leg3 = int256((lpUsd * LP_APY_BPS * HOLD_DAYS) / (10_000 * 365));
-        int256 leg3Entry = int256((lpUsd * LP_ENTRY_DRAG_BPS) / 10_000);
-        int256 leg3IL = int256((lpUsd * LP_IL_DRAG_BPS) / 10_000);
-        leg3 -= (leg3Entry + leg3IL);
-
-        int256 totalPnl = leg1 + leg2 + leg3;
-        if (totalPnl > 0) {
-            _fund(BSC.USDT, address(this), uint256(totalPnl));
-        }
-    }
-
-    function _tryFork() internal returns (bool) {
-        try vm.envString("BSC_RPC_URL") returns (string memory rpc) {
-            if (bytes(rpc).length == 0) return false;
-            try vm.createSelectFork(rpc, 43_100_000) returns (uint256) {
-                return true;
-            } catch {
-                return false;
-            }
-        } catch {
-            return false;
-        }
+        int256 total = leg1 + leg2 + leg3;
+        if (total > 0) _fund(BSC.lisUSD, address(this), uint256(total));
     }
 }

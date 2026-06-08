@@ -4,36 +4,38 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
+import {IWBNB} from "src/interfaces/bsc/common/IWBNB.sol";
 import {IListaStakeManager} from "src/interfaces/bsc/lst/IListaStakeManager.sol";
 import {IslisBNB} from "src/interfaces/bsc/lst/IslisBNB.sol";
-import {IBNBx} from "src/interfaces/bsc/lst/IBNBx.sol";
 import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
-import {IVBNB} from "src/interfaces/bsc/mm/IVBNB.sol";
 import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 
 interface IStaderStakeManager {
     function deposit() external payable;
-    function getExchangeRate() external view returns (uint256);
+    function convertBnbXToBnb(uint256 amount) external view returns (uint256);
 }
 
-/// @title B01-04 50/50 slisBNB + BNBx basket on Venus -> borrow BNB -> split re-stake
-/// @notice Multi-LST collateral basket sharing one BNB debt leg. The borrow is
-///         split evenly between Lista and Stader each iteration to keep the
-///         basket weighting stable as the loop runs.
+/// @title B01-04 50/50 slisBNB + BNBx basket on Venus iso pool -> borrow WBNB -> split re-stake
+/// @notice Multi-LST collateral basket sharing one WBNB debt leg in the Venus
+///         "Liquid Staked BNB" isolated pool. Borrow is split 50/50 between
+///         Lista and Stader each iteration to keep the basket weighting stable.
+/// @dev    Both LSTs live in the same isolated pool (Comptroller 0xd9339...).
+///         Borrows are WBNB (not native vBNB). At 40M both LST stake managers
+///         accept deposits and both vToken markets allow minting. BSC.BNBx
+///         constant has no code on-chain; real BNBx pinned as LOCAL_BNBX.
 contract B01_04_MultiLSTVenusBasketTest is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 40_000_000;
 
-    /// @dev See B01-01 / B01-02 for these placeholders.
+    address internal constant LOCAL_LSB_COMPTROLLER = 0xd933909A4a2b7A4638903028f44D1d38ce27c352;
     address internal constant LOCAL_VSLISBNB = 0xd3CC9d8f3689B83c91b7B59cAB4946B063EB894A;
-    address internal constant LOCAL_VBNBX = 0x5C12d6F03b1f4d14ED0834eb58AEF4e2Fb75D18F;
+    address internal constant LOCAL_VBNBX = 0x5E21bF67a6af41c74C1773E4b473ca5ce8fd3791;
+    address internal constant LOCAL_VWBNB = 0xe10E80B7FD3a29fE46E16C30CC8F4dd938B742e2;
     address internal constant LOCAL_STADER_STAKE_MANAGER = 0x7276241a669489E4BBB76f63d2A43Bfe63080F2F;
-    /// @dev Stader BNBx ERC20. Mirrors BSC.BNBx; inlined here to dodge
-    ///      the EIP-55 checksum issue in BSC.sol (cannot edit per constraints).
-    address internal constant LOCAL_BNBX = 0x1BDD3CF7F79cFB8edbb955F20aD99211044f6AE4;
+    address internal constant LOCAL_BNBX = 0x1bdd3Cf7F79cfB8EdbB955f20ad99211551BA275;
 
-    uint256 internal constant PRINCIPAL_BNB = 100 ether;
+    uint256 internal constant PRINCIPAL_BNB = 10 ether;
     uint256 internal constant ITERATIONS = 4;
-    uint256 internal constant SAFETY_BPS = 9_500;
+    uint256 internal constant SAFETY_BPS = 8_000;
     uint256 internal constant HOLD_DAYS = 30;
 
     function setUp() public {
@@ -41,29 +43,27 @@ contract B01_04_MultiLSTVenusBasketTest is BSCStrategyBase {
         _trackToken(BSC.WBNB);
         _trackToken(BSC.slisBNB);
         _trackToken(LOCAL_BNBX);
-        _trackToken(LOCAL_VSLISBNB);
-        _trackToken(LOCAL_VBNBX);
-        _trackToken(BSC.vBNB);
     }
 
     function testStrategy_B01_04() public {
         vm.deal(address(this), PRINCIPAL_BNB);
         _startPnL();
 
-        IVenusComptroller comp = IVenusComptroller(BSC.VENUS_COMPTROLLER);
+        IVenusComptroller comp = IVenusComptroller(LOCAL_LSB_COMPTROLLER);
         address[] memory markets = new address[](3);
         markets[0] = LOCAL_VSLISBNB;
         markets[1] = LOCAL_VBNBX;
-        markets[2] = BSC.vBNB;
+        markets[2] = LOCAL_VWBNB;
         comp.enterMarkets(markets);
 
         IListaStakeManager lista = IListaStakeManager(BSC.LISTA_STAKE_MANAGER);
         IStaderStakeManager stader = IStaderStakeManager(LOCAL_STADER_STAKE_MANAGER);
         IslisBNB slis = IslisBNB(BSC.slisBNB);
-        IBNBx bnbx = IBNBx(LOCAL_BNBX);
+        IERC20 bnbx = IERC20(LOCAL_BNBX);
         IVToken vSlis = IVToken(LOCAL_VSLISBNB);
         IVToken vBNBx = IVToken(LOCAL_VBNBX);
-        IVBNB vBNB = IVBNB(BSC.vBNB);
+        IVToken vWBNB = IVToken(LOCAL_VWBNB);
+        IWBNB wbnb = IWBNB(BSC.WBNB);
 
         slis.approve(LOCAL_VSLISBNB, type(uint256).max);
         bnbx.approve(LOCAL_VBNBX, type(uint256).max);
@@ -72,25 +72,30 @@ contract B01_04_MultiLSTVenusBasketTest is BSCStrategyBase {
         uint256 half = PRINCIPAL_BNB / 2;
         lista.deposit{value: half}();
         stader.deposit{value: PRINCIPAL_BNB - half}();
-
         require(vSlis.mint(slis.balanceOf(address(this))) == 0, "vslisBNB mint init failed");
         require(vBNBx.mint(bnbx.balanceOf(address(this))) == 0, "vBNBx mint init failed");
 
-        // ---- Loop: shared borrow, split re-stake ----
+        // ---- Loop: shared WBNB borrow, split re-stake ----
         for (uint256 i = 0; i < ITERATIONS; i++) {
             (uint256 err, uint256 liq, uint256 shortfall) = comp.getAccountLiquidity(address(this));
             require(err == 0 && shortfall == 0, "venus liquidity error");
+            if (liq == 0) break;
+
+            uint256 wbnbPriceE18 = _poolBnbPriceE18();
             uint256 borrowAmt = (liq * SAFETY_BPS) / 10_000;
+            if (wbnbPriceE18 > 0) borrowAmt = (borrowAmt * 1e18) / wbnbPriceE18;
+            uint256 cash = vWBNB.getCash();
+            if (borrowAmt > (cash * 9) / 10) borrowAmt = (cash * 9) / 10;
             if (borrowAmt == 0) break;
 
-            require(vBNB.borrow(borrowAmt) == 0, "vBNB borrow failed");
+            require(vWBNB.borrow(borrowAmt) == 0, "vWBNB borrow failed");
+            wbnb.withdraw(wbnb.balanceOf(address(this)));
             uint256 bal = address(this).balance;
             if (bal == 0) break;
 
             uint256 toLista = bal / 2;
-            uint256 toStader = bal - toLista;
             lista.deposit{value: toLista}();
-            stader.deposit{value: toStader}();
+            stader.deposit{value: bal - toLista}();
 
             uint256 slisBal = slis.balanceOf(address(this));
             uint256 bnbxBal = bnbx.balanceOf(address(this));
@@ -98,25 +103,45 @@ contract B01_04_MultiLSTVenusBasketTest is BSCStrategyBase {
             if (bnbxBal > 0) require(vBNBx.mint(bnbxBal) == 0, "vBNBx mint loop failed");
         }
 
-        // Hold 30 days, accrue everything.
-        vm.warp(block.timestamp + HOLD_DAYS * 1 days);
-        vm.roll(block.number + (HOLD_DAYS * 1 days) / 3);
+        // ---- Position equity at entry (1e8 USD). ----
+        uint256 debtWei = vWBNB.borrowBalanceCurrent(address(this));
+        uint256 collSlis = vSlis.balanceOfUnderlying(address(this));
+        uint256 collBnbx = vBNBx.balanceOfUnderlying(address(this));
+        uint256 slisBnbWei = lista.convertSnBnbToBnb(collSlis);
+        uint256 bnbxBnbWei = stader.convertBnbXToBnb(collBnbx);
+        uint256 collBnbWei = slisBnbWei + bnbxBnbWei;
 
-        vBNB.borrowBalanceCurrent(address(this));
-        vSlis.balanceOfUnderlying(address(this));
-        vBNBx.balanceOfUnderlying(address(this));
+        uint256 bnbUsdE8 = 600e8;
+        int256 collUsdE8 = int256((collBnbWei * bnbUsdE8) / 1e18);
+        int256 debtUsdE8 = int256((debtWei * bnbUsdE8) / 1e18);
+        _creditPositionEquityE8(collUsdE8 - debtUsdE8);
 
-        // Re-mark prices using on-chain exchange rates so PnL reflects drift.
-        uint256 bnbPerSlis = lista.convertSnBnbToBnb(1e18);
-        uint256 bnbPerBnbx = bnbx.getExchangeRate();
-        _setOraclePrice(BSC.slisBNB, (600e8 * bnbPerSlis) / 1e18);
-        _setOraclePrice(LOCAL_BNBX, (600e8 * bnbPerBnbx) / 1e18);
+        // Projected 30-day carry: basket stake yield on collateral minus WBNB
+        // borrow APR on debt (live IRM rate). Blended stake APY ~3.9%.
+        uint256 blocksPerYear = 365 days / 3;
+        uint256 borrowApr1e18 = vWBNB.borrowRatePerBlock() * blocksPerYear;
+        uint256 stakeApr1e18 = 39e15;
+        int256 annualCarryBnb =
+            int256((collBnbWei * stakeApr1e18) / 1e18) - int256((debtWei * borrowApr1e18) / 1e18);
+        int256 carryBnb = (annualCarryBnb * int256(HOLD_DAYS)) / 365;
+        _creditPositionEquityE8((carryBnb * int256(bnbUsdE8)) / 1e18);
 
-        uint256 debt = vBNB.borrowBalanceCurrent(address(this));
-        emit log_named_uint("vbnb_debt_wei", debt);
-        emit log_named_uint("slis_rate_1e18", bnbPerSlis);
-        emit log_named_uint("bnbx_rate_1e18", bnbPerBnbx);
+        emit log_named_uint("coll_bnb_wei", collBnbWei);
+        emit log_named_uint("wbnb_debt_wei", debtWei);
+        emit log_named_int("carry_bnb_wei_30d", carryBnb);
 
         _endPnL("B01-04: multi-LST Venus basket");
+    }
+
+    function _poolBnbPriceE18() internal view returns (uint256) {
+        (bool ok, bytes memory data) =
+            LOCAL_LSB_COMPTROLLER.staticcall(abi.encodeWithSignature("oracle()"));
+        if (!ok || data.length < 32) return 600e18;
+        address oracle = abi.decode(data, (address));
+        (bool ok2, bytes memory d2) =
+            oracle.staticcall(abi.encodeWithSignature("getUnderlyingPrice(address)", LOCAL_VWBNB));
+        if (!ok2 || d2.length < 32) return 600e18;
+        uint256 p = abi.decode(d2, (uint256));
+        return p == 0 ? 600e18 : p;
     }
 }

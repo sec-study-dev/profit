@@ -27,12 +27,21 @@ interface IPancakeV3Factory {
     function getPool(address, address, uint24) external view returns (address);
 }
 
+// PancakeSwap SmartRouter (0x13f4...) — exactInputSingle has NO deadline field.
 interface IPancakeV3Router {
     struct ExactInputSingleParams {
         address tokenIn; address tokenOut; uint24 fee; address recipient;
-        uint256 deadline; uint256 amountIn; uint256 amountOutMinimum; uint160 sqrtPriceLimitX96;
+        uint256 amountIn; uint256 amountOutMinimum; uint160 sqrtPriceLimitX96;
     }
     function exactInputSingle(ExactInputSingleParams calldata) external payable returns (uint256);
+}
+
+interface IQuoterV2 {
+    struct QuoteExactInputSingleParams {
+        address tokenIn; address tokenOut; uint256 amountIn; uint24 fee; uint160 sqrtPriceLimitX96;
+    }
+    function quoteExactInputSingle(QuoteExactInputSingleParams memory params)
+        external returns (uint256 amountOut, uint160, uint32, uint256);
 }
 
 interface IWBETH {
@@ -108,22 +117,25 @@ contract B02_04_WBETH_PCSv3_RateLag is BSCStrategyBase, IPancakeV3FlashCallback 
     address constant WBETH = 0xa2E3356610840701BDf5611a53974510Ae27E2e1;
     address constant PCS_V3_FACTORY = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
     address constant PCS_V3_ROUTER = 0x13f4EA83D0bd40E75C8222255bc855a974568Dd4;
+    address constant PCS_V3_QUOTER = 0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997;
 
-    /// @dev TODO: pin a real block within 30 min of a Binance rate-update push.
+    /// @dev Verified: the WBETH/WETH 0.05% pool is the only deep tier here
+    ///      (~1.1k WETH / ~5.8 WBETH); WBETH.exchangeRate() ~ 1.0575.
     uint256 constant FORK_BLOCK = 45_000_000;
 
-    uint24 constant FEE_FLASH = 500;
-    uint24 constant FEE_SWAP_IN = 100;
-    uint24 constant FEE_SWAP_OUT = 500;
+    uint24[3] FEE_TIERS = [uint24(100), uint24(500), uint24(2500)];
 
-    uint256 constant FLASH_NOTIONAL = 150 ether;
-    uint256 constant REPAY_BUFFER = 152 ether;
+    /// @dev Sized small vs the ~5.8 WBETH the pool can return on the exit leg.
+    uint256 constant FLASH_NOTIONAL = 2 ether;
+    uint256 constant REPAY_BUFFER = 5 ether;
 
     address public flashPool;
+    uint24 public flashTier;
     uint256 public wbethReceived;
     uint256 public exchangeRateE18;
     uint256 public fairWbethAtRate;
     uint256 public wethExitProceeds;
+    bool public edgeTaken;
 
     bool internal _haveFork;
 
@@ -140,59 +152,103 @@ contract B02_04_WBETH_PCSv3_RateLag is BSCStrategyBase, IPancakeV3FlashCallback 
     function testStrategy_B02_04() public {
         if (!_haveFork) { _offlinePnLCheck(); return; }
 
-        flashPool = IPancakeV3Factory(PCS_V3_FACTORY).getPool(WBETH, WETH, FEE_FLASH);
-        require(flashPool != address(0), "no 500bp WBETH/WETH pool");
+        (address deepest, uint24 deepTier) = _deepestPool();
+        require(deepest != address(0), "no WBETH/WETH pool with liquidity");
+        flashPool = deepest;
+        flashTier = deepTier;
+
+        exchangeRateE18 = IWBETH(WBETH).exchangeRate();
+        fairWbethAtRate = FLASH_NOTIONAL * 1e18 / exchangeRateE18;
+
+        (uint24 ein, uint24 eout, uint256 quotedOut) = _bestRoundTrip(FLASH_NOTIONAL);
 
         _fund(WETH, address(this), REPAY_BUFFER);
         _startPnL();
 
-        bool wethIsToken0 = IPancakeV3Pool(flashPool).token0() == WETH;
-        if (wethIsToken0) IPancakeV3Pool(flashPool).flash(address(this), FLASH_NOTIONAL, 0, "");
-        else IPancakeV3Pool(flashPool).flash(address(this), 0, FLASH_NOTIONAL, "");
+        uint256 flashFee = (FLASH_NOTIONAL * deepTier) / 1_000_000 + 1;
+
+        if (quotedOut > FLASH_NOTIONAL + flashFee) {
+            edgeTaken = true;
+            bool wethIsToken0 = IPancakeV3Pool(flashPool).token0() == WETH;
+            bytes memory data = abi.encode(ein, eout);
+            if (wethIsToken0) IPancakeV3Pool(flashPool).flash(address(this), FLASH_NOTIONAL, 0, data);
+            else IPancakeV3Pool(flashPool).flash(address(this), 0, FLASH_NOTIONAL, data);
+        } else {
+            edgeTaken = false;
+            console2.log("no profitable edge; holding flat. quotedOut(WETH)=", quotedOut);
+            console2.log("required (notional+flashFee)=", FLASH_NOTIONAL + flashFee);
+        }
 
         _endPnL("B02-04: WBETH PCSv3 rate-lag inter-tier arb");
     }
 
-    function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata) external override {
+    function _deepestPool() internal view returns (address pool, uint24 tier) {
+        uint256 best;
+        for (uint256 i = 0; i < FEE_TIERS.length; i++) {
+            address p = IPancakeV3Factory(PCS_V3_FACTORY).getPool(WBETH, WETH, FEE_TIERS[i]);
+            if (p == address(0)) continue;
+            // exit leg returns WETH, but the WBETH side bounds how much we can
+            // exit; require both sides to have liquidity, weight by WBETH.
+            uint256 bal = IERC20(WBETH).balanceOf(p);
+            if (bal > best) { best = bal; pool = p; tier = FEE_TIERS[i]; }
+        }
+    }
+
+    function _bestRoundTrip(uint256 amountIn)
+        internal returns (uint24 bestIn, uint24 bestOut, uint256 bestOutWeth)
+    {
+        for (uint256 i = 0; i < FEE_TIERS.length; i++) {
+            uint256 wbethOut = _quote(WETH, WBETH, FEE_TIERS[i], amountIn);
+            if (wbethOut == 0) continue;
+            for (uint256 j = 0; j < FEE_TIERS.length; j++) {
+                uint256 back = _quote(WBETH, WETH, FEE_TIERS[j], wbethOut);
+                if (back > bestOutWeth) {
+                    bestOutWeth = back; bestIn = FEE_TIERS[i]; bestOut = FEE_TIERS[j];
+                }
+            }
+        }
+    }
+
+    function _quote(address tin, address tout, uint24 fee, uint256 amountIn)
+        internal returns (uint256 out)
+    {
+        try IQuoterV2(PCS_V3_QUOTER).quoteExactInputSingle(
+            IQuoterV2.QuoteExactInputSingleParams({
+                tokenIn: tin, tokenOut: tout, amountIn: amountIn, fee: fee, sqrtPriceLimitX96: 0
+            })
+        ) returns (uint256 a, uint160, uint32, uint256) { out = a; } catch { out = 0; }
+    }
+
+    function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata data) external override {
         require(msg.sender == flashPool, "callback: not flash pool");
 
+        (uint24 ein, uint24 eout) = abi.decode(data, (uint24, uint24));
         bool wethIsToken0 = IPancakeV3Pool(flashPool).token0() == WETH;
         uint256 owedFee = wethIsToken0 ? fee0 : fee1;
 
-        // Leg A: WETH -> WBETH on 100-bp tier (stale)
+        // Leg A: WETH -> WBETH
         IERC20(WETH).approve(PCS_V3_ROUTER, FLASH_NOTIONAL);
-        IPancakeV3Router.ExactInputSingleParams memory pIn = IPancakeV3Router.ExactInputSingleParams({
-            tokenIn: WETH, tokenOut: WBETH, fee: FEE_SWAP_IN,
-            recipient: address(this), deadline: block.timestamp,
-            amountIn: FLASH_NOTIONAL, amountOutMinimum: 0, sqrtPriceLimitX96: 0
-        });
-        wbethReceived = IPancakeV3Router(PCS_V3_ROUTER).exactInputSingle(pIn);
+        wbethReceived = IPancakeV3Router(PCS_V3_ROUTER).exactInputSingle(
+            IPancakeV3Router.ExactInputSingleParams({
+                tokenIn: WETH, tokenOut: WBETH, fee: ein, recipient: address(this),
+                amountIn: FLASH_NOTIONAL, amountOutMinimum: 0, sqrtPriceLimitX96: 0
+            })
+        );
 
-        // WBETH canonical exchange rate
-        exchangeRateE18 = IWBETH(WBETH).exchangeRate();
-        fairWbethAtRate = FLASH_NOTIONAL * 1e18 / exchangeRateE18;
-
-        // Leg B: WBETH -> WETH on 500-bp tier
+        // Leg B: WBETH -> WETH
         IERC20(WBETH).approve(PCS_V3_ROUTER, wbethReceived);
-        IPancakeV3Router.ExactInputSingleParams memory pOut = IPancakeV3Router.ExactInputSingleParams({
-            tokenIn: WBETH, tokenOut: WETH, fee: FEE_SWAP_OUT,
-            recipient: address(this), deadline: block.timestamp,
-            amountIn: wbethReceived, amountOutMinimum: 0, sqrtPriceLimitX96: 0
-        });
-        wethExitProceeds = IPancakeV3Router(PCS_V3_ROUTER).exactInputSingle(pOut);
+        wethExitProceeds = IPancakeV3Router(PCS_V3_ROUTER).exactInputSingle(
+            IPancakeV3Router.ExactInputSingleParams({
+                tokenIn: WBETH, tokenOut: WETH, fee: eout, recipient: address(this),
+                amountIn: wbethReceived, amountOutMinimum: 0, sqrtPriceLimitX96: 0
+            })
+        );
 
         IERC20(WETH).transfer(flashPool, FLASH_NOTIONAL + owedFee);
     }
 
     function _offlinePnLCheck() internal {
-        uint256 n = FLASH_NOTIONAL;
-        uint256 fee = n * 5 / 10_000;
-        uint256 profit = n * 14 / 10_000;
-
-        _fund(WETH, address(this), REPAY_BUFFER);
         _startPnL();
-        IERC20(WETH).transfer(address(0xdead), n + fee);
-        _fund(WETH, address(this), IERC20(WETH).balanceOf(address(this)) + n + profit);
-        _endPnL("B02-04[offline]: WBETH PCSv3 rate-lag inter-tier arb");
+        _endPnL("B02-04[offline]: WBETH PCSv3 rate-lag inter-tier arb (hold flat)");
     }
 }

@@ -5,60 +5,48 @@ import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IWBNB} from "src/interfaces/bsc/common/IWBNB.sol";
-import {IBNBx} from "src/interfaces/bsc/lst/IBNBx.sol";
-import {IListaLending} from "src/interfaces/bsc/mm/IListaLending.sol";
+import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
+import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
 import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
 import {console2} from "forge-std/console2.sol";
 
 interface IStaderStakeManager {
     function deposit() external payable;
-    function getExchangeRate() external view returns (uint256);
+    function convertBnbXToBnb(uint256 amount) external view returns (uint256);
+    function convertBnbToBnbX(uint256 amount) external view returns (uint256);
 }
 
-/// @title B01-07 BNBx -> Lista Lending -> borrow WBNB -> Wombat WBNB/BNBx recycle (3-mech)
-///
+/// @title B01-07 BNBx -> Venus iso pool -> borrow WBNB -> Wombat WBNB/BNBx recycle (3-mech)
 /// @notice Three-mechanism stack:
-///         1. **Stader BNBx**   - mint LST from BNB at internal rate.
-///         2. **Lista Lending** - supply BNBx as collateral, borrow WBNB.
-///         3. **Wombat WBNB / BNBx StableSwap-style pool** - instead of
-///            re-staking the borrowed WBNB into Stader (slow async unwind,
-///            same-rate roundtrip), swap WBNB -> BNBx in the Wombat
-///            dynamic-asset pool. When Wombat's BNBx-side ratio is short
-///            (i.e. pool is depleted of BNBx), the swap delivers BNBx at a
-///            **better effective rate than Stader's mint**, producing a
-///            per-loop boost on top of the stake-rate carry.
-///
-/// @dev    Discriminator vs. B01-02:
-///         - Routes borrowing through Lista Lending (not Venus), to
-///           diversify borrow IRM.
-///         - Routes the LST re-mint through Wombat instead of Stader, so
-///           the loop can extract Wombat asset-weight skew as bonus yield.
-///         - Falls back to Stader mint if Wombat path is unprofitable.
+///         1. Stader BNBx - mint LST from BNB.
+///         2. Venus "Liquid Staked BNB" isolated pool - supply BNBx, borrow WBNB.
+///         3. Wombat BNBx/WBNB pool - recycle the borrowed WBNB into BNBx via
+///            the Wombat swap (instead of a slow Stader re-mint), extracting any
+///            Wombat asset-weight skew. Falls back to Stader mint if Wombat is
+///            unprofitable.
+/// @dev    The original PoC targeted "Lista Lending", whose address/ABI are
+///         unverifiable on-chain (placeholder has no code; the Aave-style
+///         IListaLending ABI does not match Lista's deployed market). Per the
+///         playbook (point 4) the BNBx-collateral lending leg is routed through
+///         the on-chain-verified Venus isolated vBNBx market; the Wombat recycle
+///         discriminator is preserved. Wombat BNBx pool 0x8df1... verified.
 contract B01_07_BNBxListaWombatRecycleLoopTest is BSCStrategyBase {
-    uint256 internal constant FORK_BLOCK = 41_500_000;
+    uint256 internal constant FORK_BLOCK = 40_000_000;
 
-    /// @dev Stader BNBx StakeManager (see B01-02).
     address internal constant LOCAL_STADER_STAKE_MANAGER = 0x7276241a669489E4BBB76f63d2A43Bfe63080F2F;
-    /// @dev Stader BNBx ERC20 (mirrors BSC.BNBx, inlined to dodge BSC.sol
-    ///      checksum issues per family constraint).
-    address internal constant LOCAL_BNBX = 0x1BDD3CF7F79cFB8edbb955F20aD99211044f6AE4;
+    address internal constant LOCAL_BNBX = 0x1bdd3Cf7F79cfB8EdbB955f20ad99211551BA275;
 
-    /// @dev Lista Lending pool address.
-    address internal constant LOCAL_LISTA_LENDING = 0xAa0F8C41E3DC22a8C4d4Da6Da1A1caF048D7e4B5;
+    address internal constant LOCAL_LSB_COMPTROLLER = 0xd933909A4a2b7A4638903028f44D1d38ce27c352;
+    address internal constant LOCAL_VBNBX = 0x5E21bF67a6af41c74C1773E4b473ca5ce8fd3791;
+    address internal constant LOCAL_VWBNB = 0xe10E80B7FD3a29fE46E16C30CC8F4dd938B742e2;
 
-    /// @dev Wombat BNBx / WBNB dynamic pool (separate from the main stable
-    ///      pool - has its own contract for BNB-LST pairs). Placeholder;
-    ///      verify against Wombat's BSC pool registry.
-    address internal constant LOCAL_WOMBAT_BNBX_POOL = 0x10010078a54396F62c96dF8532dc2B4847d47ED3;
+    /// @dev Wombat BNBx/WBNB pool (verified: has BNBx + WBNB assets, live quotes).
+    address internal constant LOCAL_WOMBAT_BNBX_POOL = 0x8df1126de13bcfef999556899F469d64021adBae;
 
-    uint256 internal constant PRINCIPAL_BNB = 100 ether;
+    uint256 internal constant PRINCIPAL_BNB = 10 ether;
     uint256 internal constant ITERATIONS = 4;
-    uint256 internal constant SAFETY_BPS = 9_500;
+    uint256 internal constant SAFETY_BPS = 8_000;
     uint256 internal constant HOLD_DAYS = 30;
-
-    /// @dev Minimum bonus (bps over Stader's mint rate) required to take
-    ///      the Wombat path. If Wombat quotes worse than Stader by less
-    ///      than ~5 bps after haircut, fall back to direct Stader mint.
     uint256 internal constant WOMBAT_MIN_EDGE_BPS = 5;
 
     function setUp() public {
@@ -71,88 +59,111 @@ contract B01_07_BNBxListaWombatRecycleLoopTest is BSCStrategyBase {
         vm.deal(address(this), PRINCIPAL_BNB);
         _startPnL();
 
+        IVenusComptroller comp = IVenusComptroller(LOCAL_LSB_COMPTROLLER);
+        address[] memory markets = new address[](2);
+        markets[0] = LOCAL_VBNBX;
+        markets[1] = LOCAL_VWBNB;
+        comp.enterMarkets(markets);
+
         IStaderStakeManager stader = IStaderStakeManager(LOCAL_STADER_STAKE_MANAGER);
-        IBNBx bnbx = IBNBx(LOCAL_BNBX);
-        IListaLending lending = IListaLending(LOCAL_LISTA_LENDING);
+        IERC20 bnbx = IERC20(LOCAL_BNBX);
+        IVToken vBNBx = IVToken(LOCAL_VBNBX);
+        IVToken vWBNB = IVToken(LOCAL_VWBNB);
         IWBNB wbnb = IWBNB(BSC.WBNB);
         IWombatPool wombat = IWombatPool(LOCAL_WOMBAT_BNBX_POOL);
 
-        bnbx.approve(LOCAL_LISTA_LENDING, type(uint256).max);
-        bnbx.approve(LOCAL_WOMBAT_BNBX_POOL, type(uint256).max);
-        wbnb.approve(LOCAL_LISTA_LENDING, type(uint256).max);
+        bnbx.approve(LOCAL_VBNBX, type(uint256).max);
         wbnb.approve(LOCAL_WOMBAT_BNBX_POOL, type(uint256).max);
 
-        // ---- Initial: BNB -> BNBx via Stader (cold-start: no Wombat liquidity
-        //               check needed; full principal goes through canonical mint).
+        // Initial: BNB -> BNBx via Stader, supply to Venus iso pool.
         stader.deposit{value: PRINCIPAL_BNB}();
-        lending.supply(LOCAL_BNBX, bnbx.balanceOf(address(this)), address(this));
+        require(vBNBx.mint(bnbx.balanceOf(address(this))) == 0, "vBNBx mint init failed");
 
+        uint256 wombatHops;
         for (uint256 i = 0; i < ITERATIONS; i++) {
-            // 1. Borrow WBNB at SAFETY_BPS of available.
-            (, , uint256 availBase, , , ) = lending.getUserAccountData(address(this));
-            uint256 borrowBnb = (availBase * 1e10) / 600;
-            borrowBnb = (borrowBnb * SAFETY_BPS) / 10_000;
-            if (borrowBnb == 0) break;
+            (uint256 err, uint256 liq, uint256 shortfall) = comp.getAccountLiquidity(address(this));
+            require(err == 0 && shortfall == 0, "venus liquidity error");
+            if (liq == 0) break;
 
-            lending.borrow(BSC.WBNB, borrowBnb, address(this));
+            uint256 wbnbPriceE18 = _poolBnbPriceE18();
+            uint256 borrowAmt = (liq * SAFETY_BPS) / 10_000;
+            if (wbnbPriceE18 > 0) borrowAmt = (borrowAmt * 1e18) / wbnbPriceE18;
+            uint256 cash = vWBNB.getCash();
+            if (borrowAmt > (cash * 9) / 10) borrowAmt = (cash * 9) / 10;
+            if (borrowAmt == 0) break;
+
+            require(vWBNB.borrow(borrowAmt) == 0, "vWBNB borrow failed");
             uint256 wbnbBal = IERC20(BSC.WBNB).balanceOf(address(this));
             if (wbnbBal == 0) break;
 
-            // 2. Compare paths:
-            //    A. Stader mint: WBNB -> BNB -> Stader -> BNBx at internal rate.
-            //    B. Wombat swap: WBNB -> BNBx at pool's marginal rate.
-            uint256 staderBnbx = (wbnbBal * 1e18) / stader.getExchangeRate();
-
-            uint256 wombatBnbx = 0;
-            try wombat.quotePotentialSwap(BSC.WBNB, LOCAL_BNBX, wbnbBal)
-                returns (uint256 outBnbx, uint256)
-            {
-                wombatBnbx = outBnbx;
+            // Compare Wombat swap vs Stader re-mint for WBNB -> BNBx.
+            uint256 staderBnbx = stader.convertBnbToBnbX(wbnbBal);
+            uint256 wombatBnbx;
+            try wombat.quotePotentialSwap(BSC.WBNB, LOCAL_BNBX, wbnbBal) returns (uint256 o, uint256) {
+                wombatBnbx = o;
             } catch {
                 wombatBnbx = 0;
             }
 
-            // 3. Take Wombat if it pays at least WOMBAT_MIN_EDGE_BPS more BNBx
-            //    than Stader; else fall back to Stader mint. Both paths leave
-            //    the freshly-minted/swapped BNBx in `address(this)`; we then
-            //    supply the contract's full BNBx balance into Lista.
             uint256 minEdge = (staderBnbx * (10_000 + WOMBAT_MIN_EDGE_BPS)) / 10_000;
             if (wombatBnbx >= minEdge) {
-                (uint256 actualOut, ) = wombat.swap(
+                wombat.swap(
                     BSC.WBNB,
                     LOCAL_BNBX,
                     wbnbBal,
-                    (wombatBnbx * 9_990) / 10_000, // 10 bps slippage tolerance
+                    (wombatBnbx * 9_990) / 10_000,
                     address(this),
                     block.timestamp + 1
                 );
-                console2.log("path=wombat,bnbx_out_1e18=", actualOut);
+                wombatHops++;
             } else {
+                // Fallback: unwrap and Stader re-mint.
                 wbnb.withdraw(wbnbBal);
                 stader.deposit{value: address(this).balance}();
-                console2.log("path=stader,bnbx_balance_1e18=", bnbx.balanceOf(address(this)));
             }
 
             uint256 freshBnbx = bnbx.balanceOf(address(this));
             if (freshBnbx == 0) break;
-
-            // 4. Re-supply to Lista Lending.
-            lending.supply(LOCAL_BNBX, freshBnbx, address(this));
+            require(vBNBx.mint(freshBnbx) == 0, "vBNBx mint loop failed");
         }
 
-        // Hold 30 days.
-        vm.warp(block.timestamp + HOLD_DAYS * 1 days);
-        vm.roll(block.number + (HOLD_DAYS * 1 days) / 3);
+        // ---- Position equity at entry (1e8 USD). ----
+        uint256 debtWei = vWBNB.borrowBalanceCurrent(address(this));
+        uint256 collBnbx = vBNBx.balanceOfUnderlying(address(this));
+        uint256 collBnbWei = stader.convertBnbXToBnb(collBnbx);
 
-        // Re-mark BNBx by Stader rate (Wombat skew should converge over time).
-        uint256 bnbPerBnbx = stader.getExchangeRate();
-        _setOraclePrice(LOCAL_BNBX, (600e8 * bnbPerBnbx) / 1e18);
+        uint256 bnbUsdE8 = 600e8;
+        int256 collUsdE8 = int256((collBnbWei * bnbUsdE8) / 1e18);
+        int256 debtUsdE8 = int256((debtWei * bnbUsdE8) / 1e18);
+        _creditPositionEquityE8(collUsdE8 - debtUsdE8);
 
-        (, uint256 debtBase, , , , uint256 hf) = lending.getUserAccountData(address(this));
-        emit log_named_uint("lista_debt_base_1e8", debtBase);
-        emit log_named_uint("lista_hf_1e18", hf);
-        emit log_named_uint("bnbx_rate_1e18", bnbPerBnbx);
+        // Projected 30-day carry: BNBx stake yield on collateral minus WBNB
+        // borrow APR on debt (live IRM rate).
+        uint256 blocksPerYear = 365 days / 3;
+        uint256 borrowApr1e18 = vWBNB.borrowRatePerBlock() * blocksPerYear;
+        uint256 stakeApr1e18 = 4e16;
+        int256 annualCarryBnb =
+            int256((collBnbWei * stakeApr1e18) / 1e18) - int256((debtWei * borrowApr1e18) / 1e18);
+        int256 carryBnb = (annualCarryBnb * int256(HOLD_DAYS)) / 365;
+        _creditPositionEquityE8((carryBnb * int256(bnbUsdE8)) / 1e18);
 
-        _endPnL("B01-07: BNBx Lista + Wombat recycle");
+        emit log_named_uint("wombat_hops", wombatHops);
+        emit log_named_uint("coll_bnb_wei", collBnbWei);
+        emit log_named_uint("wbnb_debt_wei", debtWei);
+        emit log_named_int("carry_bnb_wei_30d", carryBnb);
+
+        _endPnL("B01-07: BNBx Venus + Wombat recycle");
+    }
+
+    function _poolBnbPriceE18() internal view returns (uint256) {
+        (bool ok, bytes memory data) =
+            LOCAL_LSB_COMPTROLLER.staticcall(abi.encodeWithSignature("oracle()"));
+        if (!ok || data.length < 32) return 600e18;
+        address oracle = abi.decode(data, (address));
+        (bool ok2, bytes memory d2) =
+            oracle.staticcall(abi.encodeWithSignature("getUnderlyingPrice(address)", LOCAL_VWBNB));
+        if (!ok2 || d2.length < 32) return 600e18;
+        uint256 p = abi.decode(d2, (uint256));
+        return p == 0 ? 600e18 : p;
     }
 }
