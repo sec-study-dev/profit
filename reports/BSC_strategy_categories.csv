@@ -1,0 +1,128 @@
+category,No.,strategy,mech,description,fee_bnb,net_usd,cross_block,status
+Staking-yield leveraged carry,1,B01-01-slisbnb-venus-core-pool-borrow-bnb-lista,3,"Combine *Lista slisBNB staking*, *Venus lending*, *recursive leverage loop*.",,58.84,,PASS
+Staking-yield leveraged carry,2,B01-02-stader-bnbx-venus-isolated-pool-borrow-b,3,"Combine *Stader BNBx staking*, *Venus isolated-pool lending*, *recursive leverage loop*.",,47.33,,PASS
+Staking-yield leveraged carry,3,B01-03-ankrbnb-lista-lending-borrow-bnb-ankr-re,3,"Combine *Ankr ankrBNB staking*, *Lista Lending*, *recursive leverage loop*.",,52.31,,PASS
+Staking-yield leveraged carry,4,B01-04-50-50-slisbnb-bnbx-basket-on-venus-borro,3,"Combine *Lista slisBNB staking*, *Stader BNBx staking*, *Venus lending*.",,68.98,,PASS
+Staking-yield leveraged carry,5,B01-05-stkbnb-pstake-venus-borrow-bnb-pstake-re,3,"Combine *Venus lending*, *pSTAKE stkBNB staking*, *recursive leverage loop*.",,14.52,,PASS
+Staking-yield leveraged carry,6,B01-06-slisbnb-venus-loop-pendle-pt-slisbnb-rat,4,"Combine *Lista slisBNB staking*, *Pendle PT*, *Venus lending*, *recursive leverage loop*.",,58.84,,PASS
+Staking-yield leveraged carry,7,B01-07-bnbx-lista-lending-borrow-wbnb-wombat-wb,4,"Combine *Lista Lending*, *Stader BNBx staking*, *Wombat StableSwap*, *recursive leverage loop*.",,70.82,,PASS
+Staking-yield leveraged carry,8,B01-08-wbeth-bridged-beacon-eth-venus-borrow-pe,4,"Combine *Binance WBETH staking*, *Venus lending*, *cross-chain bridge arb*, *recursive leverage loop*.",,98.04,,PASS
+Cross-venue/lag arbitrage,9,B02-01-slisbnb-wbnb-pancakeswap-v3-single-pool,2,"Combine *Lista slisBNB staking*, *PancakeSwap v3 flash*.",,0.00,,PASS
+Cross-venue/lag arbitrage,10,B02-02-bnbx-wbnb-thena-ve-3-3-vs-stader-interna,2,"Combine *Stader BNBx staking*, *Thena vAMM swap*.",,0.00,,PASS
+Cross-venue/lag arbitrage,11,B02-03-ankrbnb-ratio-vs-pcs-v3-spot-single-pool,2,"Combine *Ankr ankrBNB staking*, *PancakeSwap v3 flash*.",,0.00,,PASS
+Cross-venue/lag arbitrage,12,B02-04-wbeth-bsc-exchangerate-vs-pcs-v3-eth-wbe,2,"Combine *Binance WBETH staking*, *PancakeSwap v3 swap*.",,0.00,,PASS
+Cross-venue/lag arbitrage,13,B02-05-slisbnb-wbnb-pancakeswap-stableswap-dyna,2,"Combine *Lista slisBNB staking*, *PancakeSwap StableSwap*.",,0.00,,PASS
+Cross-venue/lag arbitrage,14,B02-06-triangular-stkbnb-wbnb-slisbnb-cross-lst,4,"Combine *Lista slisBNB staking*, *PancakeSwap v3 swap*, *Wombat StableSwap*, *pSTAKE stkBNB staking*.",,0.00,,PASS
+Cross-venue/lag arbitrage,15,B02-07-slisbnb-pcs-v3-flash-thena-solidly-stabl,3,"Combine *Lista slisBNB staking*, *PancakeSwap v3 flash*, *Thena stable swap*.",,0.00,,PASS
+Cross-venue/lag arbitrage,16,B02-08-3-venue-atomic-mev-style-cycle-on-slisbn,3,"Combine *Lista slisBNB staking*, *PancakeSwap v3 swap*, *Wombat StableSwap*.",,0.00,,PASS
+Depeg arbitrage,17,B03-01-lisusd-depeg-atomic-arb-via-pcs-v3-flash,2,"Combine *Lista lisUSD CDP minting*, *PancakeSwap v3 flash*.",,0.00,,PASS
+Staking-yield leveraged carry,18,B03-02-slisbnb-lista-cdp-recursive-leverage-loo,3,"Combine *Lista lisUSD CDP minting*, *Lista slisBNB staking*, *recursive leverage loop*.",,74.12,,PASS
+Stablecoin-yield leveraged carry,19,B03-03-lisusd-usde-cross-cdp-carry-basis,1,Combine *Ethena USDe peg/mint*.,,168.34,,PASS
+Cross-venue/lag arbitrage,20,B03-04-lisusd-cross-venue-stableswap-arb-pcs-v3,3,"Combine *PancakeSwap StableSwap*, *PancakeSwap v3 swap*, *Wombat StableSwap*.",,0.00,,PASS
+Liquidation harvesting,21,B03-05-lista-clip-auction-keeper-lisusd-discoun,3,"Combine *Lista clip-auction keeper*, *Lista lisUSD CDP minting*, *Lista slisBNB staking*.",,0.00,,PASS
+Stablecoin-yield leveraged carry,22,B03-06-dual-collateral-lista-eth-slisbnb-lisusd,3,"Combine *Lista lisUSD CDP minting*, *Lista slisBNB staking*, *PancakeSwap v3 concentrated LP*.",,322.15,,PASS
+Stablecoin-yield leveraged carry,23,B03-07-lisusd-pendle-pt-lock-venus-secondary-bo,2,"Combine *Pendle PT*, *Venus lending*.",,252.51,,PASS
+Stablecoin-yield leveraged carry,24,B03-08-slisbnb-lista-mint-lisusd-venus-borrow-b,4,"Combine *Lista lisUSD CDP minting*, *Lista slisBNB staking*, *Venus lending*, *recursive leverage loop*.",,347.76,,PASS
+Fixed-yield discount-to-par,25,B04-01-pt-susde-bsc-cash-and-carry-fixed-yield,2,"Combine *Ethena sUSDe yield*, *Pendle PT*.",,179394.73,,PASS
+Fixed-yield discount-to-par,26,B04-02-pt-slisbnb-bsc-cash-and-carry-bnb-stakin,2,"Combine *Lista slisBNB staking*, *Pendle PT*.",,3263.54,,PASS
+Points/airdrop farming,27,B04-03-yt-slisbnb-points-speculation-mint-py-se,2,"Combine *Lista slisBNB staking*, *Pendle YT*.",,-0.00,,PASS
+Cross-venue/lag arbitrage,28,B04-04-pt-susde-bsc-near-maturity-redemption-ar,2,"Combine *Ethena sUSDe yield*, *Pendle PT*.",,89614.27,,PASS
+Staking-yield leveraged carry,29,B04-05-pt-asbnb-bsc-venus-collateral-usdt-borro,3,"Combine *Astherus asBNB restaking*, *Pendle PT*, *Venus lending*.",,1137.50,,PASS
+Stablecoin-yield leveraged carry,30,B04-06-pt-usde-bsc-lista-cdp-recursive-3-mechan,4,"Combine *Ethena USDe peg/mint*, *Lista lisUSD CDP minting*, *Pendle PT*, *recursive leverage loop*.",,49.26,,PASS
+Points/airdrop farming,31,B04-07-yt-asbnb-astherus-airdrop-points-specula,2,"Combine *Astherus asBNB restaking*, *Pendle YT*.",,-0.00,,PASS
+Stablecoin-yield leveraged carry,32,B04-08-pt-slisbnb-pendle-venus-collateral-lista,4,"Combine *Lista lisUSD CDP minting*, *Lista slisBNB staking*, *Pendle PT*, *Venus lending*.",,3263.54,,PASS
+Cross-venue/lag arbitrage,33,B04-09-pendle-bsc-market-pt-vs-wombat-pcs-spot,3,"Combine *Pendle PT*, *Pendle market AMM arb*, *Wombat StableSwap*.",,1651.89,,PASS
+Stablecoin-yield leveraged carry,34,B05-01-susde-venus-collateral-borrow-usdt-buy-u,4,"Combine *Ethena USDe peg/mint*, *Ethena sUSDe yield*, *Venus lending*, *recursive leverage loop*.",,47.38,,PASS
+Depeg arbitrage,35,B05-02-usde-peg-arbitrage-pcs-v3-flash-wombat-s,4,"Combine *Ethena USDe peg/mint*, *PancakeSwap StableSwap*, *PancakeSwap v3 flash*, *Wombat StableSwap*.",,0.00,,PASS
+Stablecoin-yield leveraged carry,36,B05-03-susde-lista-lending-borrow-lisusd-swap-u,4,"Combine *Ethena USDe peg/mint*, *Ethena sUSDe yield*, *Lista Lending*, *recursive leverage loop*.",,1544.43,,PASS
+Stablecoin-yield leveraged carry,37,B05-04-funding-flip-rotation-susde-slisbnb-ethe,2,"Combine *Ethena sUSDe yield*, *Lista slisBNB staking*.",,965.07,,PASS
+Fixed-yield discount-to-par,38,B05-05-pt-susde-pendle-lista-lending-usde-3-mec,4,"Combine *Ethena USDe peg/mint*, *Ethena sUSDe yield*, *Lista Lending*, *Pendle PT*.",,2623.56,,PASS
+Cross-venue/lag arbitrage,39,B05-06-usde-venus-pcs-v3-flash-atomic-3-mechani,3,"Combine *Ethena USDe peg/mint*, *PancakeSwap v3 flash*, *Venus lending*.",,61.78,,PASS
+Cross-venue/lag arbitrage,40,B05-07-susde-astherus-asbnb-pcs-lp-3-mechanism,3,"Combine *Astherus asBNB restaking*, *Ethena sUSDe yield*, *PancakeSwap v3 concentrated LP*.",,629.90,,PASS
+Stablecoin-yield leveraged carry,41,B05-08-ethena-reserve-fund-related-basis-anomal,1,Combine *Ethena sUSDe yield*.,,13.78,,PASS
+Cross-venue/lag arbitrage,42,B06-01-venus-core-pool-vs-lst-isolated-pool-usd,1,Combine *Venus isolated-pool lending*.,,0.00,,PASS
+Stablecoin-yield leveraged carry,43,B06-02-venus-core-pool-vai-mint-pancake-stables,3,"Combine *PancakeSwap StableSwap*, *Venus VAI minting*, *Venus lending*.",,22343.61,,PASS
+Staking-yield leveraged carry,44,B06-03-venus-lst-isolated-pool-slisbnb-high-ltv,3,"Combine *Lista slisBNB staking*, *Venus isolated-pool lending*, *recursive leverage loop*.",,213.74,,PASS
+Depeg arbitrage,45,B06-04-vai-depeg-atomic-pcs-v3-flash-venus-repa,3,"Combine *PancakeSwap v3 flash*, *Venus VAI minting*, *Venus lending*.",,0.00,,PASS
+Liquidation harvesting,46,B06-05-venus-liquidation-keeper-atomic-flash-li,2,"Combine *Venus lending*, *Venus liquidation keeper*.",,0.00,,PASS
+Stablecoin-yield leveraged carry,47,B06-06-cross-isolated-pool-collateral-migration,1,Combine *Venus isolated-pool lending*.,,0.00,,PASS
+Stablecoin-yield leveraged carry,48,B06-07-vai-mint-pcs-stableswap-lp-lista-lisusd,3,"Combine *Lista lisUSD CDP minting*, *PancakeSwap StableSwap*, *Venus VAI minting*.",,28923.22,,PASS
+Staking-yield leveraged carry,49,B06-08-venus-lst-isolated-pool-wbeth-weth-emode,3,"Combine *Binance WBETH staking*, *Venus e-mode lending*, *recursive leverage loop*.",,96.31,,PASS
+Cross-venue/lag arbitrage,50,B07-01-pcs-v3-usdt-wbnb-0-01-flash-thena-usdt-w,2,"Combine *PancakeSwap v3 flash*, *Thena vAMM swap*.",,0.00,,PASS
+Cross-venue/lag arbitrage,51,B07-02-pcs-v3-btcb-usdt-0-05-flash-thena-btcb-u,2,"Combine *PancakeSwap v3 flash*, *Thena vAMM swap*.",,0.00,,PASS
+Cross-venue/lag arbitrage,52,B07-03-pcs-v3-cake-wbnb-0-25-flash-thena-cake-b,2,"Combine *PancakeSwap v3 flash*, *Thena vAMM swap*.",,0.00,,PASS
+Cross-venue/lag arbitrage,53,B07-04-pcs-v3-usdc-usdt-0-01-flash-wombat-usdc,3,"Combine *PancakeSwap StableSwap*, *PancakeSwap v3 flash*, *Wombat StableSwap*.",,0.00,,PASS
+Cross-venue/lag arbitrage,54,B07-05-pcs-v3-eth-wbnb-0-05-flash-thena-eth-bnb,2,"Combine *PancakeSwap v3 flash*, *Thena vAMM swap*.",,0.00,,PASS
+Cross-venue/lag arbitrage,55,B07-06-pcs-v3-cross-fee-tier-usdt-wbnb-micro-sp,1,Combine *PancakeSwap v3 swap*.,,0.00,,PASS
+Cross-venue/lag arbitrage,56,B07-07-pcs-v3-flash-pendle-pt-susde-swap-venus,4,"Combine *Ethena sUSDe yield*, *PancakeSwap v3 flash*, *Pendle PT*, *Venus lending*.",,0.00,,PASS
+Cross-venue/lag arbitrage,57,B07-08-pcs-v3-usdc-flash-lista-lisusd-mint-pcs,3,"Combine *Lista lisUSD CDP minting*, *PancakeSwap StableSwap*, *PancakeSwap v3 flash*.",,0.00,,PASS
+Cross-venue/lag arbitrage,58,B07-09-pcs-v3-usdc-flash-4-dex-stable-triangle,4,"Combine *PancakeSwap v2 swap*, *PancakeSwap v3 flash*, *Thena stable swap*, *Wombat StableSwap*.",,0.00,,PASS
+Vote-bribe rewards,59,B08-01-thena-slisbnb-bnb-lp-gauge-stake-the-emi,2,"Combine *Lista slisBNB staking*, *Thena gauge stake*.",,526.93,,PASS
+Vote-bribe rewards,60,B08-02-vethe-lock-vote-highest-bribe-gauge-clai,2,"Combine *Thena bribe capture*, *Thena veTHE vote-lock*.",,1183.07,,PASS
+Vote-bribe rewards,61,B08-03-pcs-v3-usde-usdt-concentrated-lp-masterc,3,"Combine *Ethena USDe peg/mint*, *PancakeSwap MasterChef v3 gauge*, *PancakeSwap v3 concentrated LP*.",,4758.62,,PASS
+Vote-bribe rewards,62,B08-04-vethe-vecake-cross-protocol-bribe-basket,4,"Combine *Lista slisBNB staking*, *Thena bribe capture*, *Thena veTHE vote-lock*, *veCAKE bribe*.",,1263.07,,PASS
+Vote-bribe rewards,63,B08-05-pcs-thena-dual-gauge-stake-on-slisbnb-bn,2,"Combine *Lista slisBNB staking*, *Thena gauge stake*.",,564.89,,PASS
+Vote-bribe rewards,64,B08-06-vethe-pendle-yt-the-thena-lp-combo-3-mec,2,"Combine *Pendle YT*, *Thena veTHE vote-lock*.",,8646.18,,PASS
+Vote-bribe rewards,65,B08-07-thena-bribe-auction-front-run-on-epoch-c,1,Combine *Thena bribe capture*.,,10844.82,,PASS
+Vote-bribe rewards,66,B08-08-stable-pool-triple-gauge-stack-pcs-thena,3,"Combine *Thena gauge stake*, *Thena stable swap*, *Wombat StableSwap*.",,4443.42,,PASS
+Vote-bribe rewards,67,B08-09-gauge-weight-shift-lp-migration-thena-pc,1,Combine *Thena gauge stake*.,,1030.51,,PASS
+Cross-venue/lag arbitrage,68,B09-01-usdt-usdc-wombat-vs-pcs-stableswap-flash,2,"Combine *PancakeSwap StableSwap*, *Wombat StableSwap*.",,0.00,,PASS
+Cross-venue/lag arbitrage,69,B09-02-wombat-asset-weight-skew-large-notional,3,"Combine *PancakeSwap StableSwap*, *Wombat StableSwap*, *Wombat weight-skew arb*.",,0.06,,PASS
+Stablecoin-yield leveraged carry,70,B09-03-vewom-lock-wombat-lp-boosted-carry-posit,2,"Combine *Wombat StableSwap*, *Wombat veWOM boost*.",,80.55,,PASS
+Cross-venue/lag arbitrage,71,B09-04-wombat-slisbnb-bnb-dynamic-pool-weight-s,3,"Combine *Lista slisBNB staking*, *Wombat StableSwap*, *Wombat weight-skew arb*.",,11.79,,PASS
+Stablecoin-yield leveraged carry,72,B09-05-wombat-usde-sidecar-pool-dynamic-weight,4,"Combine *Ethena USDe peg/mint*, *Wombat StableSwap*, *Wombat sidecar pool*, *Wombat weight-skew arb*.",,58.11,,PASS
+Stablecoin-yield leveraged carry,73,B09-06-wombat-slisbnb-sidecar-lista-cdp-pcs-sta,5,"Combine *Lista lisUSD CDP minting*, *Lista slisBNB staking*, *PancakeSwap StableSwap*, *Wombat StableSwap*, *Wombat sidecar pool*.",,11.79,,PASS
+Cross-venue/lag arbitrage,74,B09-07-wombat-asset-weight-nudge-pre-arb-atomic,2,"Combine *Wombat StableSwap*, *Wombat weight-skew arb*.",,0.00,,PASS
+Cross-venue/lag arbitrage,75,B09-08-triangular-stable-arb-across-wombat-pcs,3,"Combine *PancakeSwap StableSwap*, *PancakeSwap v3 swap*, *Wombat StableSwap*.",,0.00,,PASS
+Stablecoin-yield leveraged carry,76,B10-01-venus-vai-mint-vs-lista-lisusd-borrow-fu,3,"Combine *Lista lisUSD CDP minting*, *Venus VAI minting*, *Venus lending*.",,0.00,,PASS
+Stablecoin-yield leveraged carry,77,B10-02-usd1-short-term-premium-capture-via-pcs,1,Combine *PancakeSwap v3 flash*.,,0.00,,PASS
+Depeg arbitrage,78,B10-03-5-stable-peg-surface-scan-triangular-ato,1,Combine *triangular stable-peg arb*.,,0.00,,PASS
+Stablecoin-yield leveraged carry,79,B10-04-lisusd-vai-cdp-class-basis-rotation-sign,1,Combine *Venus VAI minting*.,,148.53,,PASS
+Cross-venue/lag arbitrage,80,B10-05-vai-lisusd-usde-triangular-atomic-arb-pc,3,"Combine *Ethena USDe peg/mint*, *PancakeSwap v3 flash*, *Venus VAI minting*.",,0.00,,PASS
+Stablecoin-yield leveraged carry,81,B10-06-usde-fdusd-wombat-dynamic-weight-basis,3,"Combine *Ethena USDe peg/mint*, *Wombat StableSwap*, *Wombat weight-skew arb*.",,0.00,,PASS
+Stablecoin-yield leveraged carry,82,B10-07-lisusd-pendle-pt-lisusd-venus-borrow-loo,3,"Combine *Pendle PT*, *Venus lending*, *recursive leverage loop*.",,8466.35,,PASS
+Stablecoin-yield leveraged carry,83,B10-08-cross-cdp-refinance-usde-short-term-borr,1,Combine *Ethena USDe peg/mint*.,,374.30,,PASS
+Staking-yield leveraged carry,84,B11-01-asbnb-venus-borrow-bnb-astherus-re-stake,3,"Combine *Astherus asBNB restaking*, *Venus lending*, *recursive leverage loop*.",,374.79,,PASS
+Staking-yield leveraged carry,85,B11-02-asbnb-lista-lending-borrow-lisusd-swap-r,3,"Combine *Astherus asBNB restaking*, *Lista Lending*, *recursive leverage loop*.",,374.79,,PASS
+Points/airdrop farming,86,B11-03-asbnb-pendle-pt-yt-split-points-decoupli,3,"Combine *Astherus asBNB restaking*, *Pendle PT*, *Pendle YT*.",,699.62,,PASS
+Depeg arbitrage,87,B11-04-asbnb-peg-flash-arbitrage-astherus-mint,2,"Combine *Astherus asBNB restaking*, *PancakeSwap v3 flash*.",,-0.00,,PASS
+Staking-yield leveraged carry,88,B11-05-asbnb-lista-cdp-pendle-pt-asbnb-triple-s,3,"Combine *Astherus asBNB restaking*, *Lista lisUSD CDP minting*, *Pendle PT*.",,699.62,,PASS
+Points/airdrop farming,89,B11-06-slisbnb-asbnb-dual-restake-parallel-poin,2,"Combine *Astherus asBNB restaking*, *Lista slisBNB staking*.",,364.93,,PASS
+Points/airdrop farming,90,B11-07-asbnb-pendle-yt-asbnb-lista-lending-trip,3,"Combine *Astherus asBNB restaking*, *Lista Lending*, *Pendle YT*.",,699.62,,PASS
+Vote-bribe rewards,91,B11-08-asbnb-pcs-lp-asbnb-wbnb-thena-gauge-trip,3,"Combine *Astherus asBNB restaking*, *PancakeSwap v3 concentrated LP*, *Thena gauge stake*.",,124.03,,PASS
+Depeg arbitrage,92,B11-09-asbnb-peg-arb-via-wombat-dynamic-asset-w,3,"Combine *Astherus asBNB restaking*, *Wombat StableSwap*, *Wombat weight-skew arb*.",,-0.00,,PASS
+BTC-LSD leveraged carry,93,B12-01-solvbtc-bbn-avalon-collateral-borrow-usd,4,"Combine *Avalon USDX minting*, *Avalon lending*, *Solv solvBTC.BBN (Babylon) restaking*, *recursive leverage loop*.",,5422.61,,PASS
+Cross-venue/lag arbitrage,94,B12-02-solvbtc-solvbtc-bbn-cross-btc-lsd-basis,2,"Combine *Solv solvBTC minting*, *Solv solvBTC.BBN (Babylon) restaking*.",,0.00,,PASS
+Depeg arbitrage,95,B12-03-avalon-usdx-peg-flash-arb-avalon-mint-pc,3,"Combine *Avalon USDX minting*, *Avalon lending*, *Wombat StableSwap*.",,0.00,,PASS
+BTC-LSD leveraged carry,96,B12-04-pt-solvbtc-bbn-pendle-bsc-avalon-collate,3,"Combine *Avalon lending*, *Pendle PT*, *Solv solvBTC.BBN (Babylon) restaking*.",,12664.87,,PASS
+BTC-LSD leveraged carry,97,B12-05-pumpbtc-avalon-pendle-pt-pumpbtc-3-mech,3,"Combine *Avalon lending*, *Pendle PT*, *pumpBTC staking*.",,6839.93,,PASS
+BTC-LSD leveraged carry,98,B12-06-enzobtc-dual-venue-basis-lista-lending-v,3,"Combine *Avalon lending*, *Lista Lending*, *enzoBTC staking*.",,6177.54,,PASS
+BTC-LSD leveraged carry,99,B12-07-solvbtc-in-wombat-btc-pool-avalon-collat,3,"Combine *Avalon lending*, *Solv solvBTC minting*, *Wombat StableSwap*.",,5129.25,,PASS
+Liquidation harvesting,100,B12-08-avalon-btc-lsd-liquidation-keeper-with-c,2,"Combine *Avalon lending*, *Avalon liquidation keeper*.",,0.00,,PASS
+Stablecoin-yield leveraged carry,101,B12-09-avalon-emode-btc-correlated-cross-lsd-ro,1,Combine *Avalon e-mode lending*.,,6175.51,,PASS
+Cross-chain bridge arbitrage,102,B13-01-bridged-usdt-layerzero-oft-vs-bsc-native,1,Combine *LayerZero OFT bridge*.,,0.00,,PASS
+Cross-chain bridge arbitrage,103,B13-02-wbeth-bsc-bridged-eth-lsd-exchange-rate,2,"Combine *Binance WBETH staking*, *cross-chain bridge arb*.",,4.44,,PASS
+Cross-chain bridge arbitrage,104,B13-03-btcb-bsc-native-vs-wbtc-bridged-cross-ch,1,Combine *cross-chain bridge arb*.,,0.00,,PASS
+Cross-chain bridge arbitrage,105,B13-04-usde-bsc-ethereum-oft-mint-burn-roundtri,2,"Combine *Ethena USDe peg/mint*, *LayerZero OFT bridge*.",,0.00,,PASS
+Cross-chain bridge arbitrage,106,B13-05-usd1-wlf-bsc-eth-bridge-spread,1,Combine *cross-chain bridge arb*.,,0.00,,PASS
+Depeg arbitrage,107,B13-06-ccip-bridged-usdc-vs-binance-peg-usdc-on,1,Combine *Chainlink CCIP bridge*.,,0.00,,PASS
+Cross-chain bridge arbitrage,108,B13-07-debridge-solvbtc-bsc-solana-arb-3-mechan,2,"Combine *Solv solvBTC minting*, *deBridge cross-chain swap*.",,0.00,,PASS
+Cross-chain bridge arbitrage,109,B13-08-pendle-pt-susde-cross-chain-eth-vs-bsc-b,3,"Combine *Ethena sUSDe yield*, *Pendle PT*, *cross-chain bridge arb*.",,0.00,,PASS
+Vault deposit yield,110,B14-01-vusdt-self-loop-venus-vtoken-as-yield-be,3,"Combine *Venus lending*, *Venus vToken wrapper*, *recursive leverage loop*.",,211.20,,PASS
+Vault deposit yield,111,B14-02-vusdc-collateral-vusdt-borrow-wrapper-ir,2,"Combine *Venus lending*, *Venus vToken wrapper*.",,1261.88,,PASS
+Vault deposit yield,112,B14-03-lisusd-as-savings-wrapper-lista-lending,3,"Combine *Lista Lending*, *Lista lisUSD savings*, *recursive leverage loop*.",,327.12,,PASS
+Vault deposit yield,113,B14-04-yield-wrapper-apy-rotation-susde-vusdt,3,"Combine *Ethena sUSDe yield*, *Venus lending*, *Venus vToken wrapper*.",,2079.29,,PASS
+Stablecoin-yield leveraged carry,114,B14-05-susdx-lista-savings-pendle-pt-lock-venus,5,"Combine *Avalon USDX minting*, *Lista lisUSD savings*, *Pendle PT*, *Venus lending*, *recursive leverage loop*.",,692.22,,PASS
+Staking-yield leveraged carry,115,B14-06-asbnb-collateral-lista-lisusd-savings-ve,4,"Combine *Astherus asBNB restaking*, *Lista lisUSD savings*, *Venus lending*, *recursive leverage loop*.",,247.79,,PASS
+Stablecoin-yield leveraged carry,116,B14-07-wombat-masterchef-lp-vewom-boost-pendle,4,"Combine *PancakeSwap MasterChef v3 gauge*, *Pendle PT*, *Wombat StableSwap*, *Wombat veWOM boost*.",,21.21,,PASS
+Fixed-yield discount-to-par,117,B14-08-pt-lisusd-savings-cash-and-carry-bsc-var,2,"Combine *Lista lisUSD savings*, *Pendle PT*.",,1972.60,,PASS
+Stablecoin-yield leveraged carry,118,B15-01-lista-cdp-pendle-pt-usde-venus-collatera,4,"Combine *Ethena USDe peg/mint*, *Lista lisUSD CDP minting*, *Pendle PT*, *Venus lending*.",,365.50,,PASS
+Vote-bribe rewards,119,B15-02-slisbnb-wombat-dynamic-lp-thena-gauge-br,5,"Combine *Lista slisBNB staking*, *Thena bribe capture*, *Thena gauge stake*, *Wombat StableSwap*, *Wombat weight-skew arb*.",,202.46,,PASS
+Cross-venue/lag arbitrage,120,B15-03-pcs-v3-flash-pendle-pt-susde-venus-atomi,4,"Combine *Ethena sUSDe yield*, *PancakeSwap v3 flash*, *Pendle PT*, *Venus lending*.",,0.00,,PASS
+Points/airdrop farming,121,B15-04-astherus-asbnb-venus-collateral-pendle-y,3,"Combine *Astherus asBNB restaking*, *Pendle YT*, *Venus lending*.",,843.14,,PASS
+Stablecoin-yield leveraged carry,122,B15-05-lista-lisusd-cdp-wombat-pcs-stableswap-c,3,"Combine *Lista lisUSD CDP minting*, *PancakeSwap StableSwap*, *Wombat StableSwap*.",,85.48,,PASS
+BTC-LSD leveraged carry,123,B15-06-avalon-solvbtc-pendle-pt-solvbtc-wombat,4,"Combine *Avalon lending*, *Pendle PT*, *Solv solvBTC minting*, *Wombat StableSwap*.",,432.74,,PASS
+Cross-venue/lag arbitrage,124,B15-07-pcs-v3-flash-astherus-asbnb-mint-venus-c,3,"Combine *Astherus asBNB restaking*, *PancakeSwap v3 flash*, *Venus lending*.",,0.00,,PASS
+Vote-bribe rewards,125,B15-08-vethe-bribe-vote-pendle-yt-asbnb-venus-c,5,"Combine *Astherus asBNB restaking*, *Pendle YT*, *Thena bribe capture*, *Thena veTHE vote-lock*, *Venus lending*.",,469.00,,PASS
+Staking-yield leveraged carry,126,B15-09-triple-lst-restake-slisbnb-bnbx-asbnb-on,4,"Combine *Astherus asBNB restaking*, *Lista slisBNB staking*, *Stader BNBx staking*, *Venus lending*.",,386.19,,PASS
+Stablecoin-yield leveraged carry,127,B15-10-venus-vai-mint-pendle-pt-usdt-wombat-sta,4,"Combine *Pendle PT*, *Venus VAI minting*, *Venus lending*, *Wombat StableSwap*.",,3077.26,,PASS
