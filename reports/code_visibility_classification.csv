@@ -63,7 +63,7 @@ BSC,B08-03,PCS v3 USDe/USDT concentrated LP → MasterChef v3 → CAKE farm,vote
 BSC,B08-04,veTHE + veCAKE cross-protocol bribe basket on slisBNB/BNB,vote-bribe,yes,code-invisible
 BSC,B08-05,PCS + Thena dual-gauge stake on slisBNB/BNB (3-mechanism),vote-bribe,yes,code-invisible
 BSC,B08-06,veTHE + Pendle YT-THE + Thena LP combo (3-mechanism),vote-bribe,yes,code-invisible
-BSC,B08-07,Thena bribe-auction front-run on epoch close,vote-bribe,yes,code-visible
+BSC,B08-07,Thena bribe-auction front-run on epoch close,vote-bribe,yes,code-invisible
 BSC,B08-08,Stable-pool triple-gauge stack — PCS + Thena + Wombat (3-mechanism),vote-bribe,yes,code-invisible
 BSC,B08-09,Gauge-weight-shift LP migration Thena ↔ PCS (3-mechanism),vote-bribe,yes,code-invisible
 BSC,B09-01,USDT/USDC Wombat vs PCS StableSwap flash arb,atomic,no,code-invisible
@@ -198,7 +198,7 @@ ETH,F05-06,F05-06-tbtc-crvusd-softliq-harvest,Liquidation harvesting,no,code-inv
 ETH,F09-09,F09-09-morpho-liquidation-flash-harvest,Liquidation harvesting,no,code-invisible
 ETH,F13-03,F13-03-balancer-boosted-aave-stable-lp,LP fee income,yes,code-invisible
 ETH,F13-04,F13-04-univ3-wsteth-weth-narrow-lp,LP fee income,yes,code-invisible
-ETH,F13-05,F13-05-univ3-wsteth-jit-lp-backrun,LP fee income,yes,code-visible
+ETH,F13-05,F13-05-univ3-wsteth-jit-lp-backrun,LP fee income,no,code-visible
 ETH,F13-08,F13-08-balancer-wsteth-bpt-aura-stake,LP fee income,yes,code-invisible
 ETH,F03-03,F03-03-reth-balancer-rateprovider-lag,Cross-venue/lag arbitrage,no,code-invisible
 ETH,F03-04,F03-04-multi-lst-triangular-curve,Cross-venue/lag arbitrage,no,code-invisible
