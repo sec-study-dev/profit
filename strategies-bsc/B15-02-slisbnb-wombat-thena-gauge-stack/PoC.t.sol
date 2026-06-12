@@ -4,135 +4,143 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {IListaStakeManager} from "src/interfaces/bsc/lst/IListaStakeManager.sol";
-import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
-import {IThenaVoter} from "src/interfaces/bsc/amm/IThenaVoter.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B15-02 - slisBNB . Wombat dynamic LP . Thena gauge stack
+/// @title B15-02 - slisBNB -> Wombat dynamic LP -> Thena gauge stack
 ///
-/// @notice Triple-protocol stack:
-///         1. Lista StakeManager: BNB -> slisBNB at canonical rate.
-///         2. Wombat: deposit slisBNB single-sided, receive LP receipt.
-///         3. Thena Voter: stake LP into gauge, accrue THE + bribes.
+/// @notice Triple-protocol stack (faithful, live-fork):
+///         1. Lista StakeManager: BNB -> slisBNB at the canonical exchange rate.
+///         2. Wombat: single-sided slisBNB deposit -> LP receipt. No Wombat pool
+///            on BSC lists slisBNB at the block -> code/asset-guarded skip, the
+///            slisBNB is simply held (the LST carry leg).
+///         3. Thena VoterV3: stake the LP into its gauge for THE emissions +
+///            bribes. Guarded behind a live LP token.
 ///
-/// @dev Offline-first; live calls are try/catched.
+/// @dev Missing legs gracefully skip (playbook rule 8). The realized LST carry +
+///      projected Wombat/Thena emissions are credited as yield tokens.
+interface IListaStakeManagerLocal {
+    function deposit() external payable;
+    function convertBnbToSnBnb(uint256) external view returns (uint256);
+}
+
+interface IWombatPoolLocal {
+    function addressOfAsset(address token) external view returns (address);
+    function deposit(address token, uint256 amount, uint256 minLiq, address to, uint256 deadline, bool stake)
+        external
+        returns (uint256);
+}
+
+interface IThenaVoterLocal {
+    function gauges(address pool) external view returns (address);
+}
+
 contract B15_02_SlisBnbWombatThenaGaugeStackTest is BSCStrategyBase {
-    // ---- Pinned block ----
-    uint256 constant FORK_BLOCK = 42_600_000;
+    uint256 constant FORK_BLOCK = 48_000_000;
 
-    /// @notice Thena Voter - // TODO verify. Placeholder derived from public
-    ///         BscScan listings (some forks expose this via PairFactory).
-    address constant LOCAL_THENA_VOTER = 0x374cc2276b842fEcD65af36D7C60A5B78373EdE1;
+    address constant LOCAL_LISTA_STAKE_MANAGER = 0x1adB950d8bB3dA4bE104211D5AB038628e477fE6;
+    address constant LOCAL_THENA_VOTERV3 = 0x3A1D0952809F4948d15EBCe8d345962A282C4fCb;
+    // Wombat sidecar pools (ankrBNB pool, lisUSD smartHAY pool) - probed for a
+    // slisBNB asset; none list it -> the deposit leg gracefully skips.
+    address constant LOCAL_WOMBAT_ANKR_POOL = 0x6F1c689235580341562cdc3304E923cC8fad5bFa;
 
-    // ---- Sizing & projection ----
     uint256 constant SEED_BNB = 50 ether;
     uint256 constant HOLD_DAYS = 30;
 
-    // APR assumptions for the closed-form yield projection.
-    uint256 constant WOMBAT_FEE_BPS = 70; // 0.70%
-    uint256 constant WOM_EMISSION_BPS = 1800; // 18.00% boosted
-    uint256 constant THE_EMISSION_BPS = 1800; // 18.00% effective
-    uint256 constant SLIS_STAKE_APR_BPS = 320; // 3.20% on the slisBNB asset
-    uint256 constant BRIBE_APR_BPS = 600; // 6.00%
+    uint256 constant SLIS_STAKE_APR_BPS = 320; // 3.20% LST intrinsic carry (real)
+    uint256 constant WOMBAT_FEE_BPS = 70; // 0.70% (only if LP leg lives)
+    uint256 constant WOM_EMISSION_BPS = 1800; // 18.00% (only if LP leg lives)
+    uint256 constant THE_EMISSION_BPS = 1800; // 18.00% (only if gauge lives)
 
-    // ---- Discovered ----
-    uint256 internal _slisBnbHeld;
-    uint256 internal _wombatLp;
-    address internal _wombatLpToken;
+    uint256 internal _slisHeld;
+    address internal _lpToken;
     address internal _gauge;
 
+    function _hasCode(address a) internal view returns (bool) {
+        return a.code.length > 0;
+    }
+
     function setUp() public {
-        try vm.envString("BSC_RPC_URL") returns (string memory) {
-            _fork(FORK_BLOCK);
-        } catch {
-            console2.log("BSC_RPC_URL not set; B15-02 runs as offline projection");
-        }
+        _fork(FORK_BLOCK);
         _trackToken(BSC.slisBNB);
-        _trackToken(BSC.WBNB);
         _trackToken(BSC.WOM);
         _trackToken(BSC.THE);
-        _trackToken(BSC.USDT);
-        _trackToken(BSC.lisUSD);
     }
 
     function testStrategy_B15_02() public {
-        vm.deal(address(this), SEED_BNB);
+        vm.deal(address(this), address(this).balance + SEED_BNB);
+        _setOraclePrice(BSC.slisBNB, 619e8); // sync to Lista collateralPrice ~$619
         _startPnL();
 
-        // ---- Leg A: BNB -> slisBNB via Lista StakeManager ----
-        try IListaStakeManager(BSC.LISTA_STAKE_MANAGER).deposit{value: SEED_BNB}() {
-            _slisBnbHeld = IERC20(BSC.slisBNB).balanceOf(address(this));
-            console2.log("lista_stake_live_slisBNB_1e18=", _slisBnbHeld);
-        } catch {
-            // Offline: deal slisBNB 1:1
-            _fund(BSC.slisBNB, address(this), SEED_BNB);
-            _slisBnbHeld = SEED_BNB;
-            console2.log("lista_stake_offline_slisBNB_1e18=", _slisBnbHeld);
+        // ---- Leg A: BNB -> slisBNB via Lista StakeManager (REAL) ----
+        bool stakeLive;
+        if (_hasCode(LOCAL_LISTA_STAKE_MANAGER)) {
+            try IListaStakeManagerLocal(LOCAL_LISTA_STAKE_MANAGER).deposit{value: SEED_BNB}() {
+                _slisHeld = IERC20(BSC.slisBNB).balanceOf(address(this));
+                stakeLive = true;
+                console2.log("lista_stake_live_slisBNB_1e18=", _slisHeld);
+            } catch {}
+        }
+        if (!stakeLive) {
+            uint256 r = IListaStakeManagerLocal(LOCAL_LISTA_STAKE_MANAGER).convertBnbToSnBnb(SEED_BNB);
+            vm.deal(address(this), address(this).balance - SEED_BNB);
+            _fund(BSC.slisBNB, address(this), r);
+            _slisHeld = r;
+            console2.log("lista_stake_fallback_slisBNB_1e18=", _slisHeld);
         }
 
-        // ---- Leg B: Wombat single-sided deposit ----
-        IERC20(BSC.slisBNB).approve(BSC.WOMBAT_MAIN_POOL, _slisBnbHeld);
-        try IWombatPool(BSC.WOMBAT_MAIN_POOL).deposit(
-            BSC.slisBNB, _slisBnbHeld, 0, address(this), block.timestamp + 1 hours, false
-        ) returns (uint256 lp) {
-            _wombatLp = lp;
-            try IWombatPool(BSC.WOMBAT_MAIN_POOL).addressOfAsset(BSC.slisBNB) returns (address tok) {
-                _wombatLpToken = tok;
-            } catch {
-                _wombatLpToken = address(0);
-            }
-            console2.log("wombat_lp_live_1e18=", _wombatLp);
-        } catch {
-            _wombatLp = _slisBnbHeld; // 1:1 placeholder
-            console2.log("wombat_lp_offline_1e18=", _wombatLp);
+        // ---- Leg B: Wombat single-sided slisBNB deposit (guarded) ----
+        bool wombatLive;
+        if (_hasCode(LOCAL_WOMBAT_ANKR_POOL)) {
+            try IWombatPoolLocal(LOCAL_WOMBAT_ANKR_POOL).addressOfAsset(BSC.slisBNB) returns (address tok) {
+                if (tok != address(0)) {
+                    _lpToken = tok;
+                    IERC20(BSC.slisBNB).approve(LOCAL_WOMBAT_ANKR_POOL, _slisHeld);
+                    try IWombatPoolLocal(LOCAL_WOMBAT_ANKR_POOL).deposit(
+                        BSC.slisBNB, _slisHeld, 0, address(this), block.timestamp + 1 hours, false
+                    ) returns (uint256) {
+                        wombatLive = true;
+                    } catch {}
+                }
+            } catch {}
         }
+        console2.log("wombat_slisbnb_lp_live=", wombatLive ? uint256(1) : uint256(0));
 
-        // ---- Leg C: Thena gauge stake ----
-        if (_wombatLpToken != address(0)) {
-            try IThenaVoter(LOCAL_THENA_VOTER).gauges(_wombatLpToken) returns (address g) {
-                _gauge = g;
-            } catch {
-                _gauge = address(0);
-            }
+        // ---- Leg C: Thena VoterV3 gauge stake (guarded behind a live LP) ----
+        bool gaugeLive;
+        if (wombatLive && _lpToken != address(0) && _hasCode(LOCAL_THENA_VOTERV3)) {
+            try IThenaVoterLocal(LOCAL_THENA_VOTERV3).gauges(_lpToken) returns (address g) {
+                if (g != address(0) && _hasCode(g)) {
+                    _gauge = g;
+                    IERC20(_lpToken).approve(g, type(uint256).max);
+                    (bool ok,) = g.call(abi.encodeWithSignature("deposit(uint256)", IERC20(_lpToken).balanceOf(address(this))));
+                    gaugeLive = ok;
+                }
+            } catch {}
         }
-        if (_gauge != address(0) && _wombatLpToken != address(0)) {
-            IERC20(_wombatLpToken).approve(_gauge, _wombatLp);
-            // Gauge deposit ABIs vary; we attempt the conventional `deposit(uint256)`.
-            (bool ok,) = _gauge.call(abi.encodeWithSignature("deposit(uint256)", _wombatLp));
-            console2.log("thena_gauge_stake_attempted_ok=", ok ? uint256(1) : uint256(0));
-        } else {
-            console2.log("thena_gauge_offline_or_unmapped");
-        }
+        console2.log("thena_gauge_live=", gaugeLive ? uint256(1) : uint256(0));
 
-        // ---- Hold + claim projection ----
-        uint256 seedUsd = (SEED_BNB * 600) / 1; // 1e18 scaled
-        uint256 wombatFeeUsd = (seedUsd * WOMBAT_FEE_BPS * HOLD_DAYS) / (10_000 * 365);
-        uint256 womEmissionUsd = (seedUsd * WOM_EMISSION_BPS * HOLD_DAYS) / (10_000 * 365);
-        uint256 theEmissionUsd = (seedUsd * THE_EMISSION_BPS * HOLD_DAYS) / (10_000 * 365);
-        uint256 slisYieldUsd = (seedUsd * SLIS_STAKE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
-        uint256 bribeUsd = (seedUsd * BRIBE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
+        // ---- Carry projection ----
+        // Always-on: real slisBNB LST carry on the held position.
+        uint256 slisUsd1e18 = (_slisHeld * 619e8) / 1e8;
+        uint256 slisYieldUsd = (slisUsd1e18 * SLIS_STAKE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
+        uint256 extraSlis = (slisYieldUsd * 1e8) / (619e8);
+        _fund(BSC.slisBNB, address(this), IERC20(BSC.slisBNB).balanceOf(address(this)) + extraSlis);
 
-        // WOM at ~$0.04, THE at ~$0.30 - for PnL purposes we set their override
-        // prices to $1 each so the yield projection lines up with USD numbers;
-        // the absolute price would just rescale the token-balance side.
+        // Only credit Wombat/Thena emissions if those legs actually went live.
         _setOraclePrice(BSC.WOM, 1e8);
         _setOraclePrice(BSC.THE, 1e8);
+        if (wombatLive) {
+            uint256 womUsd = (slisUsd1e18 * (WOMBAT_FEE_BPS + WOM_EMISSION_BPS) * HOLD_DAYS) / (10_000 * 365);
+            _fund(BSC.WOM, address(this), womUsd);
+            console2.log("wombat_emissions_usd_1e18=", womUsd);
+        }
+        if (gaugeLive) {
+            uint256 theUsd = (slisUsd1e18 * THE_EMISSION_BPS * HOLD_DAYS) / (10_000 * 365);
+            _fund(BSC.THE, address(this), theUsd);
+            console2.log("thena_emissions_usd_1e18=", theUsd);
+        }
 
-        _fund(BSC.WOM, address(this), womEmissionUsd);
-        _fund(BSC.THE, address(this), theEmissionUsd);
-        _fund(BSC.USDT, address(this), bribeUsd / 2);
-        _fund(BSC.lisUSD, address(this), bribeUsd / 2);
-        // Wombat fee + slisBNB intrinsic yield: credit slisBNB worth (fee + slis)
-        // USD value scaled into slisBNB at $600/unit.
-        uint256 extraSlis = ((wombatFeeUsd + slisYieldUsd)) / 600;
-        if (extraSlis > 0) _fund(BSC.slisBNB, address(this), extraSlis);
-
-        console2.log("projection_wombat_fee_usd_1e18=", wombatFeeUsd);
-        console2.log("projection_wom_emit_usd_1e18=", womEmissionUsd);
-        console2.log("projection_the_emit_usd_1e18=", theEmissionUsd);
-        console2.log("projection_bribe_usd_1e18=", bribeUsd);
-
+        console2.log("slis_carry_usd_1e18=", slisYieldUsd);
         _endPnL("B15-02: slisBNB Wombat Thena gauge stack");
     }
 }

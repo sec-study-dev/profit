@@ -5,7 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
 // ---------------------------------------------------------------------------
-// Inlined interfaces - same checksum-bug rationale as other B13-* PoCs.
+// Inlined interfaces - BSC.sol has pre-existing checksum errors. We inline
+// addresses + ABIs.
 // ---------------------------------------------------------------------------
 
 interface IERC20 {
@@ -15,22 +16,17 @@ interface IERC20 {
     function decimals() external view returns (uint8);
 }
 
-interface IPancakeV3Pool {
-    function token0() external view returns (address);
-    function token1() external view returns (address);
-    function fee() external view returns (uint24);
-    function flash(address recipient, uint256 amount0, uint256 amount1, bytes calldata data) external;
-}
-
-interface IPancakeV3FlashCallback {
-    function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata data) external;
-}
-
 interface IPancakeV3Factory {
     function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address);
 }
 
-interface IPancakeV3Router {
+interface IPancakeV3Pool {
+    function liquidity() external view returns (uint128);
+}
+
+/// @dev PCS v3 SwapRouter 0x1b81D678 uses the WITH-deadline struct on this fork
+///      (verified: deadline-less selector reverts with empty data).
+interface IPCSV3Router {
     struct ExactInputSingleParams {
         address tokenIn;
         address tokenOut;
@@ -44,43 +40,17 @@ interface IPancakeV3Router {
     function exactInputSingle(ExactInputSingleParams calldata) external payable returns (uint256);
 }
 
-/// @notice Minimal Wombat-router shape - Wombat is the third venue used for
-///         the BTCB <-> solvBTC stable-asset swap on BSC.
-interface IWombatRouter {
-    function swapExactTokensForTokens(
-        address[] calldata tokenPath,
-        address[] calldata poolPath,
-        uint256 amountIn,
-        uint256 minimumAmountOut,
-        address to,
-        uint256 deadline
-    ) external returns (uint256);
-}
-
-/// @notice deBridge `DlnSource` order-creation interface. We model the
-///         essentials of `createOrder` - taker bidding finalises out-of-
-///         band, so the PoC bookings happen via balance deltas.
-interface IDlnSource {
-    struct OrderCreation {
-        address giveTokenAddress;
-        uint256 giveAmount;
-        bytes takeTokenAddress; // 32-byte bytes on dest chain
-        uint256 takeAmount;
-        uint256 takeChainId;
-        bytes receiverDst;
-        address givePatchAuthoritySrc;
-        bytes orderAuthorityAddressDst;
-        bytes allowedTakerDst;
-        bytes externalCall;
-        bytes allowedCancelBeneficiarySrc;
+interface IQuoterV2 {
+    struct QuoteExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint256 amountIn;
+        uint24 fee;
+        uint160 sqrtPriceLimitX96;
     }
-    function createOrder(
-        OrderCreation calldata _orderCreation,
-        bytes calldata _affiliateFee,
-        uint32 _referralCode,
-        bytes calldata _permitEnvelope
-    ) external payable returns (bytes32);
-    function globalFixedNativeFee() external view returns (uint256);
+    function quoteExactInputSingle(QuoteExactInputSingleParams memory params)
+        external
+        returns (uint256 amountOut, uint160, uint32, uint256);
 }
 
 abstract contract BSCStrategyBase is Test {
@@ -155,71 +125,48 @@ abstract contract BSCStrategyBase is Test {
         return -int256((uint256(-d) * m) / div);
     }
 
+    function _hasCode(address a) internal view returns (bool) {
+        uint256 cs;
+        assembly { cs := extcodesize(a) }
+        return cs > 0;
+    }
 }
 
-/// @title B13-07 deBridge solvBTC BSC <-> Solana arb w/ 3 venues
-/// @notice **3-mechanism positional** strategy:
-///         1. **PCS v3 flash** BTCB from the BTCB/USDT pool (BTC notional).
-///         2. **PCS v3 swap** BTCB -> solvBTC on BSC while solvBTC trades at
-///            a discount (Solana solvBTC.BBN demand drains BSC supply,
-///            creating reverse pressure when BBN points campaigns end).
-///         3. **deBridge `createOrder`** to send solvBTC BSC -> Solana
-///            (where solvBTC.BBN trades 30-80 bp above BSC solvBTC during
-///            Babylon points farming).
-///         4. **Wombat router** swap any residual solvBTC -> BTCB on BSC
-///            (third venue) to lock the on-chain leg cleanly.
-///         5. Repay PCS v3 flash from a pre-funded BTCB buffer.
-/// @dev    deBridge `DlnSource` address on BSC TODO-verify; offline-first.
-contract B13_07_deBridge_solvBTC_BSC_SOL is BSCStrategyBase, IPancakeV3FlashCallback {
-    // ---- Inlined BSC addresses ----
+/// @title B13-07 deBridge solvBTC BSC <-> Solana spread arb
+/// @notice Thesis: solvBTC's price can dislocate between BSC and Solana; you buy
+///         cheap solvBTC on BSC, deBridge (DLN) it to Solana, sell into the
+///         premium, and re-bridge. The deBridge settlement (DLN order filled by
+///         an off-chain solver on Solana) CANNOT execute on a single BSC fork.
+/// @dev    The FORKABLE on-BSC leg is the BTCB<->solvBTC swap on the real PCS v3
+///         pool (deep on the 0.05% tier). We read the live BTCB<->solvBTC spread
+///         with the QuoterV2 and run a GUARDED local round-trip arb: only swap
+///         if BTCB->solvBTC->BTCB nets positive (a real on-BSC mispricing);
+///         otherwise hold flat (net ~0). The deBridge/Solana leg is a
+///         code-guarded no-op. No fabricated cross-chain profit.
+contract B13_07_deBridge_solvBTC_BSC_SOL is BSCStrategyBase {
     address constant BTCB = 0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c;
-    address constant USDT = 0x55d398326f99059fF775485246999027B3197955;
-    /// @notice Solv solvBTC on BSC.
     address constant solvBTC = 0x4aae823a6a0b376De6A78e74eCC5b079d38cBCf7;
     address constant PCS_V3_FACTORY = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
-    address constant PCS_V3_ROUTER = 0x13f4EA83D0bd40E75C8222255bc855a974568Dd4;
-    /// @notice Wombat router on BSC (placeholder; verify).
-    address constant WOMBAT_ROUTER = 0x19609B03C976CCA288fbDae5c21d4290e9a4aDD7;
+    address constant PCS_V3_ROUTER = 0x1b81D678ffb9C0263b24A97847620C99d213eB14;
+    address constant QUOTER_V2 = 0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997;
 
-    /// @notice deBridge DLN source on BSC. Placeholder.
+    /// @notice deBridge DLN source on BSC - not wired in this PoC (off-fork).
     address constant DLN_SOURCE = address(0);
 
-    /// @dev Solana chain id (deBridge representation; TODO confirm).
-    uint256 constant SOLANA_CHAIN_ID = 7565164;
+    uint256 constant FORK_BLOCK = 46_000_000;
+    uint24 constant SWAP_FEE_TIER = 500; // deep BTCB/solvBTC tier
+    uint256 constant NOTIONAL = 1 ether; // 1 BTCB (18 dec)
 
-    /// @dev Placeholder block.
-    uint256 constant FORK_BLOCK = 45_500_000;
-
-    /// @dev Flash notional in BTCB (18 dec on BSC ~= 1 BTC each).
-    uint256 constant FLASH_NOTIONAL = 5 ether;
-
-    /// @dev Pre-funded BTCB buffer for repayment.
-    uint256 constant REPAY_BUFFER = 5.05 ether;
-
-    /// @dev Assumed solvBTC discount vs BTCB on BSC (basis points).
-    uint256 constant ASSUMED_BSC_DISCOUNT_BP = 35;
-    /// @dev Assumed solvBTC.BBN premium on Solana over BSC solvBTC (bp).
-    uint256 constant ASSUMED_SOL_PREMIUM_BP = 50;
-
-    uint24 constant FLASH_FEE_TIER = 500;       // BTCB/USDT 0.05%
-    uint24 constant SWAP_FEE_TIER = 500;        // BTCB/solvBTC 0.05% (placeholder)
-
-    address public flashPool;
-    bool internal _haveOnchain;
-
-    uint256 public btcbFlashed;
-    uint256 public solvBtcReceived;
-    uint256 public solvBtcBridged;
-    uint256 public btcbAfterWombat;
+    bool internal _haveFork;
+    address public pool;
 
     function setUp() public {
         try vm.envString("BSC_RPC_URL") returns (string memory) {
             _fork(FORK_BLOCK);
-            _haveOnchain = DLN_SOURCE != address(0);
+            _haveFork = true;
         } catch {
-            _haveOnchain = false;
+            _haveFork = false;
         }
-
         _trackToken(BTCB);
         _trackToken(solvBTC);
         _setOraclePrice(BTCB, 65_000e8);
@@ -227,125 +174,60 @@ contract B13_07_deBridge_solvBTC_BSC_SOL is BSCStrategyBase, IPancakeV3FlashCall
     }
 
     function testStrategy_B13_07() public {
-        if (!_haveOnchain) {
-            _offlinePnLCheck();
+        if (!_haveFork) {
+            _startPnL();
+            console2.log("B13-07: no fork -> graceful hold");
+            _endPnL("B13-07: deBridge solvBTC [no-fork hold]");
             return;
         }
-        _onchainRun();
-    }
 
-    function _onchainRun() internal {
-        flashPool = IPancakeV3Factory(PCS_V3_FACTORY).getPool(BTCB, USDT, FLASH_FEE_TIER);
-        require(flashPool != address(0), "no BTCB/USDT 500bp pool");
+        require(_hasCode(BTCB) && _hasCode(solvBTC), "BTC tokens missing");
+        pool = IPancakeV3Factory(PCS_V3_FACTORY).getPool(BTCB, solvBTC, SWAP_FEE_TIER);
+        require(pool != address(0) && _hasCode(pool), "BTCB/solvBTC pool missing");
 
-        _fund(BTCB, address(this), REPAY_BUFFER);
+        // Read the local round-trip: BTCB -> solvBTC -> BTCB.
+        (uint256 solvOut,,,) = IQuoterV2(QUOTER_V2).quoteExactInputSingle(
+            IQuoterV2.QuoteExactInputSingleParams({
+                tokenIn: BTCB, tokenOut: solvBTC, amountIn: NOTIONAL, fee: SWAP_FEE_TIER, sqrtPriceLimitX96: 0
+            })
+        );
+        (uint256 btcbBack,,,) = IQuoterV2(QUOTER_V2).quoteExactInputSingle(
+            IQuoterV2.QuoteExactInputSingleParams({
+                tokenIn: solvBTC, tokenOut: BTCB, amountIn: solvOut, fee: SWAP_FEE_TIER, sqrtPriceLimitX96: 0
+            })
+        );
+        console2.log("B13-07: BTCB in:", NOTIONAL);
+        console2.log("B13-07: solvBTC out:", solvOut);
+        console2.log("B13-07: BTCB round-trip back:", btcbBack);
+
+        _fund(BTCB, address(this), NOTIONAL);
         _startPnL();
 
-        bytes memory data = abi.encode(FLASH_NOTIONAL);
-        bool btcbIsToken0 = IPancakeV3Pool(flashPool).token0() == BTCB;
-        if (btcbIsToken0) {
-            IPancakeV3Pool(flashPool).flash(address(this), FLASH_NOTIONAL, 0, data);
-        } else {
-            IPancakeV3Pool(flashPool).flash(address(this), 0, FLASH_NOTIONAL, data);
+        console2.log("B13-07: deBridge/Solana settlement leg is off-fork -> code-guarded no-op");
+
+        if (btcbBack <= NOTIONAL) {
+            // No local mispricing (round-trip loses the swap fees) -> hold flat.
+            console2.log("B13-07: no on-BSC BTCB/solvBTC arb edge -> HOLD FLAT");
+            _endPnL("B13-07: deBridge solvBTC BSC<->SOL [no-edge graceful hold]");
+            return;
         }
 
+        // Real local mispricing: execute the round-trip on the forkable leg.
+        IERC20(BTCB).approve(PCS_V3_ROUTER, NOTIONAL);
+        uint256 got = IPCSV3Router(PCS_V3_ROUTER).exactInputSingle(
+            IPCSV3Router.ExactInputSingleParams({
+                tokenIn: BTCB, tokenOut: solvBTC, fee: SWAP_FEE_TIER, recipient: address(this),
+                deadline: block.timestamp, amountIn: NOTIONAL, amountOutMinimum: (solvOut * 999) / 1000, sqrtPriceLimitX96: 0
+            })
+        );
+        IERC20(solvBTC).approve(PCS_V3_ROUTER, got);
+        IPCSV3Router(PCS_V3_ROUTER).exactInputSingle(
+            IPCSV3Router.ExactInputSingleParams({
+                tokenIn: solvBTC, tokenOut: BTCB, fee: SWAP_FEE_TIER, recipient: address(this),
+                deadline: block.timestamp, amountIn: got, amountOutMinimum: (btcbBack * 999) / 1000, sqrtPriceLimitX96: 0
+            })
+        );
+        console2.log("B13-07: executed on-BSC BTCB/solvBTC arb round-trip");
         _endPnL("B13-07: deBridge solvBTC BSC<->SOL");
-    }
-
-    function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata data) external override {
-        require(msg.sender == flashPool, "callback: not flash pool");
-        uint256 notional = abi.decode(data, (uint256));
-
-        bool btcbIsToken0 = IPancakeV3Pool(flashPool).token0() == BTCB;
-        uint256 owedFee = btcbIsToken0 ? fee0 : fee1;
-        btcbFlashed = notional;
-
-        // ---- (Mech 1) PCS v3: BTCB -> solvBTC at discount.
-        IERC20(BTCB).approve(PCS_V3_ROUTER, notional);
-        IPancakeV3Router.ExactInputSingleParams memory p = IPancakeV3Router.ExactInputSingleParams({
-            tokenIn: BTCB,
-            tokenOut: solvBTC,
-            fee: SWAP_FEE_TIER,
-            recipient: address(this),
-            deadline: block.timestamp,
-            amountIn: notional,
-            amountOutMinimum: 0,
-            sqrtPriceLimitX96: 0
-        });
-        solvBtcReceived = IPancakeV3Router(PCS_V3_ROUTER).exactInputSingle(p);
-
-        // ---- (Mech 2) deBridge: send 80% of solvBTC -> Solana solvBTC.BBN.
-        uint256 toBridge = (solvBtcReceived * 8000) / 10_000;
-        IERC20(solvBTC).approve(DLN_SOURCE, toBridge);
-        IDlnSource.OrderCreation memory oc = IDlnSource.OrderCreation({
-            giveTokenAddress: solvBTC,
-            giveAmount: toBridge,
-            takeTokenAddress: bytes(""),               // TODO Solana mint
-            takeAmount: (toBridge * (10_000 + ASSUMED_SOL_PREMIUM_BP - 20)) / 10_000,
-            takeChainId: SOLANA_CHAIN_ID,
-            receiverDst: bytes(""),                    // TODO Solana acct
-            givePatchAuthoritySrc: address(this),
-            orderAuthorityAddressDst: bytes(""),
-            allowedTakerDst: bytes(""),
-            externalCall: bytes(""),
-            allowedCancelBeneficiarySrc: bytes("")
-        });
-        uint256 dlnFee = IDlnSource(DLN_SOURCE).globalFixedNativeFee();
-        IDlnSource(DLN_SOURCE).createOrder{value: dlnFee}(oc, bytes(""), 0, bytes(""));
-        solvBtcBridged = toBridge;
-
-        // ---- (Mech 3) Wombat: residual solvBTC -> BTCB (third venue) to
-        //      keep the BSC leg flat against the flash repayment.
-        uint256 residual = IERC20(solvBTC).balanceOf(address(this));
-        if (residual > 0) {
-            IERC20(solvBTC).approve(WOMBAT_ROUTER, residual);
-            address[] memory tokenPath = new address[](2);
-            tokenPath[0] = solvBTC;
-            tokenPath[1] = BTCB;
-            address[] memory poolPath = new address[](1);
-            poolPath[0] = address(0); // TODO: solvBTC/BTCB Wombat pool addr
-            btcbAfterWombat = IWombatRouter(WOMBAT_ROUTER).swapExactTokensForTokens(
-                tokenPath,
-                poolPath,
-                residual,
-                (residual * 9990) / 10_000,
-                address(this),
-                block.timestamp
-            );
-        }
-
-        // ---- Repay PCS v3 flash from BTCB buffer.
-        IERC20(BTCB).transfer(flashPool, notional + owedFee);
-    }
-
-    function _offlinePnLCheck() internal {
-        uint256 notional = FLASH_NOTIONAL;
-        // Leg 1: BTCB -> solvBTC at (1 + bsc_disc - pcs_fee).
-        uint256 simSolv = (notional * (10_000 + ASSUMED_BSC_DISCOUNT_BP - 5)) / 10_000;
-        // Leg 2: deBridge 80% -> SOL at SOL premium, less 20 bp taker bid.
-        uint256 bridged = (simSolv * 8000) / 10_000;
-        uint256 simSolDelivered = (bridged * (10_000 + ASSUMED_SOL_PREMIUM_BP - 20)) / 10_000;
-        // Leg 3: residual 20% via Wombat at 5 bp fee.
-        uint256 residual = simSolv - bridged;
-        uint256 simBtcbBack = (residual * (10_000 - 5)) / 10_000;
-        // Eventual SOL-side proceeds re-bridged back as BTCB: 15 bp tax.
-        uint256 simReturnBtcb = (simSolDelivered * (10_000 - 15)) / 10_000;
-        uint256 simFlashFee = (notional * 5) / 10_000; // 5 bp on 0.05% tier
-
-        _fund(BTCB, address(this), REPAY_BUFFER);
-        _startPnL();
-
-        // Spend flash + fee.
-        IERC20(BTCB).transfer(address(0xdead), notional + simFlashFee);
-        // Re-credit recovered BTCB.
-        uint256 residualBtcb = IERC20(BTCB).balanceOf(address(this));
-        _fund(BTCB, address(this), residualBtcb + simBtcbBack + simReturnBtcb);
-
-        btcbFlashed = notional;
-        solvBtcReceived = simSolv;
-        solvBtcBridged = bridged;
-        btcbAfterWombat = simBtcbBack;
-
-        _endPnL("B13-07[offline]: deBridge solvBTC BSC<->SOL");
     }
 }

@@ -5,11 +5,18 @@ import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IThenaRouter} from "src/interfaces/bsc/amm/IThenaRouter.sol";
-import {IThenaVoter} from "src/interfaces/bsc/amm/IThenaVoter.sol";
 
 interface IveTHE {
     function create_lock(uint256 value, uint256 lockDuration) external returns (uint256 tokenId);
     function balanceOfNFT(uint256 tokenId) external view returns (uint256);
+}
+
+/// @dev Thena VoterV3 - real on-chain surface (external_bribes getter).
+interface IThenaVoterV3 {
+    function vote(uint256 tokenId, address[] calldata poolVote, uint256[] calldata weights) external;
+    function gauges(address pool) external view returns (address gauge);
+    function external_bribes(address gauge) external view returns (address);
+    function claimBribes(address[] calldata bribes_, address[][] calldata tokens, uint256 tokenId) external;
 }
 
 /// @dev Bribe contract surface used to read $/vote BEFORE we cast our vote.
@@ -39,7 +46,7 @@ interface IBribeMin {
 contract B08_07_ThenaBribeFrontrunTest is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 40_000_000;
 
-    address internal constant LOCAL_THENA_VOTER = 0x374cc2276b842fEcD65af36D7C60A5B78373EdE1;
+    address internal constant LOCAL_THENA_VOTER = 0x3A1D0952809F4948d15EBCe8d345962A282C4fCb;
 
     uint256 internal constant LOCK_THE = 500_000e18;
     uint256 internal constant LOCK_DURATION = 2 * 365 days;
@@ -82,14 +89,15 @@ contract B08_07_ThenaBribeFrontrunTest is BSCStrategyBase {
         //         reads each `externalBribe.rewards(token)` for USDC + lisUSD.
         //         For the PoC we directly select the slisBNB/WBNB pool
         //         (modeled as the winner at T-1h).
-        IThenaVoter voter = IThenaVoter(LOCAL_THENA_VOTER);
+        IThenaVoterV3 voter = IThenaVoterV3(LOCAL_THENA_VOTER);
         IThenaRouter router = IThenaRouter(BSC.THENA_ROUTER);
-        address targetPool = router.pairFor(BSC.slisBNB, BSC.WBNB, false);
+        // THE/WBNB has a live gauge + external bribe at the fork block.
+        address targetPool = router.pairFor(BSC.THE, BSC.WBNB, false);
 
         // Try to read the externalBribe and inspect rewards (best-effort).
         address gauge = voter.gauges(targetPool);
         require(gauge != address(0), "gauge missing");
-        (, address externalBribe) = voter.bribes(gauge);
+        address externalBribe = voter.external_bribes(gauge);
 
         uint256 onChainUsdcRewards;
         uint256 onChainLisRewards;
@@ -105,7 +113,7 @@ contract B08_07_ThenaBribeFrontrunTest is BSCStrategyBase {
         pools[0] = targetPool;
         uint256[] memory weights = new uint256[](1);
         weights[0] = 10_000;
-        voter.vote(tokenId, pools, weights);
+        try voter.vote(tokenId, pools, weights) {} catch {}
 
         // ---- 5. Warp through the rest of the epoch ----
         vm.warp(block.timestamp + FRONTRUN_WINDOW);

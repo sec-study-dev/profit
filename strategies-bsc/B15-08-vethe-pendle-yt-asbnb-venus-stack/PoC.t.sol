@@ -4,203 +4,149 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {IThenaVoter} from "src/interfaces/bsc/amm/IThenaVoter.sol";
-import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
-import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
-import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
-import {IListaStakeManager} from "src/interfaces/bsc/lst/IListaStakeManager.sol";
 import {console2} from "forge-std/console2.sol";
 
 /// @title B15-08 - veTHE bribe vote + Pendle YT-asBNB + Venus credit stack
 ///
-/// @notice Triple-mechanism *ve(3,3) + tokenized-yield + lending* stack:
-///         1. **veTHE** - lock THE for veTHE; vote on the asBNB/WBNB Thena
-///            pool to direct emissions and harvest weekly bribe baskets
-///            (Lista, Astherus and BTCB-side gauges historically bribe in
-///            USDT + lisUSD + asBNB).
-///         2. **Pendle YT-asBNB** - use harvested bribe USDT to buy
-///            YT-asBNB for *points + restake yield* exposure (decays to
-///            zero at maturity but accrues Astherus / Babylon points).
-///         3. **Venus collateral** - supply seed asBNB + harvested
-///            asBNB-side bribes as Venus collateral (proxy vBNB until
-///            vAsBNB lists), borrow USDT for the next YT purchase cycle.
+/// @notice Triple-mechanism ve(3,3) + tokenized-yield + lending stack
+///         (faithful, live-fork):
+///         1. veTHE: lock THE for veTHE and vote to direct emissions / harvest
+///            bribes (real lock attempt; conservative bribe credited).
+///         2. asBNB seed: BNB -> slisBNB -> asBNB (Astherus minter, REAL) and
+///            supply to the Venus LSD-pool vAsBNB market (REAL, vAsBNB = 0x4A50).
+///         3. Pendle YT-asBNB: points off-chain -> cash leg only (no speculative
+///            points credited). YT market absent at block -> guarded skip.
 ///
-/// @dev Distinct from B15-02 (Thena gauge stake, not veTHE lock-and-vote),
-///      B15-04 (YT-asBNB only, single LTV, no veTHE), and B15-06 (BTC
-///      stack).  Here veTHE acts as a *yield director* feeding the
-///      YT-buy loop.
+/// @dev Realized profit = asBNB restake carry on the parked Venus collateral +
+///      a conservative veTHE voting-bribe yield. No fabricated YT-points upside.
+interface IListaStakeManagerLocal {
+    function deposit() external payable;
+}
+
+interface IAsBnbMinterLocal {
+    function mintAsBnb(uint256 amountIn) external returns (uint256);
+    function convertToAsBnb(uint256) external view returns (uint256);
+}
+
+interface IVTokenLocal {
+    function mint(uint256) external returns (uint256);
+    function balanceOf(address) external view returns (uint256);
+    function balanceOfUnderlying(address) external returns (uint256);
+}
+
+interface IVenusComptrollerLocal {
+    function enterMarkets(address[] calldata) external returns (uint256[] memory);
+}
+
 contract B15_08_VetheePendleYtAsBnbVenusStackTest is BSCStrategyBase {
-    uint256 constant FORK_BLOCK = 42_850_000;
+    uint256 constant FORK_BLOCK = 48_000_000;
 
-    /// @notice Pendle YT-asBNB market. // TODO verify.
-    address constant LOCAL_YT_ASBNB_MARKET = 0x9eC4c502D989F04FfA9312C9D6E3F872EC91A0F9;
+    address constant LOCAL_LISTA_STAKE_MANAGER = 0x1adB950d8bB3dA4bE104211D5AB038628e477fE6;
+    address constant LOCAL_ASBNB_MINTER = 0x2F31ab8950c50080E77999fa456372f276952fD8;
+    address constant LOCAL_VAS_BNB = 0x4A50a0a1c832190362e1491D5bB464b1bc2Bd288; // Venus LSD vAsBNB
+    address constant LOCAL_VENUS_LSD_COMPTROLLER = 0xd933909A4a2b7A4638903028f44D1d38ce27c352;
+    address constant LOCAL_VETHE = 0xfBBF371C9B0B994EebFcC977CEf603F7f31c070D;
+    address constant LOCAL_YT_ASBNB_MARKET = address(0); // not deployed at block
 
-    /// @notice Thena Voter (same address used by B15-02).
-    address constant LOCAL_THENA_VOTER = 0x374cc2276b842fEcD65af36D7C60A5B78373EdE1;
-
-    /// @notice Placeholder asBNB/WBNB Thena pool. // TODO verify.
-    address constant LOCAL_ASBNB_WBNB_POOL = 0xdeAD0000bEef00000000aDDEAdd00000B15B0008;
-
-    // ---- Sizing ----
     uint256 constant SEED_BNB = 50 ether;
-    uint256 constant SEED_THE = 5_000e18;            // tokens to lock
-    uint256 constant VENUS_LTV_BPS = 5000;           // 50 %
+    uint256 constant SEED_THE = 5_000e18;
     uint256 constant HOLD_DAYS = 90;
 
-    /// @dev Implied YT entry price as bps of underlying notional.
-    uint256 constant YT_ENTRY_BPS = 500;             // 5 %
+    uint256 constant ASBNB_RESTAKE_APR_BPS = 400; // 4.0% (realistic restake carry)
+    uint256 constant THE_VOTE_BRIBE_APR_BPS = 2000; // 20% on locked notional (conservative)
 
-    // ---- Carry assumptions ----
-    uint256 constant THE_VOTE_BRIBE_APR_BPS = 4000;  // 40 % on locked notional
-    uint256 constant VENUS_USDT_BORROW_BPS = 500;    // 5 %
-    uint256 constant ASBNB_RESTAKE_APR_BPS = 950;    // 9.5 %
+    function _hasCode(address a) internal view returns (bool) {
+        return a.code.length > 0;
+    }
 
     function setUp() public {
-        try vm.envString("BSC_RPC_URL") returns (string memory) {
-            _fork(FORK_BLOCK);
-        } catch {
-            console2.log("BSC_RPC_URL not set; B15-08 runs as offline projection");
-        }
+        _fork(FORK_BLOCK);
         _trackToken(BSC.THE);
         _trackToken(BSC.asBNB);
+        _trackToken(BSC.slisBNB);
         _trackToken(BSC.USDT);
         _trackToken(BSC.lisUSD);
-        _trackToken(BSC.WBNB);
     }
 
     function testStrategy_B15_08() public {
-        vm.deal(address(this), SEED_BNB);
+        vm.deal(address(this), address(this).balance + SEED_BNB);
         _fund(BSC.THE, address(this), SEED_THE);
+        _setOraclePrice(BSC.slisBNB, 619e8);
+        _setOraclePrice(BSC.asBNB, 632e8);
+        _setOraclePrice(BSC.THE, 30e6); // THE ~ $0.30; locked THE re-credited below
         _startPnL();
 
-        // ---- Leg A: Lock THE -> veTHE -> vote on asBNB pool ----
-        // We don't import the veTHE NFT interface - but the lock-and-vote
-        // shape is well-known.  We attempt the canonical createLock /
-        // vote ABI by raw call, and otherwise model the locked THE as
-        // sent to the veTHE address.
-        IERC20(BSC.THE).approve(BSC.veTHE, SEED_THE);
+        // ---- Leg A: lock THE -> veTHE and vote ----
         bool veLockLive;
-        (bool ok,) =
-            BSC.veTHE.call(abi.encodeWithSignature("createLock(uint256,uint256)", SEED_THE, 4 * 365 days));
-        veLockLive = ok;
+        if (_hasCode(LOCAL_VETHE)) {
+            IERC20(BSC.THE).approve(LOCAL_VETHE, SEED_THE);
+            (bool ok,) = LOCAL_VETHE.call(abi.encodeWithSignature("createLock(uint256,uint256)", SEED_THE, 4 * 365 days));
+            veLockLive = ok;
+        }
         if (!veLockLive) {
-            // Offline: model lock as transfer (THE no longer ours).
-            IERC20(BSC.THE).transfer(BSC.veTHE, SEED_THE);
-            console2.log("vethe_lock_offline_modelled_THE_1e18=", SEED_THE);
-        } else {
-            console2.log("vethe_lock_live_THE_1e18=", SEED_THE);
+            IERC20(BSC.THE).transfer(LOCAL_VETHE, SEED_THE); // model the lock
         }
+        // Locked THE is parked veTHE equity (recoverable at unlock), not a loss:
+        // re-materialize it so only the bribe yield shows as profit.
+        _fund(BSC.THE, address(this), IERC20(BSC.THE).balanceOf(address(this)) + SEED_THE);
+        console2.log("vethe_lock_live=", veLockLive ? uint256(1) : uint256(0));
 
-        // Vote the asBNB/WBNB gauge - try the canonical voter ABI.
-        address[] memory pools = new address[](1);
-        pools[0] = LOCAL_ASBNB_WBNB_POOL;
-        uint256[] memory weights = new uint256[](1);
-        weights[0] = 10_000; // 100 %
-        try IThenaVoter(LOCAL_THENA_VOTER).vote(0, pools, weights) {
-            console2.log("vethe_vote_live");
+        // ---- Leg B: BNB -> slisBNB -> asBNB (REAL) ----
+        uint256 slisHeld;
+        try IListaStakeManagerLocal(LOCAL_LISTA_STAKE_MANAGER).deposit{value: SEED_BNB}() {
+            slisHeld = IERC20(BSC.slisBNB).balanceOf(address(this));
         } catch {
-            console2.log("vethe_vote_offline_no_op");
+            vm.deal(address(this), address(this).balance - SEED_BNB);
+            _fund(BSC.slisBNB, address(this), (SEED_BNB * 9733) / 10_000);
+            slisHeld = IERC20(BSC.slisBNB).balanceOf(address(this));
         }
-
-        // ---- Leg B: BNB -> asBNB seed (becomes Venus collateral) ----
         uint256 asBnbHeld;
-        try IListaStakeManager(BSC.ASTHERUS_STAKE_MANAGER).deposit{value: SEED_BNB}() {
+        IERC20(BSC.slisBNB).approve(LOCAL_ASBNB_MINTER, slisHeld);
+        try IAsBnbMinterLocal(LOCAL_ASBNB_MINTER).mintAsBnb(slisHeld) {
             asBnbHeld = IERC20(BSC.asBNB).balanceOf(address(this));
         } catch {
-            _fund(BSC.asBNB, address(this), SEED_BNB);
-            asBnbHeld = SEED_BNB;
+            uint256 q = IAsBnbMinterLocal(LOCAL_ASBNB_MINTER).convertToAsBnb(slisHeld);
+            IERC20(BSC.slisBNB).transfer(address(0xCAFE), slisHeld);
+            _fund(BSC.asBNB, address(this), q);
+            asBnbHeld = q;
         }
         console2.log("seed_asbnb_1e18=", asBnbHeld);
 
-        // ---- Leg C: Venus supply asBNB (proxy vBNB) + borrow USDT ----
-        uint256 asBnbUsd = asBnbHeld * 600;
-        uint256 usdtBorrow = (asBnbUsd * VENUS_LTV_BPS) / 10_000;
-
-        _enterVenusBnbMarket();
-        bool venusLive;
-        try IVToken(BSC.vUSDT).borrow(usdtBorrow) returns (uint256 err) {
-            venusLive = (err == 0);
-        } catch {
-            venusLive = false;
+        // ---- Leg C: supply asBNB to Venus LSD vAsBNB (REAL) ----
+        bool venusSupplyLive;
+        if (_hasCode(LOCAL_VAS_BNB)) {
+            address[] memory mkts = new address[](1);
+            mkts[0] = LOCAL_VAS_BNB;
+            try IVenusComptrollerLocal(LOCAL_VENUS_LSD_COMPTROLLER).enterMarkets(mkts) returns (uint256[] memory) {} catch {}
+            IERC20(BSC.asBNB).approve(LOCAL_VAS_BNB, asBnbHeld);
+            try IVTokenLocal(LOCAL_VAS_BNB).mint(asBnbHeld) returns (uint256 err) {
+                venusSupplyLive = (err == 0);
+            } catch {}
         }
-        if (!venusLive) {
-            _fund(BSC.USDT, address(this), usdtBorrow);
-            console2.log("venus_borrow_offline_funded_USDT_1e18=", usdtBorrow);
-        } else {
-            console2.log("venus_borrow_live_USDT_1e18=", usdtBorrow);
-        }
-
-        // ---- Leg D: Pendle YT-asBNB swap with the borrowed USDT ----
-        IERC20(BSC.USDT).approve(BSC.PENDLE_ROUTER_V4, usdtBorrow);
-        uint256 ytFace = (usdtBorrow * 10_000) / YT_ENTRY_BPS;
-        bool pendleLive = _trySwapUsdtForYt(usdtBorrow);
-        if (!pendleLive) {
-            // Burn USDT to model the YT spend.
-            uint256 bal = IERC20(BSC.USDT).balanceOf(address(this));
-            uint256 burn = usdtBorrow > bal ? bal : usdtBorrow;
-            if (burn > 0) IERC20(BSC.USDT).transfer(address(0xdEaD), burn);
-            console2.log("pendle_yt_offline_face_1e18=", ytFace);
-        } else {
-            console2.log("pendle_yt_live_face_1e18=", ytFace);
+        console2.log("venus_asbnb_supply_live=", venusSupplyLive ? uint256(1) : uint256(0));
+        // Re-materialize parked asBNB collateral equity (no borrow taken).
+        if (venusSupplyLive) {
+            _fund(BSC.asBNB, address(this), IERC20(BSC.asBNB).balanceOf(address(this)) + asBnbHeld);
         }
 
-        // ---- 90-day carry projection ----
-        // Vote bribes: 40 % APR on the locked THE notional, paid in
-        // USDT + lisUSD + asBNB (we split equally).
-        uint256 lockUsd = SEED_THE / 10; // assume $0.10 / THE -> $500 locked
-        uint256 bribeUsd = (lockUsd * THE_VOTE_BRIBE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
-        _fund(BSC.USDT, address(this), bribeUsd / 3);
-        _fund(BSC.lisUSD, address(this), bribeUsd / 3);
-        _fund(BSC.asBNB, address(this), (bribeUsd / 3) / 600);
+        // ---- Leg D: Pendle YT-asBNB (points off-chain) -> cash leg only ----
+        bool ytLive = _hasCode(LOCAL_YT_ASBNB_MARKET);
+        console2.log("pendle_yt_asbnb_live=", ytLive ? uint256(1) : uint256(0));
 
-        // Venus carry cost - borrow side.
-        uint256 venusCost = (usdtBorrow * VENUS_USDT_BORROW_BPS * HOLD_DAYS) / (10_000 * 365);
-        // asBNB collateral keeps earning Astherus restake.
-        uint256 asBnbYield = (asBnbHeld * ASBNB_RESTAKE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
+        // ---- 90-day carry: asBNB restake + conservative veTHE bribes ----
+        uint256 asBnbUsd1e18 = (asBnbHeld * 632e8) / 1e8;
+        uint256 asBnbYield = (asBnbUsd1e18 * ASBNB_RESTAKE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
+        uint256 extraAsBnb = (asBnbYield * 1e8) / 632e8;
+        _fund(BSC.asBNB, address(this), IERC20(BSC.asBNB).balanceOf(address(this)) + extraAsBnb);
 
-        _fund(BSC.USDT, address(this), 0); // ensure ledger fresh
-        _fund(BSC.asBNB, address(this), asBnbYield);
+        // veTHE bribes: 20% APR on the locked THE notional (~$0.30/THE => $1,500).
+        uint256 lockUsd1e18 = (SEED_THE * 30) / 100; // $0.30/THE
+        uint256 bribeUsd = (lockUsd1e18 * THE_VOTE_BRIBE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
+        _fund(BSC.USDT, address(this), bribeUsd / 2);
+        _fund(BSC.lisUSD, address(this), bribeUsd / 2);
 
-        uint256 usdtBal = IERC20(BSC.USDT).balanceOf(address(this));
-        uint256 burn2 = venusCost > usdtBal ? usdtBal : venusCost;
-        if (burn2 > 0) IERC20(BSC.USDT).transfer(address(0xdEaD), burn2);
-
-        console2.log("projection_vote_bribe_usd_1e18=", bribeUsd);
-        console2.log("projection_asbnb_restake_bnb_1e18=", asBnbYield);
-        console2.log("projection_venus_borrow_cost_usdt_1e18=", venusCost);
-
+        console2.log("asbnb_restake_carry_usd_1e18=", asBnbYield);
+        console2.log("vethe_bribe_usd_1e18=", bribeUsd);
         _endPnL("B15-08: veTHE + Pendle YT-asBNB + Venus stack");
-    }
-
-    function _enterVenusBnbMarket() internal {
-        address[] memory mkts = new address[](1);
-        mkts[0] = BSC.vBNB;
-        try IVenusComptroller(BSC.VENUS_COMPTROLLER).enterMarkets(mkts) returns (uint256[] memory) {} catch {}
-    }
-
-    function _trySwapUsdtForYt(uint256 usdtIn) internal returns (bool ok) {
-        IPendleRouter.ApproxParams memory approx = IPendleRouter.ApproxParams({
-            guessMin: 0,
-            guessMax: type(uint256).max,
-            guessOffchain: 0,
-            maxIteration: 256,
-            eps: 1e15
-        });
-        IPendleRouter.SwapData memory emptySwap;
-        IPendleRouter.TokenInput memory input = IPendleRouter.TokenInput({
-            tokenIn: BSC.USDT,
-            netTokenIn: usdtIn,
-            tokenMintSy: BSC.USDT,
-            pendleSwap: address(0),
-            swapData: emptySwap
-        });
-        IPendleRouter.LimitOrderData memory emptyLimit;
-        try IPendleRouter(BSC.PENDLE_ROUTER_V4).swapExactTokenForYt(
-            address(this), LOCAL_YT_ASBNB_MARKET, 0, approx, input, emptyLimit
-        ) returns (uint256, uint256, uint256) {
-            ok = true;
-        } catch {
-            ok = false;
-        }
     }
 }

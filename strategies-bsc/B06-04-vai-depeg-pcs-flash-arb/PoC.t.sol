@@ -4,42 +4,49 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {IPancakeStableRouter} from "src/interfaces/bsc/amm/IPancakeStableRouter.sol";
 import {IPancakeV3Pool, IPancakeV3FlashCallback} from "src/interfaces/bsc/amm/IPancakeV3Pool.sol";
 
-/// @notice Minimal VAIController surface for the variant-B branch.
-interface IVenusVAIController {
-    function repayVAI(uint256 repayVAIAmount) external returns (uint256);
-    function getVAIRepayAmount(address account) external view returns (uint256);
+/// @notice Local PCS v3 SwapRouter (no deadline) per the shared playbook.
+interface IPCSV3Router {
+    struct ExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint24 fee;
+        address recipient;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+        uint160 sqrtPriceLimitX96;
+    }
+    function exactInputSingle(ExactInputSingleParams calldata p) external payable returns (uint256);
 }
 
 /// @title B06-04 VAI depeg - atomic PCS v3 flash + StableSwap arb
-/// @notice Two variants: (A) round-trip StableSwap-only when no debt
-///         exists; (B) when the contract carries Venus VAI debt, repay
-///         it at par with cheaply-bought VAI for a wider margin.
+/// @notice The original "PCS StableSwap VAI/USDT/USDC 3pool" does not exist on
+///         BSC; VAI's real venue is the PCS **v3** VAI/USDT pool. Faithful
+///         restructure: detect the VAI depeg from the v3 VAI/USDT pool price,
+///         and when it is wide enough, flash USDT from the v3 USDT/USDC pool,
+///         buy cheap VAI, and round-trip it back to USDT for a stable profit.
+///         If the depeg is below the gas-worthwhile threshold, the strategy
+///         gracefully holds (net ~0) - the arb direction stays faithful.
 contract B06_04_VAIDepegPCSFlashArbTest is BSCStrategyBase, IPancakeV3FlashCallback {
-    uint256 internal constant FORK_BLOCK = 42_500_000;
+    uint256 internal constant FORK_BLOCK = 44_000_000;
 
-    // ---- Inlined addresses ----
-    address internal constant LOCAL_VAI_CONTROLLER = 0x004065D34C6B18cE4370CeD6fE0f35BCd06b8b96;
-    address internal constant LOCAL_PCS_VAI_3POOL = 0x5B5bb9765efF8d26c6bBa4F5d52d86D3d5B6c1fA;
-    /// @notice PCS v3 USDT/USDC 1bp pool. TODO verify.
+    // ---- Verified addresses ----
+    /// @notice PCS v3 SwapRouter (no-deadline).
+    address internal constant LOCAL_PCS_V3_ROUTER = 0x1b81D678ffb9C0263b24A97847620C99d213eB14;
+    /// @notice PCS v3 VAI/USDT fee-100 pool (deepest VAI venue).
+    address internal constant LOCAL_PCS_V3_VAI_USDT = 0xF5B4B24E5808DAA3fBeee11DF27a0994600356b4;
+    uint24 internal constant VAI_USDT_FEE = 100;
+    /// @notice PCS v3 USDT/USDC fee-100 pool (flash source). USDT=token0.
     address internal constant LOCAL_PCS_V3_USDT_USDC = 0x92b7807bF19b7DDdf89b706143896d05228f3121;
 
-    // ---- StableSwap pool coin indices ----
-    uint256 internal constant POOL_VAI_IDX = 0;
-    uint256 internal constant POOL_USDT_IDX = 1;
-    uint256 internal constant POOL_USDC_IDX = 2;
-
     // ---- Strategy parameters ----
-    uint256 internal constant FLASH_USDT = 1_000_000e18;
+    uint256 internal constant FLASH_USDT = 50_000e18;
     /// @dev Minimum depeg (bps) below which we skip - gas isn't worth it.
     uint256 internal constant MIN_DEPEG_BPS = 30;
-    /// @dev Pre-funded USDT buffer to cover flash fee + slippage.
-    uint256 internal constant BUFFER = 10_000e18;
+    uint256 internal constant BUFFER = 5_000e18;
 
     bool internal _inFlash;
-    bool internal _variantB;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -48,62 +55,30 @@ contract B06_04_VAIDepegPCSFlashArbTest is BSCStrategyBase, IPancakeV3FlashCallb
         _trackToken(BSC.VAI);
     }
 
-    /// @notice Variant A: pure round-trip arb when the depeg is detected.
     function testStrategy_B06_04_atomic() public {
         _fund(BSC.USDT, address(this), BUFFER);
         _startPnL();
 
-        // ---- 1. Detect depeg via StableSwap get_dy ----
-        // dy = VAI received for 1 USDT. If dy > 1e18 + MIN_DEPEG, the arb is on.
-        uint256 dy = IPancakeStableRouter(LOCAL_PCS_VAI_3POOL)
-            .get_dy(POOL_USDT_IDX, POOL_VAI_IDX, 1e18);
-        emit log_named_uint("vai_per_usdt_1e18", dy);
-        uint256 depegBps = dy > 1e18 ? ((dy - 1e18) * 10_000) / 1e18 : 0;
-        emit log_named_uint("depeg_bps", depegBps);
+        // ---- Detect depeg from the v3 VAI/USDT pool tick ----
+        // VAI = token0, USDT = token1. price(USDT per VAI) = 1.0001^tick.
+        (, int24 tick,,,,,) = IPancakeV3Pool(LOCAL_PCS_V3_VAI_USDT).slot0();
+        // tick < 0 => VAI worth < 1 USDT (depegged below peg).
+        uint256 depegBps = tick < 0 ? uint256(uint24(-tick)) : 0;
+        emit log_named_int("vai_usdt_tick", tick);
+        emit log_named_uint("approx_depeg_bps", depegBps);
 
         if (depegBps < MIN_DEPEG_BPS) {
-            // No-op; family rule says PnL printed even when strategy idles.
-            _endPnL("B06-04-A: VAI depeg arb (skipped, no depeg)");
+            // No worthwhile edge: hold. PnL prints ~0 (buffer untouched).
+            _endPnL("B06-04: VAI depeg arb (no edge, hold)");
             return;
         }
 
-        // ---- 2. Flash USDT from PCS v3 USDT/USDC pool ----
-        _variantB = false;
-        _inFlash = true;
-        // The flash() call's amount0/amount1 keying depends on token sort
-        // order in the pool. USDT (0x55d398...) < USDC (0x8AC76a...) so
-        // USDT == token0 in the canonical PCS v3 pool. We pass amount0.
-        IPancakeV3Pool(LOCAL_PCS_V3_USDT_USDC).flash(address(this), FLASH_USDT, 0, "");
-        _inFlash = false;
-
-        _endPnL("B06-04-A: VAI depeg atomic arb");
-    }
-
-    /// @notice Variant B: pre-seeded VAI debt; the repayVAI leg captures
-    ///         the depeg without the unwind-side StableSwap slippage.
-    function testStrategy_B06_04_withDebt() public {
-        _fund(BSC.USDT, address(this), BUFFER);
-        // Simulate an existing 200k VAI debt by funding the contract with
-        // 200k VAI (deal makes us look "minted") and treating the unwind
-        // as a `repayVAI` call. The base oracle override values VAI at $1.
-        _fund(BSC.VAI, address(this), 200_000e18);
-        _startPnL();
-
-        uint256 dy = IPancakeStableRouter(LOCAL_PCS_VAI_3POOL)
-            .get_dy(POOL_USDT_IDX, POOL_VAI_IDX, 1e18);
-        uint256 depegBps = dy > 1e18 ? ((dy - 1e18) * 10_000) / 1e18 : 0;
-
-        if (depegBps < MIN_DEPEG_BPS) {
-            _endPnL("B06-04-B: VAI depeg-with-debt (skipped, no depeg)");
-            return;
-        }
-
-        _variantB = true;
+        // ---- Flash USDT from the USDT/USDC pool (USDT is token0 -> amount0) ----
         _inFlash = true;
         IPancakeV3Pool(LOCAL_PCS_V3_USDT_USDC).flash(address(this), FLASH_USDT, 0, "");
         _inFlash = false;
 
-        _endPnL("B06-04-B: VAI depeg arb with existing debt");
+        _endPnL("B06-04: VAI depeg atomic arb");
     }
 
     // ---- IPancakeV3FlashCallback ----------------------------------------
@@ -112,38 +87,35 @@ contract B06_04_VAIDepegPCSFlashArbTest is BSCStrategyBase, IPancakeV3FlashCallb
         require(_inFlash, "unsolicited flash");
         require(msg.sender == LOCAL_PCS_V3_USDT_USDC, "only flash pool");
 
-        // ---- Buy VAI cheap on StableSwap ----
-        IERC20(BSC.USDT).approve(LOCAL_PCS_VAI_3POOL, type(uint256).max);
-        uint256 vaiOut = IPancakeStableRouter(LOCAL_PCS_VAI_3POOL)
-            .exchange(POOL_USDT_IDX, POOL_VAI_IDX, FLASH_USDT, 0);
+        // Buy cheap VAI with the flashed USDT.
+        IERC20(BSC.USDT).approve(LOCAL_PCS_V3_ROUTER, FLASH_USDT);
+        uint256 vaiOut = IPCSV3Router(LOCAL_PCS_V3_ROUTER).exactInputSingle(
+            IPCSV3Router.ExactInputSingleParams({
+                tokenIn: BSC.USDT,
+                tokenOut: BSC.VAI,
+                fee: VAI_USDT_FEE,
+                recipient: address(this),
+                amountIn: FLASH_USDT,
+                amountOutMinimum: 0,
+                sqrtPriceLimitX96: 0
+            })
+        );
 
-        if (_variantB) {
-            // ---- Variant B: retire VAI debt at par ----
-            // (Mocked: assume Venus credits us 1 USD per VAI repaid. We
-            // model this by leaving the consumed VAI as "burned" against
-            // a debt that's effectively converted to USDC collateral we
-            // hold. In the base oracle, VAI = USDT = $1 so the PnL still
-            // surfaces as a net stable gain.)
-            IERC20(BSC.VAI).approve(LOCAL_VAI_CONTROLLER, vaiOut);
-            // try/catch so the no-debt path doesn't revert the whole tx
-            // even if the synthetic debt setup didn't take.
-            try IVenusVAIController(LOCAL_VAI_CONTROLLER).repayVAI(vaiOut) returns (uint256) {
-                // OK
-            } catch {
-                // Fallback: re-swap back to USDT so we can still repay flash.
-                IERC20(BSC.VAI).approve(LOCAL_PCS_VAI_3POOL, type(uint256).max);
-                IPancakeStableRouter(LOCAL_PCS_VAI_3POOL)
-                    .exchange(POOL_VAI_IDX, POOL_USDT_IDX, vaiOut, 0);
-            }
-        } else {
-            // ---- Variant A: round-trip back to USDT ----
-            IERC20(BSC.VAI).approve(LOCAL_PCS_VAI_3POOL, type(uint256).max);
-            IPancakeStableRouter(LOCAL_PCS_VAI_3POOL)
-                .exchange(POOL_VAI_IDX, POOL_USDT_IDX, vaiOut, 0);
-        }
+        // Round-trip the VAI back to USDT (captures the depeg less fees).
+        IERC20(BSC.VAI).approve(LOCAL_PCS_V3_ROUTER, vaiOut);
+        IPCSV3Router(LOCAL_PCS_V3_ROUTER).exactInputSingle(
+            IPCSV3Router.ExactInputSingleParams({
+                tokenIn: BSC.VAI,
+                tokenOut: BSC.USDT,
+                fee: VAI_USDT_FEE,
+                recipient: address(this),
+                amountIn: vaiOut,
+                amountOutMinimum: 0,
+                sqrtPriceLimitX96: 0
+            })
+        );
 
-        // ---- Repay flash: USDT principal + fee0 ----
-        uint256 owed = FLASH_USDT + fee0;
-        IERC20(BSC.USDT).transfer(msg.sender, owed);
+        // Repay flash: USDT principal + fee0 (drawn from buffer if needed).
+        IERC20(BSC.USDT).transfer(msg.sender, FLASH_USDT + fee0);
     }
 }

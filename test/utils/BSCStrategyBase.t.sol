@@ -32,6 +32,13 @@ abstract contract BSCStrategyBase is Test {
     uint256 internal _gasStart;
     /// @dev tx.gasprice captured at _startPnL.
     uint256 internal _gasPriceSnap;
+    /// @dev block.number snapshot at _startPnL (for block_span telemetry).
+    uint256 internal _blockStart;
+    /// @dev On-chain position equity (parked collateral net of debt) credited
+    ///      by strategies, in 1e6 USD. Added to the balance-delta PnL so
+    ///      collateral sitting inside a lending/LP protocol is not mis-counted
+    ///      as -principal.
+    int256 internal _positionPnlE6;
 
     /// @dev Per-token USD price override (1e8 scaled). Preloaded by ctor.
     mapping(address => uint256) internal _priceE8;
@@ -124,7 +131,19 @@ abstract contract BSCStrategyBase is Test {
             _balStart[_tracked[i]] = IERC20(_tracked[i]).balanceOf(address(this));
         }
         _gasPriceSnap = tx.gasprice;
+        _blockStart = block.number;
+        _positionPnlE6 = 0;
         _gasStart = gasleft();
+    }
+
+    /// @notice Credit on-chain position equity (1e8-USD scaled) to the PnL.
+    function _creditPositionEquityE8(int256 equityE8) internal {
+        _positionPnlE6 += equityE8 / 100;
+    }
+
+    /// @notice Credit on-chain position equity (1e6-USD scaled) to the PnL.
+    function _creditPositionEquityE6(int256 equityE6) internal {
+        _positionPnlE6 += equityE6;
     }
 
     /// @notice Print PnL block, structurally identical to mainnet base.
@@ -163,12 +182,20 @@ abstract contract BSCStrategyBase is Test {
             gasUsdE6 = (gasUsed * _gasPriceSnap * bnbUsd) / 1e26;
         }
 
+        // ---- Position-equity leg (parked collateral net of debt) ----
+        pnlE6 += _positionPnlE6;
+
         int256 netE6 = pnlE6 - int256(gasUsdE6);
 
         console2.log("==== STRATEGY", label, "====");
         console2.log("pnl_usd=", pnlE6);
         console2.log("gas_usd=", gasUsdE6);
         console2.log("net_usd=", netE6);
+        // ---- Additive cost/telemetry lines (mirror mainnet base) ----
+        console2.log("gas_used=", gasUsed);
+        console2.log("gas_price_wei=", _gasPriceSnap);
+        console2.log("bnb_usd_e8=", bnbUsd);
+        console2.log("block_span=", block.number - _blockStart);
         console2.log("========================");
     }
 

@@ -5,8 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
 // ---------------------------------------------------------------------------
-// Inlined interfaces - BSC.sol has pre-existing checksum errors. See B02-01
-// header. We inline addresses + ABIs.
+// Inlined interfaces - BSC.sol has pre-existing checksum errors. We inline
+// addresses + ABIs.
 // ---------------------------------------------------------------------------
 
 interface IERC20 {
@@ -20,7 +20,9 @@ interface IPancakeV3Factory {
     function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address);
 }
 
-interface IPancakeV3Router {
+/// @dev PCS v3 SwapRouter 0x1b81D678 uses the WITH-deadline struct on this fork
+///      (verified: deadline-less selector reverts with empty data).
+interface IPCSV3Router {
     struct ExactInputSingleParams {
         address tokenIn;
         address tokenOut;
@@ -32,6 +34,19 @@ interface IPancakeV3Router {
         uint160 sqrtPriceLimitX96;
     }
     function exactInputSingle(ExactInputSingleParams calldata) external payable returns (uint256);
+}
+
+interface IQuoterV2 {
+    struct QuoteExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint256 amountIn;
+        uint24 fee;
+        uint160 sqrtPriceLimitX96;
+    }
+    function quoteExactInputSingle(QuoteExactInputSingleParams memory params)
+        external
+        returns (uint256 amountOut, uint160, uint32, uint256);
 }
 
 abstract contract BSCStrategyBase is Test {
@@ -106,32 +121,40 @@ abstract contract BSCStrategyBase is Test {
         return -int256((uint256(-d) * m) / div);
     }
 
+    function _hasCode(address a) internal view returns (bool) {
+        uint256 cs;
+        assembly { cs := extcodesize(a) }
+        return cs > 0;
+    }
 }
 
-/// @title B13-04 USDe BSC <-> Ethereum OFT roundtrip
-/// @notice Positional strategy. The cross-chain leg (ETH-side mint / OFT
-///         send) is *not* atomic - it sits cross-chain for 1-3 minutes.
-///         This BSC-side PoC executes only the capture step:
-///         1. Pre-fund N USDe (representing the OFT credit from Ethereum).
-///         2. Swap USDe -> USDT on PCS v3 USDe/USDT pool at premium (40 bp).
-///         3. PnL prints from USDT delta.
+/// @title B13-04 USDe OFT BSC<->ETH round-trip mint/burn
+/// @notice Thesis: USDe is a LayerZero OFT. When the BSC USDe trades at a
+///         premium to its ETH-side mint/redeem par, you swap into USDe on BSC,
+///         OFT-send it to ETH, redeem at par, and re-bridge. The OFT settlement
+///         (ETH-side redeem) CANNOT execute on a single BSC fork, so per the
+///         playbook the cross-chain leg is a code-guarded GRACEFUL no-op.
+/// @dev    The FORKABLE on-BSC leg is the USDe<->USDT swap on the real PCS v3
+///         fee-100 pool (deployed ~block 48M). We read the live spread with the
+///         QuoterV2 and run a GUARDED arb: only swap if USDe sells above par
+///         (i.e. USDe->USDT out > notional); otherwise hold flat (net ~0). No
+///         fabricated cross-chain profit.
 contract B13_04_USDe_OFT_Roundtrip is BSCStrategyBase {
-    // ---- Inlined BSC addresses ----
     address constant USDT = 0x55d398326f99059fF775485246999027B3197955;
     address constant USDe = 0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34;
     address constant PCS_V3_FACTORY = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
-    address constant PCS_V3_ROUTER = 0x13f4EA83D0bd40E75C8222255bc855a974568Dd4;
+    address constant PCS_V3_ROUTER = 0x1b81D678ffb9C0263b24A97847620C99d213eB14;
+    address constant QUOTER_V2 = 0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997;
 
-    uint256 constant FORK_BLOCK = 46_900_000;
+    /// @dev USDe/USDT 0.01% pool is deployed & deep from ~block 48M.
+    uint256 constant FORK_BLOCK = 48_000_000;
+    uint24 constant PCS_FEE_TIER = 100;
 
-    uint256 constant USDE_INFLOW = 500_000 ether;
-    uint24 constant PCS_FEE_TIER = 500;
-    uint256 constant ASSUMED_PREMIUM_BP = 40;
-
-    address public pool;
-    uint256 public usdtReceived;
+    uint256 constant USDE_INFLOW = 100_000 ether;
 
     bool internal _haveFork;
+    address public pool;
+    uint256 public usdtReceived;
 
     function setUp() public {
         try vm.envString("BSC_RPC_URL") returns (string memory) {
@@ -140,7 +163,6 @@ contract B13_04_USDe_OFT_Roundtrip is BSCStrategyBase {
         } catch {
             _haveFork = false;
         }
-
         _trackToken(USDe);
         _trackToken(USDT);
         _setOraclePrice(USDe, 1e8);
@@ -149,47 +171,57 @@ contract B13_04_USDe_OFT_Roundtrip is BSCStrategyBase {
 
     function testStrategy_B13_04() public {
         if (!_haveFork) {
-            _offlinePnLCheck();
+            _startPnL();
+            console2.log("B13-04: no fork -> graceful hold");
+            _endPnL("B13-04: USDe OFT roundtrip [no-fork hold]");
             return;
         }
 
+        require(_hasCode(USDe), "USDe missing");
         pool = IPancakeV3Factory(PCS_V3_FACTORY).getPool(USDe, USDT, PCS_FEE_TIER);
-        require(pool != address(0), "no USDe/USDT 500bp pool");
+        require(pool != address(0) && _hasCode(pool), "USDe/USDT pool missing");
+
+        // Read live spread: how many USDT does USDE_INFLOW USDe fetch?
+        (uint256 quotedOut,,,) = IQuoterV2(QUOTER_V2).quoteExactInputSingle(
+            IQuoterV2.QuoteExactInputSingleParams({
+                tokenIn: USDe,
+                tokenOut: USDT,
+                amountIn: USDE_INFLOW,
+                fee: PCS_FEE_TIER,
+                sqrtPriceLimitX96: 0
+            })
+        );
+        console2.log("B13-04: USDe in:", USDE_INFLOW);
+        console2.log("B13-04: USDT out (spot):", quotedOut);
 
         _fund(USDe, address(this), USDE_INFLOW);
-
         _startPnL();
 
+        // Cross-chain leg (OFT send + ETH redeem) is unexecutable on one fork.
+        console2.log("B13-04: OFT cross-chain redeem leg is off-fork -> code-guarded no-op");
+
+        if (quotedOut <= USDE_INFLOW) {
+            // USDe at/below par on BSC -> no premium to harvest; hold flat.
+            console2.log("B13-04: USDe not at a premium vs USDT -> HOLD FLAT");
+            _endPnL("B13-04: USDe OFT roundtrip [no-edge graceful hold]");
+            return;
+        }
+
+        // Real premium: sell USDe for USDT on-BSC (the leg that IS forkable).
         IERC20(USDe).approve(PCS_V3_ROUTER, USDE_INFLOW);
-        IPancakeV3Router.ExactInputSingleParams memory p = IPancakeV3Router.ExactInputSingleParams({
-            tokenIn: USDe,
-            tokenOut: USDT,
-            fee: PCS_FEE_TIER,
-            recipient: address(this),
-            deadline: block.timestamp,
-            amountIn: USDE_INFLOW,
-            amountOutMinimum: (USDE_INFLOW * (10_000 + ASSUMED_PREMIUM_BP - 10)) / 10_000,
-            sqrtPriceLimitX96: 0
-        });
-        usdtReceived = IPancakeV3Router(PCS_V3_ROUTER).exactInputSingle(p);
-
+        usdtReceived = IPCSV3Router(PCS_V3_ROUTER).exactInputSingle(
+            IPCSV3Router.ExactInputSingleParams({
+                tokenIn: USDe,
+                tokenOut: USDT,
+                fee: PCS_FEE_TIER,
+                recipient: address(this),
+                deadline: block.timestamp,
+                amountIn: USDE_INFLOW,
+                amountOutMinimum: (quotedOut * 9999) / 10000,
+                sqrtPriceLimitX96: 0
+            })
+        );
+        console2.log("B13-04: executed USDe premium sell, USDT received:", usdtReceived);
         _endPnL("B13-04: USDe BSC<->ETH OFT roundtrip");
-    }
-
-    function _offlinePnLCheck() internal {
-        uint256 inflow = USDE_INFLOW;
-        // Premium swap: USDe in -> USDT out at (1 + premium - pcs_fee).
-        uint256 simUsdtOut = (inflow * (10_000 + ASSUMED_PREMIUM_BP - 5)) / 10_000;
-
-        _fund(USDe, address(this), inflow);
-        _startPnL();
-
-        // Burn the USDe and mint the equivalent USDT for accounting.
-        IERC20(USDe).transfer(address(0xdead), inflow);
-        _fund(USDT, address(this), simUsdtOut);
-
-        usdtReceived = simUsdtOut;
-
-        _endPnL("B13-04[offline]: USDe BSC<->ETH OFT roundtrip");
     }
 }

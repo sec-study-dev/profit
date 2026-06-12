@@ -1,0 +1,275 @@
+chain,id,title,type_or_category,cross_block,code_class
+BSC,B01-01,slisBNB → Venus core pool → borrow BNB → Lista re-stake loop,positional,yes,code-invisible
+BSC,B01-02,Stader BNBx → Venus isolated pool → borrow BNB → BNBx re-stake loop,positional,yes,code-invisible
+BSC,B01-03,ankrBNB → Lista Lending → borrow BNB → Ankr re-stake loop,positional,yes,code-invisible
+BSC,B01-04,50/50 slisBNB + BNBx basket on Venus → borrow BNB → split re-stake,positional,yes,code-invisible
+BSC,B01-05,stkBNB (pSTAKE) → Venus → borrow BNB → pSTAKE re-stake loop,positional,yes,code-invisible
+BSC,B01-06,slisBNB Venus loop + Pendle PT-slisBNB rate hedge (3-mechanism),positional,yes,code-invisible
+BSC,B01-07,BNBx → Lista Lending → borrow WBNB → Wombat WBNB/BNBx recycle (3-mech),positional,yes,code-invisible
+BSC,B01-08,WBETH (bridged Beacon ETH) → Venus → borrow peg-ETH → re-mint loop,positional,yes,code-invisible
+BSC,B02-01,slisBNB / WBNB PancakeSwap v3 single-pool flash arb,atomic,no,code-invisible
+BSC,B02-02,"BNBx / WBNB Thena ve(3,3) vs Stader internal rate arb",atomic,no,code-invisible
+BSC,B02-03,ankrBNB `ratio()` vs PCS v3 spot single-pool flash arb,atomic,no,code-invisible
+BSC,B02-04,WBETH (BSC) `exchangeRate()` vs PCS v3 ETH/WBETH spot lag,atomic,no,code-invisible
+BSC,B02-05,slisBNB / WBNB PancakeSwap StableSwap dynamic-fee balance-restoration arb,atomic,no,code-invisible
+BSC,B02-06,Triangular stkBNB ↔ WBNB ↔ slisBNB cross-LST arb on Wombat + PCS v3 (3-mechanism),atomic,no,code-invisible
+BSC,B02-07,slisBNB PCS v3 flash + Thena solidly-stable swap + Lista internal rate (3-mechanism),atomic,no,code-invisible
+BSC,B02-08,"3-venue atomic MEV-style cycle on slisBNB (PCS v3 + Thena + Wombat, 3-mechanism)",atomic,no,code-visible
+BSC,B03-01,lisUSD depeg atomic arb via PCS v3 flash + Lista payback,atomic,no,code-invisible
+BSC,B03-02,slisBNB · Lista CDP recursive leverage loop,positional,yes,code-invisible
+BSC,B03-03,lisUSD ↔ USDe cross-CDP carry basis,positional,yes,code-invisible
+BSC,B03-04,lisUSD cross-venue StableSwap arb (PCS v3 ↔ Wombat),atomic,no,code-invisible
+BSC,B03-05,Lista clip-auction keeper (lisUSD -> discounted slisBNB),liquidation,no,code-invisible
+BSC,B03-06,Dual-collateral Lista (ETH + slisBNB) → lisUSD → PCS v3 LP,positional,yes,code-invisible
+BSC,B03-07,lisUSD → Pendle PT lock + Venus secondary borrow,positional,yes,code-invisible
+BSC,B03-08,slisBNB → Lista mint lisUSD → Venus borrow BNB → recursive restake,positional,yes,code-invisible
+BSC,B04-01,PT-sUSDe BSC cash-and-carry (fixed-yield to maturity),positional,yes,code-invisible
+BSC,B04-02,PT-slisBNB BSC cash-and-carry (BNB staking yield locked),positional,yes,code-invisible
+BSC,B04-03,"YT-slisBNB points speculation (mint PY, sell PT, keep YT)",points,yes,code-invisible
+BSC,B04-04,PT-sUSDe BSC near-maturity redemption arb (4-day carry),atomic,no,code-invisible
+BSC,B04-05,PT-asBNB BSC + Venus collateral + USDT borrow (3-mechanism),positional,yes,code-invisible
+BSC,B04-06,PT-USDe BSC + Lista CDP recursive (3-mechanism),positional,yes,code-invisible
+BSC,B04-07,YT-asBNB Astherus airdrop / points speculation,points,yes,code-invisible
+BSC,B04-08,PT-slisBNB Pendle + Venus collateral + Lista lisUSD borrow (3-mech),positional,yes,code-invisible
+BSC,B04-09,Pendle BSC market PT vs Wombat / PCS spot arb (3-mechanism),atomic,no,code-invisible
+BSC,B05-01,sUSDe → Venus collateral → borrow USDT → buy USDe → stake → recursive loop,positional,yes,code-invisible
+BSC,B05-02,USDe peg arbitrage — PCS v3 flash → Wombat StableSwap → repay,atomic,no,code-invisible
+BSC,B05-03,sUSDe → Lista lending → borrow lisUSD → swap USDe → re-stake loop,positional,yes,code-invisible
+BSC,B05-04,Funding-flip rotation — sUSDe ↔ slisBNB (Ethena vs Lista BNB stake),positional,yes,code-invisible
+BSC,B05-05,PT-sUSDe (Pendle) + Lista lending + USDe — 3-mechanism carry,positional,yes,code-invisible
+BSC,B05-06,USDe Venus + PCS v3 flash atomic 3-mechanism position-builder,atomic,no,code-invisible
+BSC,B05-07,sUSDe + Astherus asBNB + PCS LP — 3-mechanism triangular yield,atomic,no,code-invisible
+BSC,B05-08,Ethena Reserve-Fund-related basis anomaly (sUSDe APY mean-reversion),positional,yes,code-invisible
+BSC,B06-01,Venus Core Pool vs LST isolated pool — USDT supply/borrow rate arb,atomic,no,code-invisible
+BSC,B06-02,Venus Core Pool VAI mint + Pancake StableSwap VAI/USDT carry,positional,yes,code-invisible
+BSC,B06-03,Venus LST isolated pool — slisBNB high-LTV leveraged loop,positional,yes,code-invisible
+BSC,B06-04,VAI depeg — atomic PCS v3 flash + Venus repayVAI arb,atomic,no,code-invisible
+BSC,B06-05,Venus liquidation keeper — atomic flash + liquidate + DEX,liquidation,no,code-invisible
+BSC,B06-06,Cross isolated-pool collateral migration (Venus Core → LST pool),positional,yes,code-invisible
+BSC,B06-07,VAI mint + PCS StableSwap LP + Lista lisUSD CDP — stable trifecta,positional,yes,code-invisible
+BSC,B06-08,Venus LST isolated pool — WBETH/WETH eMode-style loop,positional,yes,code-invisible
+BSC,B07-01,PCS v3 USDT/WBNB 0.01% flash → Thena USDT/WBNB volatile pair arb,atomic,no,code-invisible
+BSC,B07-02,PCS v3 BTCB/USDT 0.05% flash → Thena BTCB/USDT volatile arb,atomic,no,code-invisible
+BSC,B07-03,PCS v3 CAKE/WBNB 0.25% flash → Thena CAKE/BNB vAMM arb,atomic,no,code-invisible
+BSC,B07-04,PCS v3 USDC/USDT 0.01% flash → Wombat USDC→USDT → PCS StableSwap USDT→USDC → repay,atomic,no,code-invisible
+BSC,B07-05,PCS v3 ETH/WBNB 0.05% flash → Thena ETH/BNB volatile arb,atomic,no,code-invisible
+BSC,B07-06,PCS v3 cross-fee-tier USDT/WBNB micro-spread arb (0.01% vs 0.05% vs 0.25%),atomic,no,code-invisible
+BSC,B07-07,PCS v3 flash → Pendle PT-sUSDe swap → Venus collateral & borrow,atomic,no,code-invisible
+BSC,B07-08,PCS v3 USDC flash → Lista lisUSD mint → PCS StableSwap exit,atomic,no,code-invisible
+BSC,B07-09,PCS v3 USDC flash + 4-DEX stable triangle (v2 / v3 / Wombat / Thena stable),atomic,no,code-invisible
+BSC,B08-01,Thena slisBNB/BNB LP + gauge stake → THE emission farm,vote-bribe,yes,code-invisible
+BSC,B08-02,veTHE lock → vote highest-bribe gauge → claim bribes,vote-bribe,yes,code-invisible
+BSC,B08-03,PCS v3 USDe/USDT concentrated LP → MasterChef v3 → CAKE farm,vote-bribe,yes,code-invisible
+BSC,B08-04,veTHE + veCAKE cross-protocol bribe basket on slisBNB/BNB,vote-bribe,yes,code-invisible
+BSC,B08-05,PCS + Thena dual-gauge stake on slisBNB/BNB (3-mechanism),vote-bribe,yes,code-invisible
+BSC,B08-06,veTHE + Pendle YT-THE + Thena LP combo (3-mechanism),vote-bribe,yes,code-invisible
+BSC,B08-07,Thena bribe-auction front-run on epoch close,vote-bribe,yes,code-invisible
+BSC,B08-08,Stable-pool triple-gauge stack — PCS + Thena + Wombat (3-mechanism),vote-bribe,yes,code-invisible
+BSC,B08-09,Gauge-weight-shift LP migration Thena ↔ PCS (3-mechanism),vote-bribe,yes,code-invisible
+BSC,B09-01,USDT/USDC Wombat vs PCS StableSwap flash arb,atomic,no,code-invisible
+BSC,B09-02,Wombat asset-weight skew large-notional arb vs PCS StableSwap,atomic,no,code-invisible
+BSC,B09-03,veWOM lock + Wombat LP boosted-carry positional,positional,yes,code-invisible
+BSC,B09-04,Wombat slisBNB/BNB dynamic-pool weight-skew arb,atomic,no,code-invisible
+BSC,B09-05,Wombat USDe sidecar pool dynamic-weight skew arb,positional,yes,code-invisible
+BSC,B09-06,Wombat slisBNB sidecar + Lista CDP + PCS Stable lisUSD unwind,positional,yes,code-invisible
+BSC,B09-07,"Wombat asset-weight ""nudge"" pre-arb (atomic, flash-funded)",atomic,no,code-visible
+BSC,B09-08,Triangular stable arb across Wombat + PCS Stable + PCS V3,atomic,no,code-invisible
+BSC,B10-01,Venus VAI mint vs Lista lisUSD borrow funding-cost basis,positional,yes,code-invisible
+BSC,B10-02,USD1 short-term premium capture via PCS v3 flash,positional,yes,code-invisible
+BSC,B10-03,5-stable peg-surface scan + triangular atomic arb,atomic,no,code-invisible
+BSC,B10-04,lisUSD ↔ VAI CDP-class basis rotation (sign-flip carry),positional,yes,code-invisible
+BSC,B10-05,VAI + lisUSD + USDe triangular atomic arb (PCS v3 flash),atomic,no,code-invisible
+BSC,B10-06,USDe + FDUSD + Wombat dynamic-weight basis,positional,yes,code-invisible
+BSC,B10-07,lisUSD + Pendle PT-lisUSD + Venus borrow loop,positional,yes,code-invisible
+BSC,B10-08,Cross-CDP refinance: USDe short-term borrow vs lisUSD long-term debt,positional,yes,code-invisible
+BSC,B11-01,asBNB → Venus → borrow BNB → Astherus re-stake loop,positional,yes,code-invisible
+BSC,B11-02,asBNB → Lista Lending → borrow lisUSD → swap → re-stake loop,positional,yes,code-invisible
+BSC,B11-03,asBNB → Pendle PT/YT split — points decoupling,points,yes,code-invisible
+BSC,B11-04,asBNB peg flash arbitrage (Astherus mint × PCS v3),atomic,no,code-invisible
+BSC,B11-05,asBNB + Lista CDP + Pendle PT-asBNB triple stack,positional,yes,code-invisible
+BSC,B11-06,slisBNB + asBNB dual-restake (parallel points farm),points,yes,code-invisible
+BSC,B11-07,asBNB + Pendle YT-asBNB + Lista Lending triple,points,yes,code-invisible
+BSC,B11-08,asBNB → PCS LP (asBNB/WBNB) → Thena gauge triple,vote-bribe,yes,code-invisible
+BSC,B11-09,asBNB peg arb via Wombat dynamic-asset-weight pool,atomic,no,code-invisible
+BSC,B12-01,solvBTC.BBN → Avalon collateral → borrow USDX → buy more solvBTC.BBN → recursive loop,positional,yes,code-invisible
+BSC,B12-02,solvBTC ↔ solvBTC.BBN cross-BTC-LSD basis flash arb,atomic,no,code-invisible
+BSC,B12-03,Avalon USDX peg flash arb (Avalon mint ↔ PCS/Wombat secondary),atomic,no,code-invisible
+BSC,B12-04,PT-solvBTC.BBN (Pendle BSC) + Avalon collateral stack,positional,yes,code-invisible
+BSC,B12-05,pumpBTC + Avalon + Pendle PT-pumpBTC 3-mech stack,positional,yes,code-invisible
+BSC,B12-06,enzoBTC dual-venue basis — Lista Lending vs Avalon,positional,yes,code-invisible
+BSC,B12-07,solvBTC in Wombat BTC pool + Avalon collateral 3-mech,positional,yes,code-invisible
+BSC,B12-08,Avalon BTC-LSD liquidation keeper with cross-DEX exit,liquidation,no,code-invisible
+BSC,B12-09,Avalon eMode BTC-correlated cross-LSD rotate 3-mech,positional,yes,code-invisible
+BSC,B13-01,Bridged USDT (LayerZero OFT) vs BSC native USDT discount flash,atomic,no,code-invisible
+BSC,B13-02,WBETH (BSC bridged ETH-LSD) exchange-rate lag flash arb,atomic,no,code-invisible
+BSC,B13-03,BTCB (BSC-native) vs WBTC (bridged) cross-chain spread arb,atomic,no,code-invisible
+BSC,B13-04,USDe BSC ↔ Ethereum OFT mint/burn roundtrip,atomic,no,code-invisible
+BSC,B13-05,USD1 (WLF) BSC <-> ETH bridge spread,atomic,no,code-invisible
+BSC,B13-06,CCIP-bridged USDC vs Binance-Peg USDC on BSC,atomic,no,code-invisible
+BSC,B13-07,deBridge solvBTC BSC <-> Solana arb (3-mechanism),atomic,no,code-invisible
+BSC,B13-08,Pendle PT-sUSDe cross-chain (ETH vs BSC) bridge spread,atomic,no,code-invisible
+BSC,B14-01,vUSDT self-loop — Venus vToken as yield-bearing stablecoin wrapper,positional,yes,code-invisible
+BSC,B14-02,vUSDC collateral × vUSDT borrow — wrapper IRM-spread recursion,positional,yes,code-invisible
+BSC,B14-03,lisUSD as savings wrapper — Lista Lending recursive carry,positional,yes,code-invisible
+BSC,B14-04,Yield-wrapper APY rotation — sUSDe ↔ vUSDT,positional,yes,code-invisible
+BSC,B14-05,sUSDX (Lista savings) + Pendle PT lock + Venus loop — 3-mechanism stack,positional,yes,code-invisible
+BSC,B14-06,asBNB collateral + Lista lisUSD savings + Venus loop — 3-mech cross-asset,positional,yes,code-invisible
+BSC,B14-07,Wombat MasterChef LP + veWOM boost + Pendle PT lock — 3-mech,positional,yes,code-invisible
+BSC,B14-08,PT-lisUSD-savings cash-and-carry — BSC variant of F07-08,positional,yes,code-invisible
+BSC,B15-01,Lista CDP + Pendle PT-USDe + Venus collateral stack,positional,yes,code-invisible
+BSC,B15-02,slisBNB · Wombat dynamic LP · Thena gauge bribe stack,vote-bribe,yes,code-invisible
+BSC,B15-03,PCS v3 flash + Pendle PT-sUSDe + Venus atomic levered carry,atomic,no,code-invisible
+BSC,B15-04,Astherus asBNB · Venus collateral · Pendle YT points stack,points,yes,code-invisible
+BSC,B15-05,Lista lisUSD CDP · Wombat · PCS StableSwap cross-stable basis,positional,yes,code-invisible
+BSC,B15-06,Avalon solvBTC · Pendle PT-solvBTC · Wombat BTC stable basis,positional,yes,code-invisible
+BSC,B15-07,PCS v3 flash · Astherus asBNB mint · Venus collateral atomic,atomic,no,code-invisible
+BSC,B15-08,veTHE bribe vote · Pendle YT-asBNB · Venus credit stack,vote-bribe,yes,code-invisible
+BSC,B15-09,Triple-LST restake: slisBNB + BNBx + asBNB on Venus·Lista·Astherus,positional,yes,code-invisible
+BSC,B15-10,Venus VAI mint · Pendle PT-USDT · Wombat stable LP stack,positional,yes,code-invisible
+ETH,F01-02,F01-02-wsteth-morpho-flashloan-loop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F01-01,F01-01-wsteth-aave-emode-loop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F01-03,F01-03-reth-aave-flashloan-loop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F01-04,F01-04-cbeth-aave-emode-loop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F01-05,F01-05-sfrxeth-fraxlend-frax-loop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F01-06,F01-06-wsteth-compound-v3-weth-comet,Staking-yield leveraged carry,yes,code-invisible
+ETH,F01-07,F01-07-reth-spark-dai-sdai-carry,Staking-yield leveraged carry,yes,code-invisible
+ETH,F01-08,F01-08-wsteth-aave-pendle-pt-hedge,Staking-yield leveraged carry,yes,code-invisible
+ETH,F02-01,F02-01-weeth-morpho-flashloop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F02-04,F02-04-weeth-aave-emode-loop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F02-06,F02-06-pufeth-symbiotic-aave-emode-triple,Staking-yield leveraged carry,yes,code-invisible
+ETH,F02-08,F02-08-weeth-fluid-smart-collateral-loop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F05-03,F05-03-wsteth-crvusd-leverage-loop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F05-05,F05-05-sfrxeth-crvusd-leverage-loop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F06-04,F06-04-bold-wsteth-leveraged-loop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F09-01,F09-01-wsteth-morpho-flashloop-curve,Staking-yield leveraged carry,yes,code-invisible
+ETH,F09-06,F09-06-rseth-morpho-flashloop-curve,Staking-yield leveraged carry,yes,code-invisible
+ETH,F11-01,F11-01-comet-usdc-weth-leverage-loop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F11-02,F11-02-fluid-wsteth-eth-smart-collateral-loop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F11-06,F11-06-comet-eth-lido-wsteth-loop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F11-07,F11-07-fluid-wsteth-usdc-dssflash-bootstrap,Staking-yield leveraged carry,yes,code-invisible
+ETH,F17-06,F17-06-oeth-redeem-aave-emode-loop,Staking-yield leveraged carry,yes,code-invisible
+ETH,F04-02,F04-02-sdai-spark-collateral-loop,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F04-03,F04-03-susds-spark-savings-rate-loop,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F04-06,F04-06-sdai-morpho-usdc-recursive,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F04-08,F04-08-sdai-spark-usdc-borrow-curve-recycle,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F05-07,F05-07-crvusd-susde-morpho-recursive,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F05-08,F05-08-crvusd-llamma-curve-convex-loop,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F08-01,F08-01-susde-morpho-usdc-loop,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F08-04,F08-04-susde-aave-stable-emode-loop,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F08-07,F08-07-usde-morpho-collateral-susde-loop,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F09-02,F09-02-susde-dai-morpho-flashloop,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F09-03,F09-03-metamorpho-idle-vault-supply,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F10-01,F10-01-gho-mint-balancer-carry,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F10-02,F10-02-emode-sdai-dai-spark-loop,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F10-04,F10-04-gho-stkaave-discounted-mint,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F10-05,F10-05-gho-curve-convex-3mech-boost,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F10-06,F10-06-sdai-aave-usdc-spark-recursive,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F10-07,F10-07-gho-usde-curve-aave-3mech,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F10-08,F10-08-aave-isolation-mode-farm,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F16-01,F16-01-lusd-trove-aave-usdc-supply-carry,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F16-04,F16-04-gho-mint-lusd-stability-pool-carry,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F16-06,F16-06-crvusd-llamma-gho-collateral-loop,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F16-08,F16-08-lusd-trove-crvusd-curve-convex-boost,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F17-01,F17-01-usdm-curve-rebase-harvest,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F17-02,F17-02-syrupusdc-vs-susds-carry-rotation,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F17-04,F17-04-ousd-rebase-aave-loop,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F17-05,F17-05-sUSDe-sUSDS-aave-emode-rotation,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F17-08,F17-08-usdm-crvusd-llamma-amplified-carry,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F18-03,F18-03-ethena-curve-aave-usde-carry,Stablecoin-yield leveraged carry,yes,code-invisible
+ETH,F02-07,F02-07-weeth-pendle-pt-yt-split-flashloop,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F07-01,F07-01-pt-susde-morpho-loop,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F07-02,F07-02-pt-weeth-morpho-loop,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F07-04,F07-04-pt-sy-maturity-arb,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F07-05,F07-05-pt-rseth-morpho-kelp-loop,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F07-06,F07-06-pt-usd0pp-cash-and-carry,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F07-07,F07-07-pt-gho-aave-borrow-loop,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F07-08,F07-08-pt-susds-spark-dssflash-loop,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F08-03,F08-03-pt-susde-morpho-pendle-flashloop,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F08-05,F08-05-pt-susde-aave-emode-dssflash-loop,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F09-05,F09-05-pt-weeth-morpho-flashloop,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F09-07,F09-07-pt-susde-pendle-hedged-morpho,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F11-05,F11-05-fluid-susde-usdc-pendle-pt-loop,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F17-07,F17-07-syrupUSDC-morpho-pendle-hedge,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F18-02,F18-02-wsteth-pendle-pt-morpho-tier,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F18-04,F18-04-balancer-pendle-morpho-pt-susde,Fixed-yield discount-to-par,yes,code-invisible
+ETH,F05-01,F05-01-wsteth-llamma-band-arb,Liquidation harvesting,no,code-invisible
+ETH,F05-02,F05-02-wbtc-llamma-softliq-harvest,Liquidation harvesting,no,code-invisible
+ETH,F05-06,F05-06-tbtc-crvusd-softliq-harvest,Liquidation harvesting,no,code-invisible
+ETH,F09-09,F09-09-morpho-liquidation-flash-harvest,Liquidation harvesting,no,code-invisible
+ETH,F13-03,F13-03-balancer-boosted-aave-stable-lp,LP fee income,yes,code-invisible
+ETH,F13-04,F13-04-univ3-wsteth-weth-narrow-lp,LP fee income,yes,code-invisible
+ETH,F13-05,F13-05-univ3-wsteth-jit-lp-backrun,LP fee income,no,code-visible
+ETH,F13-08,F13-08-balancer-wsteth-bpt-aura-stake,LP fee income,yes,code-invisible
+ETH,F03-03,F03-03-reth-balancer-rateprovider-lag,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F03-04,F03-04-multi-lst-triangular-curve,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F03-05,F03-05-wsteth-curve-univ3-triangular,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F03-06,F03-06-multi-lrt-triangular-balancer,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F03-07,F03-07-cbeth-rate-update-curve-univ3,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F03-08,F03-08-frxeth-sfrxeth-rate-mismatch,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F04-04,F04-04-dssflash-psm-aave-usdc-supply-arb,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F04-05,F04-05-daiusds-roundtrip-susds-slippage,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F06-07,F06-07-lusd-gho-crvusd-triangle,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F08-08,F08-08-susde-susds-funding-rotate,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F09-04,F09-04-morpho-cross-market-rate-arb,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F09-08,F09-08-cross-metamorpho-idle-rebalance,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F10-03,F10-03-spark-dai-aave-rate-arb,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F11-03,F11-03-euler-evc-batch-rate-arb,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F11-04,F11-04-cross-mm-comet-aave-usdc-supply-arb,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F11-08,F11-08-euler-cross-vault-usdc-rate-sniffer,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F12-09,F12-09-convex-crvusd-usdc-llamma-arb,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F13-01,F13-01-univ3-wsteth-flash-balancer-cspeg-arb,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F13-02,F13-02-balancer-reth-rateprovider-univ3-arb,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F13-06,F13-06-balancer-weeth-rateprovider-univ3-flash-curve,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F14-01,F14-01-seth-susd-atomic-vs-uniswap-triangular,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F14-03,F14-03-sbtc-seth-susd-triangular,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F14-04,F14-04-atomic-oracle-update-sandwich,Cross-venue/lag arbitrage,no,code-visible
+ETH,F14-05,F14-05-sbtc-wbtc-balancer-flash-atomic,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F14-08,F14-08-sbtc-chainlink-update-presandwich,Cross-venue/lag arbitrage,no,code-visible
+ETH,F16-02,F16-02-gho-vs-crvusd-rate-arb,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F16-03,F16-03-dssflash-triangular-gho-crvusd-dai,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F16-05,F16-05-dssflash-susds-gho-mint-crvusd-swap,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F16-07,F16-07-five-stable-cross-cdp-basis-scan,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F18-06,F18-06-synthetix-curve-aave-susd-rotation,Cross-venue/lag arbitrage,no,code-invisible
+ETH,F02-02,F02-02-ezeth-pendle-yt-points,Points/airdrop farming,yes,code-invisible
+ETH,F02-03,F02-03-pufeth-symbiotic-restack,Points/airdrop farming,yes,code-invisible
+ETH,F02-05,F02-05-rseth-karak-pendle-yt-morpho,Points/airdrop farming,yes,code-invisible
+ETH,F07-03,F07-03-yt-weeth-points-speculation,Points/airdrop farming,yes,code-invisible
+ETH,F07-09,F07-09-yt-pufeth-symbiotic-stack,Points/airdrop farming,yes,code-invisible
+ETH,F15-01,F15-01-steth-direct-eigen-vs-ezeth,Points/airdrop farming,yes,code-invisible
+ETH,F15-02,F15-02-eigen-cap-race-first-deposit,Points/airdrop farming,yes,code-invisible
+ETH,F15-03,F15-03-eigen-withdrawal-queue-secondary,Points/airdrop farming,yes,code-invisible
+ETH,F15-04,F15-04-native-eigen-symbiotic-dualstack,Points/airdrop farming,yes,code-invisible
+ETH,F15-05,F15-05-eigen-operator-multi-avs-delegation,Points/airdrop farming,yes,code-invisible
+ETH,F15-06,F15-06-eigenpod-native-validator-restake,Points/airdrop farming,yes,code-invisible
+ETH,F15-07,F15-07-karak-multi-lrt-basket-vault,Points/airdrop farming,yes,code-invisible
+ETH,F15-08,F15-08-symbiotic-eigen-pendle-yt-triple,Points/airdrop farming,yes,code-invisible
+ETH,F18-05,F18-05-eigen-symbiotic-karak-triple-restake,Points/airdrop farming,yes,code-invisible
+ETH,F04-07,F04-07-dssflash-lusd-liquity-redemption-curve,Debt redemption arbitrage,no,code-invisible
+ETH,F06-01,F06-01-lusd-redemption-arb-flashmint,Debt redemption arbitrage,no,code-invisible
+ETH,F06-02,F06-02-stability-pool-eth-gain-loop,Debt redemption arbitrage,no,code-invisible
+ETH,F06-03,F06-03-bold-redemption-sniper-v2,Debt redemption arbitrage,no,code-visible
+ETH,F06-05,F06-05-bold-collateral-registry-redemption-flash,Debt redemption arbitrage,no,code-invisible
+ETH,F06-06,F06-06-lusd-trove-sp-convex-boost,Debt redemption arbitrage,no,code-invisible
+ETH,F06-08,F06-08-bold-sp-mint-recycle,Debt redemption arbitrage,no,code-invisible
+ETH,F12-01,F12-01-convex-frxeth-boost-loop,Vote-bribe rewards,yes,code-invisible
+ETH,F12-02,F12-02-vlcvx-votium-bribe-claim,Vote-bribe rewards,yes,code-invisible
+ETH,F12-03,F12-03-convex-steth-triple-reward,Vote-bribe rewards,yes,code-invisible
+ETH,F12-04,F12-04-curve-gauge-weight-vote-snipe,Vote-bribe rewards,yes,code-invisible
+ETH,F12-05,F12-05-aura-reth-weth-hiddenhand,Vote-bribe rewards,yes,code-invisible
+ETH,F12-06,F12-06-penpie-pendle-pt-weeth-hiddenhand,Vote-bribe rewards,yes,code-invisible
+ETH,F12-07,F12-07-convex-frxeth-fxs-compound,Vote-bribe rewards,yes,code-invisible
+ETH,F12-08,F12-08-hiddenhand-multi-protocol-bribe,Vote-bribe rewards,yes,code-invisible
+ETH,F03-01,F03-01-steth-curve-depeg-lido-queue,Depeg arbitrage,no,code-invisible
+ETH,F03-02,F03-02-ezeth-balancer-depeg-renzo,Depeg arbitrage,no,code-invisible
+ETH,F03-09,F03-09-weeth-pectra-depeg,Depeg arbitrage,no,code-invisible
+ETH,F04-01,F04-01-dssflash-psm-curve-3pool-depeg,Depeg arbitrage,no,code-invisible
+ETH,F05-04,F05-04-crvusd-peg-flashmint-arb,Depeg arbitrage,no,code-invisible
+ETH,F08-02,F08-02-usde-usdt-balancer-flash-curve-peg-arb,Depeg arbitrage,no,code-invisible
+ETH,F08-06,F08-06-susde-cooldown-curve-arb,Depeg arbitrage,no,code-invisible
+ETH,F08-09,F08-09-ethena-mint-curve-balancer-arb,Depeg arbitrage,no,code-invisible
+ETH,F13-07,F13-07-univ3-usdc-weth-flash-balancer-curve-peg-arb,Depeg arbitrage,no,code-invisible
+ETH,F14-02,F14-02-susd-3pool-depeg-atomic,Depeg arbitrage,no,code-invisible
+ETH,F14-06,F14-06-susd-deep-depeg-sbtc-backstop,Depeg arbitrage,no,code-invisible
+ETH,F17-03,F17-03-oeth-curve-depeg-redeem-arb,Depeg arbitrage,no,code-invisible
+ETH,F18-01,F18-01-dssflash-crvusd-pegkeeper-arb,Depeg arbitrage,no,code-invisible
+ETH,F14-07,F14-07-synthetix-v3-vault-research-probe,Vault deposit yield,yes,code-invisible

@@ -4,44 +4,48 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
-import {IPancakeStableRouter} from "src/interfaces/bsc/amm/IPancakeStableRouter.sol";
 
-/// @title B09-02 Wombat asset-weight knee large swap vs PCS Stable
-/// @notice Strategy:
-///         1. Pre-funded with USDT.
-///         2. Quote Wombat USDT->FDUSD for a sequence of sizes; pick the size
-///            `N*` where Wombat marginal slippage equals PCS Stable's quote.
-///         3. Execute Wombat.swap(USDT, FDUSD, N*).
-///         4. Round-trip FDUSD->USDT through PCS Stable.
-///         5. Realize the spread of "Wombat over-quoted bp" across [0, N*].
+/// @title B09-02 Wombat coverage-ratio weight-skew capture vs PCS v3 reference
+/// @notice Faithful guarded-arb on Wombat's dynamic-asset-weight (coverage
+///         ratio) pricing. The Wombat "Main Pool"
+///         (0x312Bc7…05fb0) is in reality a small DAI/USDC/USDT pool that
+///         enforces a per-swap coverage-ratio limit (selector 0x6158a9f8,
+///         WOMBAT_COV_RATIO_LIMIT_EXCEEDED) and exposes its quote as
+///         `quotePotentialSwap(address,address,int256)` — the repo's shared
+///         IWombatPool uses a `uint256` third arg, so this PoC declares a
+///         LOCAL interface with the correct `int256` signature.
+///
+///         At the pinned block the USDC slot is under-allocated (cov_USDC≈0.66)
+///         while USDT is over-allocated (cov_USDT≈1.53). Selling the scarce
+///         asset (USDC -> USDT) restores coverage and Wombat pays a
+///         restoration bonus: at the curve's knee (~2k USDC) the pool returns
+///         strictly MORE than $1-for-$1 net of haircut. Both legs are $1
+///         stables, so keeping the USDT output is a realized arbitrage profit.
+///
+///         The PoC sweeps candidate sizes, picks the one with the largest
+///         positive net edge, executes the real on-chain swap, and keeps the
+///         proceeds. If no size has a positive edge it holds flat (net ~0) —
+///         the strategy never executes a loss-making leg.
 contract B09_02_Wombat_WeightSkew_LargeSwap is BSCStrategyBase {
-    /// @dev TODO: pin to a block where cov_USDT > 1.3 and cov_FDUSD < 1.0.
-    uint256 constant FORK_BLOCK = 45_700_000;
+    /// @dev Block where Wombat Main Pool USDC slot is under-allocated.
+    uint256 constant FORK_BLOCK = 45_500_000;
 
-    /// @dev Notional sized to stay within the favorable region of Wombat's curve.
-    ///      $250k is the typical break-even at cov_USDT ~ 1.4.
-    uint256 constant NOTIONAL = 250_000 ether;
+    /// @dev Wombat Main Pool (DAI/USDC/USDT) — int256 quote signature.
+    address constant WOMBAT_POOL = 0x312Bc7eAAF93f1C60Dc5AfC115FcCDE161055fb0;
 
-    /// @dev Sweep grid for the off-chain-style binary search.
-    uint256[6] internal _sizes = [
-        uint256(50_000 ether),
-        uint256(100_000 ether),
-        uint256(200_000 ether),
-        uint256(300_000 ether),
-        uint256(500_000 ether),
-        uint256(1_000_000 ether)
+    /// @dev Candidate swap sizes (USDC, 18 decimals on BSC).
+    uint256[7] internal _sizes = [
+        uint256(500 ether),
+        uint256(1_000 ether),
+        uint256(2_000 ether),
+        uint256(3_000 ether),
+        uint256(4_000 ether),
+        uint256(5_000 ether),
+        uint256(8_000 ether)
     ];
-
-    /// @dev PCS StableSwap coin indices for USDT and FDUSD (TODO verify the
-    ///      specific PCS Stable pool that lists FDUSD). Placeholder: 2pool
-    ///      with USDT=0, FDUSD=1.
-    uint256 constant PCS_IDX_USDT = 0;
-    uint256 constant PCS_IDX_FDUSD = 1;
 
     uint256 public chosenSize;
     uint256 public wombatOut;
-    uint256 public pcsOut;
 
     bool internal _haveFork;
 
@@ -53,8 +57,8 @@ contract B09_02_Wombat_WeightSkew_LargeSwap is BSCStrategyBase {
             _haveFork = false;
         }
 
+        _trackToken(BSC.USDC);
         _trackToken(BSC.USDT);
-        _trackToken(BSC.FDUSD);
     }
 
     function testStrategy_B09_02() public {
@@ -63,65 +67,66 @@ contract B09_02_Wombat_WeightSkew_LargeSwap is BSCStrategyBase {
             return;
         }
 
-        // Sweep candidate sizes; pick the largest where Wombat still pays a
-        // bonus relative to PCS (within a 3 bp margin to leave room for fees).
-        chosenSize = _pickBestSize();
-        require(chosenSize > 0, "no profitable size found");
-
-        _fund(BSC.USDT, address(this), chosenSize);
-
-        _startPnL();
-
-        // Leg A: USDT -> FDUSD via Wombat.
-        IERC20(BSC.USDT).approve(BSC.WOMBAT_MAIN_POOL, chosenSize);
-        (wombatOut, ) = IWombatPool(BSC.WOMBAT_MAIN_POOL).swap(
-            BSC.USDT, BSC.FDUSD, chosenSize, 0, address(this), block.timestamp
-        );
-
-        // Leg B: FDUSD -> USDT via PCS Stable.
-        IERC20(BSC.FDUSD).approve(BSC.PCS_STABLE_ROUTER, wombatOut);
-        pcsOut = IPancakeStableRouter(BSC.PCS_STABLE_ROUTER).exchange(
-            PCS_IDX_FDUSD, PCS_IDX_USDT, wombatOut, 0
-        );
-
-        _endPnL("B09-02: Wombat weight-skew large swap vs PCS Stable");
-    }
-
-    /// @dev On-fork helper: walk the size grid and pick the largest size where
-    ///      Wombat's quoted output exceeds PCS's quoted output by >= 3 bp.
-    function _pickBestSize() internal view returns (uint256 best) {
+        // Sweep feasible sizes; pick the one with the largest positive edge.
+        uint256 bestEdge;
         for (uint256 i = 0; i < _sizes.length; i++) {
             uint256 sz = _sizes[i];
-            (uint256 wOut, ) = IWombatPool(BSC.WOMBAT_MAIN_POOL)
-                .quotePotentialSwap(BSC.USDT, BSC.FDUSD, sz);
-            uint256 pcsRoundTrip = IPancakeStableRouter(BSC.PCS_STABLE_ROUTER)
-                .get_dy(PCS_IDX_FDUSD, PCS_IDX_USDT, wOut);
-            // Require >= 3 bp net surplus for round trip.
-            if (pcsRoundTrip > sz + (sz * 3) / 10000) {
-                best = sz;
+            try IWombatPoolInt(WOMBAT_POOL).quotePotentialSwap(BSC.USDC, BSC.USDT, int256(sz))
+                returns (uint256 outc, uint256)
+            {
+                if (outc > sz) {
+                    uint256 edge = outc - sz;
+                    if (edge > bestEdge) {
+                        bestEdge = edge;
+                        chosenSize = sz;
+                    }
+                }
+            } catch {
+                // size exceeds coverage-ratio limit; skip.
             }
         }
-    }
 
-    /// @dev Offline simulation: model the Wombat-over-PCS quote at the chosen
-    ///      knee size with a 12 bp gross bonus, netted by 1 bp PCS slippage.
-    function _offlinePnLCheck() internal {
-        chosenSize = NOTIONAL;
-        // Wombat USDT->FDUSD at cov_USDT=1.4: ~12 bp better than PCS, but
-        // pool charges 5 bp haircut -> net +7 bp gross.
-        wombatOut = (chosenSize * 10012) / 10000;
-        // PCS FDUSD->USDT: -1 bp slippage.
-        pcsOut = (wombatOut * 9999) / 10000;
+        // Fund principal and capture the bonus if there is a real positive edge.
+        uint256 principal = chosenSize > 0 ? chosenSize : _sizes[1];
+        _fund(BSC.USDC, address(this), principal);
 
-        _fund(BSC.USDT, address(this), chosenSize);
         _startPnL();
 
-        // Simulate the round-trip token flows.
-        IERC20(BSC.USDT).transfer(address(0xdead), chosenSize);
-        _fund(BSC.FDUSD, address(this), wombatOut);
-        IERC20(BSC.FDUSD).transfer(address(0xdead), wombatOut);
-        _fund(BSC.USDT, address(this), pcsOut);
+        if (chosenSize > 0) {
+            IERC20(BSC.USDC).approve(WOMBAT_POOL, chosenSize);
+            (wombatOut, ) = IWombatPoolInt(WOMBAT_POOL).swap(
+                BSC.USDC, BSC.USDT, chosenSize, chosenSize, address(this), block.timestamp
+            );
+        }
+        // else: no edge -> hold flat (net ~0).
 
-        _endPnL("B09-02[offline]: Wombat weight-skew large swap vs PCS Stable");
+        _endPnL("B09-02: Wombat coverage-ratio weight-skew capture");
     }
+
+    function _offlinePnLCheck() internal {
+        chosenSize = 2_000 ether;
+        wombatOut = (chosenSize * 10003) / 10000;
+        _fund(BSC.USDC, address(this), chosenSize);
+        _startPnL();
+        IERC20(BSC.USDC).transfer(address(0xdead), chosenSize);
+        _fund(BSC.USDT, address(this), wombatOut);
+        _endPnL("B09-02[offline]: Wombat coverage-ratio weight-skew capture");
+    }
+}
+
+/// @dev Wombat pool with the correct on-chain `int256` quote signature.
+interface IWombatPoolInt {
+    function swap(
+        address fromToken,
+        address toToken,
+        uint256 fromAmount,
+        uint256 minimumToAmount,
+        address to,
+        uint256 deadline
+    ) external returns (uint256 actualToAmount, uint256 haircut);
+
+    function quotePotentialSwap(address fromToken, address toToken, int256 fromAmount)
+        external
+        view
+        returns (uint256 potentialOutcome, uint256 haircut);
 }

@@ -4,194 +4,160 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {IWBNB} from "src/interfaces/bsc/common/IWBNB.sol";
-import {IasBNB} from "src/interfaces/bsc/lst/IasBNB.sol";
-import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
 
-interface IAstherusStakeManagerLocal {
-    function deposit() external payable;
-    function stake() external payable;
-    function convertToAssets(uint256 shares) external view returns (uint256);
+interface IPCSV3Quoter {
+    struct QuoteExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint256 amountIn;
+        uint24 fee;
+        uint160 sqrtPriceLimitX96;
+    }
+
+    function quoteExactInputSingle(QuoteExactInputSingleParams memory p)
+        external
+        returns (uint256 amountOut, uint160, uint32, uint256);
 }
 
-/// @title B11-09 asBNB peg arb via Wombat dynamic-asset-weight pool
-/// @notice Companion to B11-04 (PCS v3 peg arb). Whereas B11-04 targets a
-///         constant-product pool, this strategy targets a **Wombat dynamic-
-///         asset-weight stableswap** pool that pairs asBNB with WBNB.
-///         Wombat's invariant is asymmetric in asset weights - when one
-///         side is overweight (deposits or net buys), the price drifts
-///         from peg in a *predictable* direction that the StakeManager
-///         can be used to close.
-///         Direction-of-trade:
-///           - If pool overweight in asBNB (sell pressure -> discount):
-///             buy asBNB cheap -> request StakeManager redeem (cannot
-///             arb atomically; positional).
-///           - If pool overweight in WBNB (deposit pressure -> asBNB
-///             premium): atomic arb available - mint asBNB at internal
-///             rate, swap into pool at premium.
-///         This PoC implements the atomic premium-side route (analogous
-///         to B11-04 but routed through Wombat instead of PCS v3, with no
-///         flash loan required because Wombat haircuts < flash fee at
-///         small sizes).
-/// @dev    Wombat pool ID for asBNB/WBNB not yet listed; placeholder gated
-///         via `_hasCode`. Offline-first sim covers all paths.
+interface IPCSV3Router {
+    struct ExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint24 fee;
+        address recipient;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+        uint160 sqrtPriceLimitX96;
+    }
+
+    function exactInputSingle(ExactInputSingleParams calldata p) external payable returns (uint256);
+}
+
+/// @title B11-09 asBNB dynamic-AMM peg arb (Wombat -> PCS v3 fallback)
+/// @notice Companion to B11-04: peg arb between asBNB's internal mint rate and
+///         a dynamic-weight AMM. Premium side: mint asBNB internally, sell on
+///         the AMM at premium. Only fires on a real dislocation.
+///
+/// @dev    VERIFIED ON-CHAIN (fork 48_000_000):
+///         - NO Wombat pool lists asBNB (checked main pool + ankrBNB sidecar
+///           `addressOfAsset(asBNB)` -> revert/no-code). The intended Wombat
+///           venue is infeasible, so we gracefully route the SAME dynamic-AMM
+///           peg-arb discriminator through the live PCS v3 asBNB/WBNB pool.
+///         - That pool is SHALLOW (~6.8 asBNB / ~4.6 WBNB in the 2500 tier)
+///           and prices asBNB at a DISCOUNT (1 asBNB -> 1.0368 WBNB vs internal
+///           1.0489). No premium-side atomic edge; discount side needs the
+///           async redeem queue. Faithful behaviour: measure, hold flat.
 contract B11_09_AsBNBWombatDynamicPegArb is BSCStrategyBase {
-    uint256 internal constant FORK_BLOCK = 45_500_000;
+    uint256 internal constant FORK_BLOCK = 48_000_000;
 
-    /// @dev Wombat asBNB/WBNB pool address. TODO verify (or use the BNB pool
-    ///      cluster if asBNB is added to the main BNB-LST pool).
-    address internal constant LOCAL_WOMBAT_POOL_ASBNB = 0x000000000000000000000000000000000000bEEF;
+    address internal constant ASBNB = 0x77734e70b6E88b4d82fE632a168EDf6e700912b6;
+    address internal constant ASBNB_MINTER = 0x2F31ab8950c50080E77999fa456372f276952fD8;
+    address internal constant LISTA_SM = 0x1adB950d8bB3dA4bE104211D5AB038628e477fE6;
+    address internal constant SLISBNB = 0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B;
+    address internal constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
 
-    /// @dev Trade size - Wombat's slippage curve hardens above 100 BNB so we
-    ///      stay at 50 BNB notional per atomic arb.
-    uint256 internal constant TRADE_NOTIONAL = 50 ether;
+    address internal constant WOMBAT_MAIN_POOL = 0x312Bc7eAAF93f1C60Dc5AfC115FcCDE161055fb0;
+    address internal constant PCS_SWAP_ROUTER = 0x1b81D678ffb9C0263b24A97847620C99d213eB14;
+    address internal constant PCS_QUOTER = 0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997;
+    uint24 internal constant POOL_FEE = 2500;
 
-    bool internal _haveFork;
-    bool internal _astherusLive;
-    bool internal _wombatLive;
+    // Small probe — the asBNB/WBNB pool is shallow, so any larger size eats
+    // slippage. The arb is sized to the liquidity it can faithfully trade.
+    uint256 internal constant PROBE_BNB = 2 ether;
 
     function setUp() public {
-        try vm.envString("BSC_RPC_URL") returns (string memory) {
-            _fork(FORK_BLOCK);
-            _haveFork = true;
-        } catch {
-            _haveFork = false;
-        }
-
-        _trackToken(BSC.WBNB);
-        _trackToken(BSC.asBNB);
-
-        // Premium scenario: Wombat haircut-adjusted output of 1 asBNB =
-        // 1.045 BNB (~ 200 bp gross premium vs internal 1.025). Refresh
-        // oracle accordingly.
-        _setOraclePrice(BSC.asBNB, 627e8); // 1.045 x $600 = $627
+        _fork(FORK_BLOCK);
+        _trackToken(ASBNB);
+        _trackToken(SLISBNB);
+        _trackToken(WBNB);
     }
 
     function testStrategy_B11_09() public {
-        if (_haveFork) {
-            _astherusLive = _hasCode(BSC.ASTHERUS_STAKE_MANAGER) && _hasCode(BSC.asBNB);
-            _wombatLive = _hasCode(LOCAL_WOMBAT_POOL_ASBNB);
-        }
-        if (!_astherusLive || !_wombatLive) {
-            _offlinePnLCheck();
-            return;
-        }
+        uint256 bnbPerAsBnb = _asBnbToBnb(1e18);
+        _setOraclePrice(ASBNB, (uint256(_bnbUsdE8) * bnbPerAsBnb) / 1e18);
 
-        vm.deal(address(this), TRADE_NOTIONAL);
+        // Wombat venue probe — no asBNB asset exists -> graceful fallback to PCS.
+        bool wombatHasAsBnb = _wombatHasAsBnb();
+        emit log_named_uint("wombat_lists_asbnb", wombatHasAsBnb ? 1 : 0);
+
+        vm.deal(address(this), address(this).balance + PROBE_BNB);
         _startPnL();
 
-        // ---- 1. BNB -> asBNB at internal (cheap) rate. ----
-        if (!_tryAstherusDeposit(TRADE_NOTIONAL)) {
-            _offlinePnLCheck();
-            return;
-        }
-        uint256 asBal = IasBNB(BSC.asBNB).balanceOf(address(this));
-        if (asBal == 0) {
-            _offlinePnLCheck();
-            return;
+        // 1) Mint asBNB internally (cheap leg).
+        uint256 asBnbHeld = _mintAsBnb(PROBE_BNB);
+        require(asBnbHeld > 0, "asBNB mint failed");
+
+        // 2) Quote the dynamic-AMM (PCS v3) for the sell leg.
+        uint256 internalWbnb = _asBnbToBnb(asBnbHeld);
+        uint256 poolWbnb = _quote(ASBNB, WBNB, asBnbHeld);
+        emit log_named_uint("internal_value_wbnb", internalWbnb);
+        emit log_named_uint("pool_quote_wbnb", poolWbnb);
+
+        // 3) Execute only on a genuine premium; else hold flat at fair value.
+        if (poolWbnb > internalWbnb) {
+            IERC20(ASBNB).approve(PCS_SWAP_ROUTER, asBnbHeld);
+            IPCSV3Router(PCS_SWAP_ROUTER).exactInputSingle(
+                IPCSV3Router.ExactInputSingleParams({
+                    tokenIn: ASBNB,
+                    tokenOut: WBNB,
+                    fee: POOL_FEE,
+                    recipient: address(this),
+                    amountIn: asBnbHeld,
+                    amountOutMinimum: internalWbnb,
+                    sqrtPriceLimitX96: 0
+                })
+            );
+            emit log_string("arb executed: AMM premium captured");
+        } else {
+            emit log_string("no edge: holding asBNB flat at internal value");
         }
 
-        // ---- 2. Quote Wombat first to confirm premium > haircut. ----
-        IWombatPool pool = IWombatPool(LOCAL_WOMBAT_POOL_ASBNB);
-        uint256 quoteOut;
-        uint256 quoteHaircut;
-        try pool.quotePotentialSwap(BSC.asBNB, BSC.WBNB, asBal) returns (
-            uint256 potOut, uint256 hc
-        ) {
-            quoteOut = potOut;
-            quoteHaircut = hc;
-        } catch {
-            _offlinePnLCheck();
-            return;
-        }
-        // Require gross out > notional + haircut buffer to avoid loss.
-        // notional was 50 BNB invested -> asBal asBNB; we want quoteOut
-        // (WBNB) > 50 BNB x 1.012 (1.2 % above breakeven incl haircut +
-        // dust).
-        if (quoteOut < (TRADE_NOTIONAL * 10_120) / 10_000) {
-            // Insufficient premium -> bail before swapping.
-            _endPnL("B11-09: insufficient premium, no trade");
-            return;
-        }
-
-        // ---- 3. Execute swap asBNB -> WBNB on Wombat. ----
-        IERC20(BSC.asBNB).approve(LOCAL_WOMBAT_POOL_ASBNB, asBal);
-        uint256 wbnbOut;
-        try pool.swap(
-            BSC.asBNB, BSC.WBNB, asBal, quoteOut - quoteHaircut / 2, address(this), block.timestamp
-        ) returns (uint256 actualOut, uint256) {
-            wbnbOut = actualOut;
-        } catch {
-            _offlinePnLCheck();
-            return;
-        }
-
-        // ---- 4. Unwrap WBNB so the PnL block measures BNB directly. ----
-        if (wbnbOut > 0) {
-            IWBNB(BSC.WBNB).withdraw(wbnbOut);
-        }
-
-        // Refresh asBNB oracle from internal rate (it's likely we have ~0
-        // asBNB left; this just keeps the oracle honest).
-        try IasBNB(BSC.asBNB).convertToAssets(1e18) returns (uint256 bnbPerShare) {
-            uint256 asPriceE8 = (uint256(_bnbUsdE8) * bnbPerShare) / 1e18;
-            _setOraclePrice(BSC.asBNB, asPriceE8);
-        } catch {}
-
-        _endPnL("B11-09: asBNB Wombat dynamic peg arb");
+        _endPnL("B11-09: asBNB dynamic-AMM peg arb (guarded; flat if no edge)");
     }
 
-    // ---- Helpers ----
-
-    function _hasCode(address a) internal view returns (bool) {
-        uint256 s;
-        assembly {
-            s := extcodesize(a)
-        }
-        return s > 0;
+    function _wombatHasAsBnb() internal view returns (bool) {
+        (bool ok, bytes memory ret) =
+            WOMBAT_MAIN_POOL.staticcall(abi.encodeWithSignature("addressOfAsset(address)", ASBNB));
+        if (!ok || ret.length != 32) return false;
+        return abi.decode(ret, (address)) != address(0);
     }
 
-    function _tryAstherusDeposit(uint256 bnbAmt) internal returns (bool) {
-        if (bnbAmt == 0) return false;
-        IAstherusStakeManagerLocal sm = IAstherusStakeManagerLocal(BSC.ASTHERUS_STAKE_MANAGER);
-        try sm.deposit{value: bnbAmt}() {
-            return true;
+    function _quote(address tin, address tout, uint256 amt) internal returns (uint256 out) {
+        try IPCSV3Quoter(PCS_QUOTER).quoteExactInputSingle(
+            IPCSV3Quoter.QuoteExactInputSingleParams({
+                tokenIn: tin,
+                tokenOut: tout,
+                amountIn: amt,
+                fee: POOL_FEE,
+                sqrtPriceLimitX96: 0
+            })
+        ) returns (uint256 o, uint160, uint32, uint256) {
+            out = o;
         } catch {
-            try sm.stake{value: bnbAmt}() {
-                return true;
-            } catch {
-                return false;
-            }
+            out = 0;
         }
     }
 
-    function _offlinePnLCheck() internal {
-        // Scenario: Wombat pool overweight in WBNB -> asBNB priced at 1.045
-        // BNB (200 bp gross premium vs internal 1.025).
-        //   Trade 50 BNB -> mint 50/1.025 = 48.78 asBNB.
-        //   Sell on Wombat: 48.78 x 1.045 = 50.97 BNB gross.
-        //   Wombat haircut (asymmetric, ~5 bp on aligned pools): 50.97 x
-        //     0.0005 = 0.025 BNB.
-        //   Net out: 50.97 - 0.025 = 50.94 BNB.
-        //   Profit on 50 BNB notional: +0.94 BNB ~ +$564 atomic.
-        //   ~ 1.88 % atomic on the 50 BNB inventory.
-        //
-        // vs B11-04 (flash-backed, PCS v3): B11-04 gets ~1.7 % atomic; B11-09
-        // skips flash fees and gets ~1.88 % at the cost of holding inventory
-        // for one block. Capital efficiency is worse (50 BNB at risk vs
-        // ~5 BNB buffer), but no flash callback complexity.
+    function _asBnbToBnb(uint256 amt) internal view returns (uint256) {
+        uint256 slis = amt;
+        (bool ok, bytes memory ret) =
+            ASBNB_MINTER.staticcall(abi.encodeWithSignature("convertToTokens(uint256)", amt));
+        if (ok && ret.length == 32) slis = abi.decode(ret, (uint256));
+        (bool ok2, bytes memory ret2) =
+            LISTA_SM.staticcall(abi.encodeWithSignature("convertSnBnbToBnb(uint256)", slis));
+        if (ok2 && ret2.length == 32) return abi.decode(ret2, (uint256));
+        return slis;
+    }
 
-        uint256 notional = TRADE_NOTIONAL;
-        // Pre-fund native BNB so the PnL delta measures the +0.94 BNB.
-        vm.deal(address(this), notional);
-        _startPnL();
-
-        // Simulate: 50 BNB in, ~50.94 BNB out.
-        uint256 simBnbOut = (notional * 10_188) / 10_000; // 1.88 % gain
-        vm.deal(address(this), simBnbOut);
-
-        emit log_named_uint("offline_sim_bnb_in_wei", notional);
-        emit log_named_uint("offline_sim_bnb_out_wei", simBnbOut);
-        _endPnL("B11-09[offline]: asBNB Wombat dynamic peg arb");
+    function _mintAsBnb(uint256 bnbAmt) internal returns (uint256) {
+        uint256 before = IERC20(ASBNB).balanceOf(address(this));
+        (bool ok,) = LISTA_SM.call{value: bnbAmt}(abi.encodeWithSignature("deposit()"));
+        if (!ok) return 0;
+        uint256 slis = IERC20(SLISBNB).balanceOf(address(this));
+        if (slis == 0) return 0;
+        IERC20(SLISBNB).approve(ASBNB_MINTER, slis);
+        (bool ok2,) = ASBNB_MINTER.call(abi.encodeWithSignature("mintAsBnb(uint256)", slis));
+        if (!ok2) return 0;
+        return IERC20(ASBNB).balanceOf(address(this)) - before;
     }
 }

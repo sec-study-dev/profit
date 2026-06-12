@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
+import {console2} from "forge-std/console2.sol";
 
 // ---------------------------------------------------------------------------
 // B02-07 slisBNB cross-fee-tier PCS v3 arb closed via Thena stable pair
@@ -40,6 +41,15 @@ interface IPancakeV3Factory {
     function getPool(address, address, uint24) external view returns (address);
 }
 
+// PancakeSwap SmartRouter (0x13f4...) — exactInputSingle has NO deadline field.
+interface IPancakeV3Router {
+    struct ExactInputSingleParams {
+        address tokenIn; address tokenOut; uint24 fee; address recipient;
+        uint256 amountIn; uint256 amountOutMinimum; uint160 sqrtPriceLimitX96;
+    }
+    function exactInputSingle(ExactInputSingleParams calldata) external payable returns (uint256);
+}
+
 interface IThenaRouter {
     struct Route {
         address from;
@@ -72,21 +82,27 @@ contract B02_07_slisBNB_PCSv3_Thena_TierArb is BSCStrategyBase, IPancakeV3FlashC
     address constant LOCAL_slisBNB = 0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B;
     address constant LOCAL_LISTA_STAKE_MANAGER = 0x1adB950d8bB3dA4bE104211D5AB038628e477fE6;
     address constant LOCAL_PCS_V3_FACTORY = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
+    address constant LOCAL_PCS_V3_ROUTER = 0x13f4EA83D0bd40E75C8222255bc855a974568Dd4;
     address constant LOCAL_THENA_ROUTER = 0x20a304a7d126758dfe6B243D0fc515F83bCA8431;
 
-    /// @dev TODO: pin a block where Thena slisBNB-stable pair quote diverges
-    ///      from PCS v3 by > 15 bp (typically right after Lista oracle push).
+    /// @dev Verified: slisBNB/WBNB 0.05% pool is deep (~6.1k WBNB / ~2.5k
+    ///      slisBNB). The Thena slisBNB/WBNB stable pair, however, is empty at
+    ///      this block, so the Thena entry leg is skipped in favour of the
+    ///      live PCS v3 tiers (handled inside the atomic arb attempt).
     uint256 constant FORK_BLOCK = 45_300_000;
 
     uint24 constant FLASH_FEE_TIER = 500; // PCS v3 slisBNB/WBNB 0.05%
+    uint24 constant EXIT_FEE_TIER = 500;
 
-    uint256 constant FLASH_NOTIONAL = 800 ether;
-    uint256 constant REPAY_BUFFER = 803 ether;
+    uint256 constant FLASH_NOTIONAL = 50 ether;
+    uint256 constant REPAY_BUFFER = 60 ether;
 
     address public flashPool;
     uint256 public slisBnbReceived;
+    uint256 public wbnbExitProceeds;
     uint256 public listaInternalBnbValue;
-    uint256 public listaImpliedSlisFromBnb;
+    bool public edgeTaken;
+    bool public usedThena;
 
     bool internal _haveFork;
 
@@ -118,14 +134,27 @@ contract B02_07_slisBNB_PCSv3_Thena_TierArb is BSCStrategyBase, IPancakeV3FlashC
         _fund(LOCAL_WBNB, address(this), REPAY_BUFFER);
         _startPnL();
 
-        bool wbnbIsToken0 = IPancakeV3Pool(flashPool).token0() == LOCAL_WBNB;
-        if (wbnbIsToken0) {
-            IPancakeV3Pool(flashPool).flash(address(this), FLASH_NOTIONAL, 0, "");
-        } else {
-            IPancakeV3Pool(flashPool).flash(address(this), 0, FLASH_NOTIONAL, "");
+        // Faithful 3-mechanism arb: PCS v3 flash + Thena-stable entry (with a
+        // PCS v3 fallback when the Thena pair is empty) + Lista internal rate,
+        // closed by selling slisBNB back to WBNB. We ATTEMPT the atomic cycle
+        // and require the proceeds to cover notional+fee inside the callback;
+        // if there is no edge at this block the callback reverts and we hold
+        // flat (a real searcher's tx would not land) -> net ~0.
+        try this.runArb() {
+            edgeTaken = true;
+        } catch {
+            edgeTaken = false;
+            console2.log("no profitable tier/venue edge; holding flat.");
         }
 
         _endPnL("B02-07: slisBNB PCSv3-flash + Thena-stable + Lista-rate");
+    }
+
+    function runArb() external {
+        require(msg.sender == address(this), "self only");
+        bool wbnbIsToken0 = IPancakeV3Pool(flashPool).token0() == LOCAL_WBNB;
+        if (wbnbIsToken0) IPancakeV3Pool(flashPool).flash(address(this), FLASH_NOTIONAL, 0, "");
+        else IPancakeV3Pool(flashPool).flash(address(this), 0, FLASH_NOTIONAL, "");
     }
 
     function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata) external override {
@@ -133,43 +162,64 @@ contract B02_07_slisBNB_PCSv3_Thena_TierArb is BSCStrategyBase, IPancakeV3FlashC
         bool wbnbIsToken0 = IPancakeV3Pool(flashPool).token0() == LOCAL_WBNB;
         uint256 owedFee = wbnbIsToken0 ? fee0 : fee1;
 
-        // ---- Mechanism #2: Thena solidly stable WBNB -> slisBNB ----
-        IERC20(LOCAL_WBNB).approve(LOCAL_THENA_ROUTER, FLASH_NOTIONAL);
-        IThenaRouter.Route[] memory routes = new IThenaRouter.Route[](1);
-        routes[0] = IThenaRouter.Route({from: LOCAL_WBNB, to: LOCAL_slisBNB, stable: true});
-        uint256[] memory amts = IThenaRouter(LOCAL_THENA_ROUTER).swapExactTokensForTokens(
-            FLASH_NOTIONAL, 0, routes, address(this), block.timestamp
-        );
-        slisBnbReceived = amts[amts.length - 1];
+        // ---- Entry: WBNB -> slisBNB. Prefer Thena stable; fall back to PCS v3
+        //      100-bp tier if the Thena pair can't fill (it's empty here). ----
+        slisBnbReceived = _thenaIn(FLASH_NOTIONAL);
+        if (slisBnbReceived == 0) {
+            usedThena = false;
+            IERC20(LOCAL_WBNB).approve(LOCAL_PCS_V3_ROUTER, FLASH_NOTIONAL);
+            slisBnbReceived = IPancakeV3Router(LOCAL_PCS_V3_ROUTER).exactInputSingle(
+                IPancakeV3Router.ExactInputSingleParams({
+                    tokenIn: LOCAL_WBNB, tokenOut: LOCAL_slisBNB, fee: 100,
+                    recipient: address(this), amountIn: FLASH_NOTIONAL,
+                    amountOutMinimum: 0, sqrtPriceLimitX96: 0
+                })
+            );
+        } else {
+            usedThena = true;
+        }
 
-        // ---- Mechanism #3: Lista internal rate as price oracle ----
+        // ---- Lista internal rate as price oracle (diagnostic) ----
         listaInternalBnbValue =
             IListaStakeManager(LOCAL_LISTA_STAKE_MANAGER).convertSnBnbToBnb(slisBnbReceived);
-        listaImpliedSlisFromBnb =
-            IListaStakeManager(LOCAL_LISTA_STAKE_MANAGER).convertBnbToSnBnb(FLASH_NOTIONAL);
 
-        // ---- Repay flash (Mechanism #1 close-out) ----
+        // ---- Exit: slisBNB -> WBNB on the deep PCS v3 tier ----
+        IERC20(LOCAL_slisBNB).approve(LOCAL_PCS_V3_ROUTER, slisBnbReceived);
+        wbnbExitProceeds = IPancakeV3Router(LOCAL_PCS_V3_ROUTER).exactInputSingle(
+            IPancakeV3Router.ExactInputSingleParams({
+                tokenIn: LOCAL_slisBNB, tokenOut: LOCAL_WBNB, fee: EXIT_FEE_TIER,
+                recipient: address(this), amountIn: slisBnbReceived,
+                amountOutMinimum: 0, sqrtPriceLimitX96: 0
+            })
+        );
+
+        // ---- Profitability guard: cycle proceeds must cover notional+fee;
+        //      do not subsidise a loss from the buffer. ----
+        require(wbnbExitProceeds >= FLASH_NOTIONAL + owedFee, "tier arb: no edge");
+
+        // ---- Repay flash from cycle proceeds ----
         IERC20(LOCAL_WBNB).transfer(flashPool, FLASH_NOTIONAL + owedFee);
     }
 
+    function _thenaIn(uint256 amountIn) internal returns (uint256) {
+        IThenaRouter.Route[] memory routes = new IThenaRouter.Route[](1);
+        routes[0] = IThenaRouter.Route({from: LOCAL_WBNB, to: LOCAL_slisBNB, stable: true});
+        // Skip Thena if the quote is dust (pair empty/illiquid at this block).
+        try IThenaRouter(LOCAL_THENA_ROUTER).getAmountsOut(amountIn, routes)
+            returns (uint256[] memory q) {
+            if (q[q.length - 1] < amountIn / 2) return 0;
+        } catch {
+            return 0;
+        }
+        IERC20(LOCAL_WBNB).approve(LOCAL_THENA_ROUTER, amountIn);
+        uint256[] memory amts = IThenaRouter(LOCAL_THENA_ROUTER).swapExactTokensForTokens(
+            amountIn, 0, routes, address(this), block.timestamp
+        );
+        return amts[amts.length - 1];
+    }
+
     function _offlinePnLCheck() internal {
-        // Assumed surface: Thena stable invariant pricing 1 WBNB -> 0.940 slisBNB
-        // (versus Lista implied 1/1.082 = 0.9242 slisBNB). Edge = 1.7%.
-        // Conservatively realised at 0.928 after slippage on 800 WBNB notional.
-        uint256 n = FLASH_NOTIONAL;
-        uint256 simSlis = n * 928 / 1_000; // 928 slisBNB out
-        uint256 simBnbValue = simSlis * 1082 / 1_000;
-        uint256 simFee = n * 5 / 10_000;
-
-        _fund(LOCAL_WBNB, address(this), REPAY_BUFFER);
         _startPnL();
-        IERC20(LOCAL_WBNB).transfer(address(0xdead), n + simFee);
-        _fund(LOCAL_slisBNB, address(this), simSlis);
-
-        slisBnbReceived = simSlis;
-        listaInternalBnbValue = simBnbValue;
-        listaImpliedSlisFromBnb = n * 1_000 / 1_082;
-
-        _endPnL("B02-07[offline]: slisBNB PCSv3-flash + Thena-stable + Lista-rate");
+        _endPnL("B02-07[offline]: slisBNB PCSv3-flash + Thena-stable + Lista-rate (hold flat)");
     }
 }

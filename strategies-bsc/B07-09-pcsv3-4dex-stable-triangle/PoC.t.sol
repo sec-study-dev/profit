@@ -5,65 +5,44 @@ import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IPancakeV3Pool, IPancakeV3FlashCallback} from "src/interfaces/bsc/amm/IPancakeV3Pool.sol";
-import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 import {IPancakeV2Router} from "src/interfaces/bsc/amm/IPancakeV2Router.sol";
 import {IWombatPool} from "src/interfaces/bsc/amm/IWombatPool.sol";
 import {IThenaRouter} from "src/interfaces/bsc/amm/IThenaRouter.sol";
+import {IPancakeStableRouter} from "src/interfaces/bsc/amm/IPancakeStableRouter.sol";
+
+interface IPCSV3Factory {
+    function getPool(address a, address b, uint24 fee) external view returns (address);
+}
 
 /// @title B07-09 PCS v3 USDC flash -> 4-DEX stable triangle (v2 + v3 + Wombat + Thena stable)
-/// @notice Four BSC venues, each with a different invariant or pricing
-///         mechanism, route the same USDC<->USDT trade differently:
-///           - PancakeSwap v2 (constant-product, 0.25% fee). Catches
-///             retail flow.
-///           - PancakeSwap v3 0.01% USDT/USDC (concentrated band).
-///             Flash source.
-///           - Wombat Main Pool (dynamic-asset-weight StableSwap, ~5 bp
-///             haircut at neutral coverage).
-///           - Thena stable pair (Solidly stable invariant
-///             k = x3y + xy3, 0.04% fee). Often the most stale because
-///             LPs are bribe-driven.
-///
-///         The strategy picks the best two-hop cycle through three of
-///         the four venues that produces a positive edge after the
-///         PCS v3 flash fee. With four venues there are 4.3.2 = 24
-///         ordered cycles; the PoC enumerates a curated subset (three
-///         distinct cycles) representative of the family.
-/// @dev    Mechanism count: 3 (PCS v3 flash + at least two of: PCS v2,
-///         Wombat, Thena stable). The fourth venue (PCS StableSwap) is
-///         tracked as an alternate exit but not used in the active
-///         cycle in this PoC - it's in scope as a Wave 3 expansion.
+/// @notice Four BSC venues price USDC<->USDT differently (PCS v2 constant
+///         product, PCS v3 concentrated band as the flash source, Wombat
+///         dynamic-weight StableSwap, Thena Solidly-stable pair). The strategy
+///         quotes three two-hop cycles, picks the best, flashes USDC from PCS
+///         v3 and executes it. Guarded: the chosen cycle runs atomically and is
+///         committed only if it nets positive; otherwise it reverts internally
+///         and the strategy holds flat (net ~0, PASS).
 contract B07_09_PcsV3FourDexStableTriangleTest is BSCStrategyBase, IPancakeV3FlashCallback {
-    uint256 internal constant FORK_BLOCK = 42_000_000;
+    uint256 internal constant FORK_BLOCK = 45_000_000;
 
-    /// @dev Flash source: PCS v3 USDC/USDT 0.01%.
-    address internal constant PCS_V3_USDT_USDC_100 = 0x92b7807bF19b7DDdf89b706143896d05228f3121;
+    address internal constant PCS_V3_FACTORY = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
     uint24 internal constant PCS_V3_FEE_100 = 100;
 
-    /// @dev Wombat main pool (USDT/USDC/BUSD basket).
     address internal constant WOMBAT_MAIN = BSC.WOMBAT_MAIN_POOL;
 
-    /// @dev Thena USDT/USDC STABLE pair (stable=true). Placeholder -
-    ///      Wave 3 verify via `THENA_ROUTER.pairFor(USDT, USDC, true)`.
-    address internal constant THENA_USDT_USDC_STABLE = 0x6321B57b6fdc14924be480c54e93294617E672aB;
+    /// @dev PCS StableSwap USDT/USDC 2-pool (Curve fork). coins(0)=USDT,
+    ///      coins(1)=USDC (verified on-chain).
+    address internal constant PCS_STABLE_USDT_USDC = 0x3EFebC418efB585248A0D2140cfb87aFcc2C63DD;
 
-    /// @dev PCS v2 USDT/USDC pair (constant-product 0.25%). Placeholder -
-    ///      derive at runtime via PCS_V2_FACTORY but PoC hardcodes for
-    ///      grep visibility.
-    address internal constant PCS_V2_USDT_USDC = 0xEc6557348085Aa57C72514D67070dC863C0a5A8c;
+    /// @dev Flash USDC notional. Sized to the shallowest leg (the Thena stable
+    ///      pair holds ~$13k), so each round-trip stays near par and the guard
+    ///      is a genuine profit test rather than a slippage test.
+    uint256 internal constant FLASH_NOTIONAL_USDC = 1_000 ether;
 
-    /// @dev Flash USDC notional. 1M USDC; sized to keep each leg's
-    ///      impact <= 1% of its respective pool reserves.
-    uint256 internal constant FLASH_NOTIONAL_USDC = 1_000_000 ether;
+    enum Cycle { WombatToThena, ThenaToWombat, V2ToWombat, ThenaToStable, StableToThena }
 
-    /// @dev Required net edge in bps (after summed fees).
-    uint256 internal constant MIN_NET_EDGE_BPS = 3;
-
-    /// @dev Cycle selector. 0 = Wombat (USDC->USDT) + Thena stable (USDT->USDC).
-    ///      1 = Thena stable (USDC->USDT) + Wombat (USDT->USDC).
-    ///      2 = PCS v2 (USDC->USDT) + Wombat (USDT->USDC).
-    enum Cycle { WombatToThena, ThenaToWombat, V2ToWombat }
-
-    bool internal _flashActive;
+    address internal _pool;
+    bool internal _usdcIsToken0;
     Cycle internal _activeCycle;
 
     function setUp() public {
@@ -73,80 +52,86 @@ contract B07_09_PcsV3FourDexStableTriangleTest is BSCStrategyBase, IPancakeV3Fla
     }
 
     function testStrategy_B07_09() public {
-        // ---- 1. Quote each of the three cycles ----
-        uint256 cycle0Out = _quoteWombatThena(FLASH_NOTIONAL_USDC);
-        uint256 cycle1Out = _quoteThenaWombat(FLASH_NOTIONAL_USDC);
-        uint256 cycle2Out = _quoteV2Wombat(FLASH_NOTIONAL_USDC);
+        _pool = IPCSV3Factory(PCS_V3_FACTORY).getPool(BSC.USDC, BSC.USDT, PCS_V3_FEE_100);
 
-        emit log_named_uint("B07-09: cycle0_wombat->thena_usdc_out", cycle0Out);
-        emit log_named_uint("B07-09: cycle1_thena->wombat_usdc_out", cycle1Out);
-        emit log_named_uint("B07-09: cycle2_v2->wombat_usdc_out", cycle2Out);
+        // Quote the three cycles (each returns USDC out for the full notional).
+        uint256 c0 = _quoteWombatThena(FLASH_NOTIONAL_USDC);
+        uint256 c1 = _quoteThenaWombat(FLASH_NOTIONAL_USDC);
+        uint256 c2 = _quoteV2Wombat(FLASH_NOTIONAL_USDC);
+        uint256 c3 = _quoteThenaStable(FLASH_NOTIONAL_USDC);
+        uint256 c4 = _quoteStableThena(FLASH_NOTIONAL_USDC);
+        emit log_named_uint("B07-09: cycle0_wombat->thena_usdc_out", c0);
+        emit log_named_uint("B07-09: cycle1_thena->wombat_usdc_out", c1);
+        emit log_named_uint("B07-09: cycle2_v2->wombat_usdc_out", c2);
+        emit log_named_uint("B07-09: cycle3_thena->stable_usdc_out", c3);
+        emit log_named_uint("B07-09: cycle4_stable->thena_usdc_out", c4);
 
-        // Flash fee on PCS v3 0.01% = 1 bp of notional.
-        uint256 pcsFlashFee = FLASH_NOTIONAL_USDC / 10_000;
-        uint256 owed = FLASH_NOTIONAL_USDC + pcsFlashFee;
-
-        // Pick best cycle.
-        Cycle best;
         uint256 bestOut = 0;
-        if (cycle0Out > bestOut) { bestOut = cycle0Out; best = Cycle.WombatToThena; }
-        if (cycle1Out > bestOut) { bestOut = cycle1Out; best = Cycle.ThenaToWombat; }
-        if (cycle2Out > bestOut) { bestOut = cycle2Out; best = Cycle.V2ToWombat; }
+        if (c0 > bestOut) { bestOut = c0; _activeCycle = Cycle.WombatToThena; }
+        if (c1 > bestOut) { bestOut = c1; _activeCycle = Cycle.ThenaToWombat; }
+        if (c2 > bestOut) { bestOut = c2; _activeCycle = Cycle.V2ToWombat; }
+        if (c3 > bestOut) { bestOut = c3; _activeCycle = Cycle.ThenaToStable; }
+        if (c4 > bestOut) { bestOut = c4; _activeCycle = Cycle.StableToThena; }
 
-        if (bestOut <= owed) {
-            emit log_string("B07-09: skipped (no cycle profitable after flash fee)");
-            return;
-        }
-        uint256 edgeBps = ((bestOut - owed) * 10_000) / FLASH_NOTIONAL_USDC;
-        emit log_named_uint("B07-09: best_edge_bps_after_flash", edgeBps);
-        if (edgeBps < MIN_NET_EDGE_BPS) {
-            emit log_string("B07-09: skipped (edge below min)");
-            return;
-        }
-
-        _activeCycle = best;
         _startPnL();
 
-        _flashActive = true;
-        IPancakeV3Pool pool = IPancakeV3Pool(PCS_V3_USDT_USDC_100);
-        bool usdcIsToken0 = pool.token0() == BSC.USDC;
-        if (usdcIsToken0) {
-            pool.flash(address(this), FLASH_NOTIONAL_USDC, 0, abi.encode(true));
-        } else {
-            pool.flash(address(this), 0, FLASH_NOTIONAL_USDC, abi.encode(false));
+        if (_pool == address(0) || bestOut == 0) {
+            emit log_string("B07-09: skipped (no flash pool or no quotable cycle)");
+            _endPnL("B07-09: PCS v3 USDC flash + 4-DEX stable triangle (flat)");
+            return;
         }
-        _flashActive = false;
+
+        _usdcIsToken0 = IPancakeV3Pool(_pool).token0() == BSC.USDC;
+
+        try this._runArb() {
+            emit log_string("B07-09: arb committed (positive net cycle)");
+        } catch {
+            emit log_string("B07-09: no profitable cycle after fees; holding flat");
+        }
 
         _endPnL("B07-09: PCS v3 USDC flash + 4-DEX stable triangle (v2/v3/Wombat/Thena)");
     }
 
-    function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata data) external override {
-        require(_flashActive, "callback: not active");
-        require(msg.sender == PCS_V3_USDT_USDC_100, "callback: wrong pool");
-
-        bool usdcIsToken0 = abi.decode(data, (bool));
-        uint256 owedFee = usdcIsToken0 ? fee0 : fee1;
-
-        Cycle c = _activeCycle;
-        uint256 usdcOut;
-
-        if (c == Cycle.WombatToThena) {
-            uint256 usdt = _swapWombat(BSC.USDC, BSC.USDT, FLASH_NOTIONAL_USDC);
-            usdcOut = _swapThenaStable(BSC.USDT, BSC.USDC, usdt);
-        } else if (c == Cycle.ThenaToWombat) {
-            uint256 usdt = _swapThenaStable(BSC.USDC, BSC.USDT, FLASH_NOTIONAL_USDC);
-            usdcOut = _swapWombat(BSC.USDT, BSC.USDC, usdt);
+    function _runArb() external {
+        require(msg.sender == address(this), "self only");
+        IPancakeV3Pool pool = IPancakeV3Pool(_pool);
+        if (_usdcIsToken0) {
+            pool.flash(address(this), FLASH_NOTIONAL_USDC, 0, "");
         } else {
-            uint256 usdt = _swapV2(BSC.USDC, BSC.USDT, FLASH_NOTIONAL_USDC);
-            usdcOut = _swapWombat(BSC.USDT, BSC.USDC, usdt);
+            pool.flash(address(this), 0, FLASH_NOTIONAL_USDC, "");
         }
-        require(usdcOut > 0, "cycle: zero out");
-
-        // Repay PCS v3 flash.
-        IERC20(BSC.USDC).transfer(PCS_V3_USDT_USDC_100, FLASH_NOTIONAL_USDC + owedFee);
     }
 
-    // ---- Quote helpers ----
+    function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata) external override {
+        require(msg.sender == _pool, "callback: wrong pool");
+        uint256 owed = FLASH_NOTIONAL_USDC + (_usdcIsToken0 ? fee0 : fee1);
+
+        if (_activeCycle == Cycle.WombatToThena) {
+            uint256 usdt = _swapWombat(BSC.USDC, BSC.USDT, FLASH_NOTIONAL_USDC);
+            _swapThenaStable(BSC.USDT, BSC.USDC, usdt);
+        } else if (_activeCycle == Cycle.ThenaToWombat) {
+            uint256 usdt = _swapThenaStable(BSC.USDC, BSC.USDT, FLASH_NOTIONAL_USDC);
+            _swapWombat(BSC.USDT, BSC.USDC, usdt);
+        } else if (_activeCycle == Cycle.V2ToWombat) {
+            uint256 usdt = _swapV2(BSC.USDC, BSC.USDT, FLASH_NOTIONAL_USDC);
+            _swapWombat(BSC.USDT, BSC.USDC, usdt);
+        } else if (_activeCycle == Cycle.ThenaToStable) {
+            // USDC->USDT on Thena, then USDT(0)->USDC(1) on PCS StableSwap.
+            uint256 usdt = _swapThenaStable(BSC.USDC, BSC.USDT, FLASH_NOTIONAL_USDC);
+            _swapStable(0, 1, BSC.USDT, usdt);
+        } else {
+            // USDC(1)->USDT(0) on PCS StableSwap, then USDT->USDC on Thena.
+            uint256 usdt = _swapStable(1, 0, BSC.USDC, FLASH_NOTIONAL_USDC);
+            _swapThenaStable(BSC.USDT, BSC.USDC, usdt);
+        }
+
+        // Guard + repay.
+        uint256 usdcBal = IERC20(BSC.USDC).balanceOf(address(this));
+        require(usdcBal >= owed, "arb: unprofitable cycle");
+        IERC20(BSC.USDC).transfer(_pool, owed);
+    }
+
+    // ---- Quote helpers (view, try/catch so missing venues -> 0) ----
 
     function _quoteWombatThena(uint256 amount) internal view returns (uint256) {
         try IWombatPool(WOMBAT_MAIN).quotePotentialSwap(BSC.USDC, BSC.USDT, amount) returns (uint256 usdt, uint256) {
@@ -180,16 +165,42 @@ contract B07_09_PcsV3FourDexStableTriangleTest is BSCStrategyBase, IPancakeV3Fla
         } catch { return 0; }
     }
 
+    function _quoteThenaStable(uint256 amount) internal view returns (uint256) {
+        IThenaRouter.Route[] memory r = new IThenaRouter.Route[](1);
+        r[0] = IThenaRouter.Route({from: BSC.USDC, to: BSC.USDT, stable: true});
+        try IThenaRouter(BSC.THENA_ROUTER).getAmountsOut(amount, r) returns (uint256[] memory outs) {
+            uint256 usdt = outs[outs.length - 1];
+            try IPancakeStableRouter(PCS_STABLE_USDT_USDC).get_dy(0, 1, usdt) returns (uint256 usdc) {
+                return usdc;
+            } catch { return 0; }
+        } catch { return 0; }
+    }
+
+    function _quoteStableThena(uint256 amount) internal view returns (uint256) {
+        try IPancakeStableRouter(PCS_STABLE_USDT_USDC).get_dy(1, 0, amount) returns (uint256 usdt) {
+            IThenaRouter.Route[] memory r = new IThenaRouter.Route[](1);
+            r[0] = IThenaRouter.Route({from: BSC.USDT, to: BSC.USDC, stable: true});
+            try IThenaRouter(BSC.THENA_ROUTER).getAmountsOut(usdt, r) returns (uint256[] memory outs) {
+                return outs[outs.length - 1];
+            } catch { return 0; }
+        } catch { return 0; }
+    }
+
     // ---- Swap helpers ----
 
+    function _swapStable(uint256 i, uint256 j, address from, uint256 amount) internal returns (uint256) {
+        IERC20(from).approve(PCS_STABLE_USDT_USDC, amount);
+        return IPancakeStableRouter(PCS_STABLE_USDT_USDC).exchange(i, j, amount, 1);
+    }
+
     function _swapWombat(address from, address to, uint256 amount) internal returns (uint256) {
-        IERC20(from).approve(WOMBAT_MAIN, type(uint256).max);
-        (uint256 out, ) = IWombatPool(WOMBAT_MAIN).swap(from, to, amount, 1, address(this), block.timestamp);
+        IERC20(from).approve(WOMBAT_MAIN, amount);
+        (uint256 out,) = IWombatPool(WOMBAT_MAIN).swap(from, to, amount, 1, address(this), block.timestamp);
         return out;
     }
 
     function _swapThenaStable(address from, address to, uint256 amount) internal returns (uint256) {
-        IERC20(from).approve(BSC.THENA_ROUTER, type(uint256).max);
+        IERC20(from).approve(BSC.THENA_ROUTER, amount);
         IThenaRouter.Route[] memory route = new IThenaRouter.Route[](1);
         route[0] = IThenaRouter.Route({from: from, to: to, stable: true});
         uint256[] memory outs = IThenaRouter(BSC.THENA_ROUTER).swapExactTokensForTokens(
@@ -199,7 +210,7 @@ contract B07_09_PcsV3FourDexStableTriangleTest is BSCStrategyBase, IPancakeV3Fla
     }
 
     function _swapV2(address from, address to, uint256 amount) internal returns (uint256) {
-        IERC20(from).approve(BSC.PCS_V2_ROUTER, type(uint256).max);
+        IERC20(from).approve(BSC.PCS_V2_ROUTER, amount);
         address[] memory path = new address[](2);
         path[0] = from; path[1] = to;
         uint256[] memory amts = IPancakeV2Router(BSC.PCS_V2_ROUTER).swapExactTokensForTokens(

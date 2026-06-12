@@ -20,3 +20,6 @@ lib/
 
 # Claude Code harness state (agent worktrees, local settings)
 .claude/
+
+# BSC fix scratch playbook (not part of repo)
+.bsc_fix_playbook.md

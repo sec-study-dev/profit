@@ -40,10 +40,12 @@ interface IMasterChefV3Min {
     function v3PoolAddressPid(address pool) external view returns (uint256 pid);
 }
 
-/// @title B08-03 PCS v3 USDe/USDT concentrated LP -> MasterChefV3
-/// @notice Concentrated LP on the 0.01 % USDe/USDT pool, stake the NFT into
-///         MasterChefV3 for CAKE emissions, warp one week, harvest and
-///         off-ramp back to USDT.
+/// @title B08-03 PCS v3 USDT/USDC concentrated LP -> MasterChefV3
+/// @notice Concentrated LP on the 0.01 % USDT/USDC pool (pid 12, deep
+///         liquidity at the fork block), stake the NFT into MasterChefV3 for
+///         CAKE emissions, warp one week, harvest and off-ramp back to USDT.
+/// @dev    The USDe/USDT pool does not exist at the fork block; USDT/USDC
+///         fee-100 (0x92b7..) is the deep, MasterChefV3-registered stable pool.
 contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 40_000_000;
 
@@ -69,7 +71,7 @@ contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
     function setUp() public {
         _fork(FORK_BLOCK);
         _trackToken(BSC.USDT);
-        _trackToken(BSC.USDe);
+        _trackToken(BSC.USDC);
         _trackToken(BSC.CAKE);
         _setOraclePrice(BSC.CAKE, CAKE_PRICE_E8);
     }
@@ -78,10 +80,10 @@ contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
         _fund(BSC.USDT, address(this), PRINCIPAL_USDT);
         _startPnL();
 
-        // ---- 1. Resolve USDe/USDT 0.01 % pool ----
+        // ---- 1. Resolve USDT/USDC 0.01 % pool ----
         IPancakeV3Factory factory = IPancakeV3Factory(BSC.PCS_V3_FACTORY);
-        address pool = factory.getPool(BSC.USDe, BSC.USDT, FEE_TIER);
-        require(pool != address(0), "no USDe/USDT pool");
+        address pool = factory.getPool(BSC.USDC, BSC.USDT, FEE_TIER);
+        require(pool != address(0), "no USDT/USDC pool");
         _trackToken(pool);
 
         IPancakeV3Pool p = IPancakeV3Pool(pool);
@@ -94,7 +96,7 @@ contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
         // $500k is < 1 bp = negligible.
         uint256 half = PRINCIPAL_USDT / 2;
         _fund(BSC.USDT, address(this), PRINCIPAL_USDT - half);
-        _fund(BSC.USDe, address(this), half);
+        _fund(BSC.USDC, address(this), half);
 
         // ---- 3. Mint NFT position [tickCurrent  TICK_HALF_WIDTH] ----
         // Snap to tickSpacing.
@@ -104,9 +106,9 @@ contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
 
         // Approvals for NPM.
         IERC20(BSC.USDT).approve(LOCAL_NPM, type(uint256).max);
-        IERC20(BSC.USDe).approve(LOCAL_NPM, type(uint256).max);
+        IERC20(BSC.USDC).approve(LOCAL_NPM, type(uint256).max);
 
-        (address t0, address t1) = BSC.USDe < BSC.USDT ? (BSC.USDe, BSC.USDT) : (BSC.USDT, BSC.USDe);
+        (address t0, address t1) = BSC.USDC < BSC.USDT ? (BSC.USDC, BSC.USDT) : (BSC.USDT, BSC.USDC);
         uint256 amount0Desired = IERC20(t0).balanceOf(address(this));
         uint256 amount1Desired = IERC20(t1).balanceOf(address(this));
 
@@ -124,8 +126,11 @@ contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
             recipient: address(this),
             deadline: block.timestamp + 600
         });
-        (uint256 tokenId, uint128 liq,,) = npm.mint(mp);
+        (uint256 tokenId, uint128 liq, uint256 used0, uint256 used1) = npm.mint(mp);
         require(liq > 0, "no liquidity minted");
+        // Track how much principal was consumed by the position (both legs are
+        // $1 stables) so we can credit it back on exit below.
+        uint256 positionStableConsumed = used0 + used1; // 1e18 stable units
 
         // ---- 4. Transfer NFT to MasterChefV3 to start CAKE accrual ----
         npm.safeTransferFrom(address(this), LOCAL_MASTERCHEF_V3, tokenId);
@@ -147,9 +152,8 @@ contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
         // notionalUsdE6 = 1_000_000 * 1e6 ~ 1e12 (1M USD in 1e6 USD scale).
         uint256 notionalUsdE6 = PRINCIPAL_USDT / 1e12; // 1e18 -> 1e6 USD
         uint256 weeklyCakeUsdE6 = (notionalUsdE6 * ASSUMED_CAKE_APR_BPS * HOLD_DAYS) / (10_000 * 365);
-        // CAKE amount: weeklyCakeUsdE6 / CAKE_PRICE_E8 * 1e18 / 1e2
-        // = weeklyCakeUsdE6 * 1e16 / CAKE_PRICE_E8
-        uint256 cakeAmt = (weeklyCakeUsdE6 * 1e16) / CAKE_PRICE_E8;
+        // CAKE(1e18) = usdE6 * 1e20 / priceE8.
+        uint256 cakeAmt = (weeklyCakeUsdE6 * 1e20) / CAKE_PRICE_E8;
         _fund(BSC.CAKE, address(this), IERC20(BSC.CAKE).balanceOf(address(this)) + cakeAmt);
 
         // ---- 8. Sell CAKE -> USDT (modeled at price - slippage) ----
@@ -164,22 +168,16 @@ contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
         uint256 lpFees = (PRINCIPAL_USDT * ASSUMED_LP_FEE_BPS_WEEKLY) / 10_000;
         _fund(BSC.USDT, address(this), IERC20(BSC.USDT).balanceOf(address(this)) + lpFees);
 
-        // ---- 10. Withdraw NFT and credit underlying back. The PoC does not
-        //         call DecreaseLiquidity (out of scope for emission-yield
-        //         measurement) so the LP notional remains "locked" inside the
-        //         position. We mark it via a price override on the pool addr
-        //         that represents fair value of one NFT - too granular for
-        //         offline measurement. Instead, credit USDT 1:1 for the
-        //         half + half tokens we no longer hold to approximate. ----
+        // ---- 10. Best-effort on-chain withdraw of the staked NFT, then credit
+        //         the parked LP underlyings back to the wallet (both legs are
+        //         $1 stables) so the balance-delta PnL reflects principal-
+        //         preserved + emissions/fees, not -principal for the locked NFT. ----
         try mc.withdraw(tokenId, address(this)) {
             // ok
         } catch {
             // Withdraw uses real-chain state we don't have offline.
         }
-        // Re-credit principal (the LP underlyings) so PnL reads as
-        // (emission + fees) vs principal-preserved.
-        _fund(BSC.USDT, address(this), IERC20(BSC.USDT).balanceOf(address(this)) + half);
-        _fund(BSC.USDe, address(this), 0);
+        _fund(BSC.USDT, address(this), IERC20(BSC.USDT).balanceOf(address(this)) + positionStableConsumed);
 
         emit log_named_uint("tokenId", tokenId);
         emit log_named_uint("liquidity", uint256(liq));
@@ -187,7 +185,7 @@ contract B08_03_PcsV3CakeGaugeTest is BSCStrategyBase {
         emit log_named_uint("modeled_usdt_from_cake_1e18", usdtFromCake);
         emit log_named_uint("lp_fees_usdt_1e18", lpFees);
 
-        _endPnL("B08-03: PCS v3 USDe/USDT + MasterChefV3");
+        _endPnL("B08-03: PCS v3 USDT/USDC + MasterChefV3");
     }
 
     /// @dev Snap a tick down to the nearest multiple of spacing.

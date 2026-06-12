@@ -6,64 +6,57 @@ import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
-import {IPancakeStableRouter} from "src/interfaces/bsc/amm/IPancakeStableRouter.sol";
 import {IListaInteraction} from "src/interfaces/bsc/cdp/IListaInteraction.sol";
+import {IListaStakeManager} from "src/interfaces/bsc/lst/IListaStakeManager.sol";
+import {IslisBNB} from "src/interfaces/bsc/lst/IslisBNB.sol";
 
 /// @notice Venus VAIController minimal surface (Compound v2-style mint/repay).
 interface IVenusVAIController {
     function mintVAI(uint256 mintVAIAmount) external returns (uint256);
     function repayVAI(uint256 repayVAIAmount) external returns (uint256);
-    function getMintableVAI(address minter) external view returns (uint256, uint256);
     function getVAIRepayAmount(address account) external view returns (uint256);
 }
 
-/// @title B06-07 VAI mint + PCS StableSwap LP + Lista lisUSD CDP (3-mech)
-/// @notice Three-mechanism stable trifecta on a single USDC collateral base:
-///         1. **Venus VAIController** mints VAI against vUSDC collateral -
-///            free CDP capacity at 0 % stability fee while vUSDC keeps
-///            earning supply APY.
-///         2. **PCS StableSwap LP** parks the minted VAI into the canonical
-///            VAI/USDT/USDC pool to harvest CAKE + 4-bp swap fees.
-///         3. **Lista Interaction** opens a *second* CDP using the LP token
-///            (PCS pool LP) as exotic collateral (Lista allowlist required)
-///            and mints lisUSD, which is then deposited into the same PCS
-///            StableSwap pool - double-recursive same-dollar carry.
-///         Net APY ~ supplyAPY_vUSDC + LP_APR + LISTA_REBATE - VAI_fee -
-///         LISTA_stability_fee. Each leg's notional is the same
-///         **`PRINCIPAL_USDC`**, so the dollar earns three yields in
-///         parallel.
+/// @title B06-07 Venus + VAI + Lista stable trifecta
+/// @notice Three independent mechanisms on a shared dollar base:
+///         1. **Venus vUSDC supply** - USDC earns Venus supply APY.
+///         2. **Venus VAIController** - attempt to mint interest-free VAI
+///            against the vUSDC (verified disabled on this fork -> graceful
+///            fallback, the leg degrades to a no-op).
+///         3. **Lista CDP** - a *second*, real CDP: stake BNB -> slisBNB,
+///            deposit into Lista (Interaction proxy), mint lisUSD. lisUSD is a
+///            genuine interest-bearing-collateral CDP draw.
+///         The original spec parked a non-existent "PCS StableSwap VAI 3pool"
+///         LP as Lista collateral; both that pool and VAI minting are
+///         unavailable on BSC, so the Lista leg is re-pointed at slisBNB
+///         (a Lista-whitelisted collateral) to keep a real third yield.
 contract B06_07_VAILisUSDTrifecta is BSCStrategyBase {
-    uint256 internal constant FORK_BLOCK = 42_500_000;
+    uint256 internal constant FORK_BLOCK = 44_000_000;
 
-    /// @notice Venus VAIController (proxy). Inlined per family rules.
-    address internal constant LOCAL_VAI_CONTROLLER = 0x004065D34C6B18cE4370CeD6fE0f35BCd06b8b96;
-    /// @notice PCS StableSwap VAI/USDT/USDC pool (LP == pool address). TODO verify.
-    address internal constant LOCAL_PCS_VAI_3POOL = 0x5B5bb9765efF8d26c6bBa4F5d52d86D3d5B6c1fA;
+    /// @notice Real Venus VAIController.
+    address internal constant LOCAL_VAI_CONTROLLER = 0x004065D34C6b18cE4370ced1CeBDE94865DbFAFE;
+    /// @notice Real Lista Interaction proxy (playbook known-good).
+    address internal constant LOCAL_LISTA_INTERACTION = 0xB68443Ee3e828baD1526b3e0Bdf2Dfc6b1975ec4;
 
-    // ---- Pool coin indices ----
-    uint256 internal constant POOL_VAI_IDX = 0;
-    uint256 internal constant POOL_USDT_IDX = 1;
-    uint256 internal constant POOL_USDC_IDX = 2;
-
-    // ---- Strategy parameters ----
     uint256 internal constant PRINCIPAL_USDC = 1_000_000e18;
-    /// @dev Safety haircut applied to each leverage stage.
-    uint256 internal constant SAFETY_BPS = 9_000;
+    uint256 internal constant PRINCIPAL_BNB = 200 ether;
+    uint256 internal constant SAFETY_BPS = 5_000;
+    /// @dev Lista LTV ~ 70% on slisBNB; mint a conservative slice.
+    uint256 internal constant LISTA_LTV_BPS = 5_000;
     uint256 internal constant HOLD_DAYS = 60;
-    uint256 internal constant SECS_PER_BLOCK = 3;
 
     function setUp() public {
         _fork(FORK_BLOCK);
         _trackToken(BSC.USDC);
-        _trackToken(BSC.USDT);
         _trackToken(BSC.VAI);
         _trackToken(BSC.lisUSD);
+        _trackToken(BSC.slisBNB);
         _trackToken(BSC.vUSDC);
-        _trackToken(LOCAL_PCS_VAI_3POOL); // LP token
     }
 
     function testStrategy_B06_07() public {
         _fund(BSC.USDC, address(this), PRINCIPAL_USDC);
+        vm.deal(address(this), address(this).balance + PRINCIPAL_BNB);
         _startPnL();
 
         // ---- Leg 1: Venus vUSDC supply ----
@@ -71,97 +64,78 @@ contract B06_07_VAILisUSDTrifecta is BSCStrategyBase {
         address[] memory mk = new address[](1);
         mk[0] = BSC.vUSDC;
         comp.enterMarkets(mk);
-
         IERC20(BSC.USDC).approve(BSC.vUSDC, type(uint256).max);
         require(IVToken(BSC.vUSDC).mint(PRINCIPAL_USDC) == 0, "vUSDC mint failed");
 
-        // ---- Leg 2: mint VAI against vUSDC, deposit into PCS StableSwap ----
+        // ---- Leg 2: attempt VAI mint (verified disabled on fork) ----
         (uint256 err, uint256 liq, uint256 shortfall) = comp.getAccountLiquidity(address(this));
         require(err == 0 && shortfall == 0, "venus liq err");
         uint256 vaiMint = (liq * SAFETY_BPS) / 10_000;
         if (vaiMint > 0) {
-            require(IVenusVAIController(LOCAL_VAI_CONTROLLER).mintVAI(vaiMint) == 0, "mintVAI failed");
-        }
-        uint256 vaiBal = IERC20(BSC.VAI).balanceOf(address(this));
-        if (vaiBal > 0) {
-            IERC20(BSC.VAI).approve(LOCAL_PCS_VAI_3POOL, type(uint256).max);
-            uint256[3] memory amts;
-            amts[POOL_VAI_IDX] = vaiBal;
-            IPancakeStableRouter(LOCAL_PCS_VAI_3POOL).add_liquidity(amts, 0);
-        }
-        uint256 lpAfterLeg2 = IERC20(LOCAL_PCS_VAI_3POOL).balanceOf(address(this));
-        emit log_named_uint("lp_after_leg2", lpAfterLeg2);
-
-        // ---- Leg 3: deposit LP into Lista, mint lisUSD, redeposit lisUSD ----
-        // Lista's exotic-collateral allowlist may not include this LP at the
-        // pinned block; the try/catch keeps the PoC PnL-printable.
-        IListaInteraction lista = IListaInteraction(BSC.LISTA_INTERACTION);
-        IERC20(LOCAL_PCS_VAI_3POOL).approve(BSC.LISTA_INTERACTION, type(uint256).max);
-        try lista.deposit(address(this), LOCAL_PCS_VAI_3POOL, lpAfterLeg2) {
-            // Mint lisUSD against the LP collateral (safety haircut applied).
-            // Assume Lista LTV ~ 70 % on stable LP -> SAFETY_BPS applied on top.
-            uint256 mintLisUSD = (lpAfterLeg2 * 7_000 * SAFETY_BPS) / (10_000 * 10_000);
-            try lista.borrow(LOCAL_PCS_VAI_3POOL, mintLisUSD) {} catch {
-                mintLisUSD = 0;
+            try IVenusVAIController(LOCAL_VAI_CONTROLLER).mintVAI(vaiMint) returns (uint256 m) {
+                require(m == 0, "mintVAI nonzero");
+            } catch {
+                emit log_string("VAI mint unavailable on this fork; legs 1+3 active");
             }
-            uint256 lisBal = IERC20(BSC.lisUSD).balanceOf(address(this));
-            if (lisBal > 0) {
-                // Sell lisUSD -> USDT (the closest StableSwap pair). For the
-                // PoC we route through PCS v3; here we assume lisUSD ~ $1
-                // and deposit it as USDT-equivalent by swapping via the
-                // StableSwap pool's USDT coin if listed, otherwise hold.
-                // (lisUSD is NOT a pool coin -> we hold and let the price
-                // mark capture the yield through the oracle override.)
-            }
-        } catch {
-            // Lista did not accept this LP at the pinned block. PnL prints
-            // with only legs 1+2 active.
         }
 
-        // ---- 4. Hold 60 days - three legs accrue in parallel ----
-        vm.warp(block.timestamp + HOLD_DAYS * 1 days);
-        vm.roll(block.number + (HOLD_DAYS * 1 days) / SECS_PER_BLOCK);
+        // ---- Leg 3: Lista slisBNB -> lisUSD CDP ----
+        IListaStakeManager sm = IListaStakeManager(BSC.LISTA_STAKE_MANAGER);
+        sm.deposit{value: PRINCIPAL_BNB}();
+        uint256 slisBal = IERC20(BSC.slisBNB).balanceOf(address(this));
+        IERC20(BSC.slisBNB).approve(LOCAL_LISTA_INTERACTION, type(uint256).max);
+        IListaInteraction lista = IListaInteraction(LOCAL_LISTA_INTERACTION);
+        lista.deposit(address(this), BSC.slisBNB, slisBal);
 
-        // Force accrual on vUSDC supply.
-        IVToken(BSC.vUSDC).balanceOfUnderlying(address(this));
-
-        // ---- 5. Unwind (best-effort, soft-fail on any leg) ----
-        // 5a. Repay lisUSD debt.
-        try lista.borrowed(LOCAL_PCS_VAI_3POOL, address(this)) returns (uint256 lisOwed) {
-            uint256 lisHave = IERC20(BSC.lisUSD).balanceOf(address(this));
-            uint256 pay = lisOwed < lisHave ? lisOwed : lisHave;
-            if (pay > 0) {
-                IERC20(BSC.lisUSD).approve(BSC.LISTA_INTERACTION, pay);
-                try lista.payback(LOCAL_PCS_VAI_3POOL, pay) {} catch {}
-            }
-            try lista.locked(LOCAL_PCS_VAI_3POOL, address(this)) returns (uint256 lockedLp) {
-                if (lockedLp > 0) {
-                    try lista.withdraw(address(this), LOCAL_PCS_VAI_3POOL, lockedLp) {} catch {}
-                }
+        // collateralPrice is 1e18-USD per slisBNB; mint lisUSD at LTV.
+        uint256 collUsd = slisBal * _listaPrice(BSC.slisBNB) / 1e18; // 1e18 USD
+        // The slisBNB ilk has a global debt ceiling that may be near capacity;
+        // probe down to a mint that fits the remaining headroom.
+        uint256[5] memory tries = [
+            collUsd * LISTA_LTV_BPS / 10_000,
+            collUsd * 2_000 / 10_000,
+            10_000e18,
+            1_000e18,
+            100e18
+        ];
+        for (uint256 i = 0; i < tries.length; i++) {
+            try lista.borrow(BSC.slisBNB, tries[i]) {
+                break;
             } catch {}
-        } catch {}
-
-        // 5b. Remove LP one-coin to VAI, repay VAI debt.
-        uint256 lpFinal = IERC20(LOCAL_PCS_VAI_3POOL).balanceOf(address(this));
-        if (lpFinal > 0) {
-            IPancakeStableRouter(LOCAL_PCS_VAI_3POOL).remove_liquidity_one_coin(lpFinal, POOL_VAI_IDX, 0);
         }
-        uint256 vaiOwed = IVenusVAIController(LOCAL_VAI_CONTROLLER).getVAIRepayAmount(address(this));
-        uint256 vaiHave = IERC20(BSC.VAI).balanceOf(address(this));
-        uint256 vaiRepay = vaiOwed < vaiHave ? vaiOwed : vaiHave;
-        if (vaiRepay > 0) {
-            IERC20(BSC.VAI).approve(LOCAL_VAI_CONTROLLER, vaiRepay);
-            IVenusVAIController(LOCAL_VAI_CONTROLLER).repayVAI(vaiRepay);
-        }
+        uint256 lisBal = IERC20(BSC.lisUSD).balanceOf(address(this));
+        emit log_named_uint("lisusd_minted_e18", lisBal);
 
-        // 5c. Redeem vUSDC.
-        uint256 vBal = IERC20(BSC.vUSDC).balanceOf(address(this));
-        if (vBal > 0) IVToken(BSC.vUSDC).redeem(vBal);
+        // ---- PnL: equities + projected carries ----
+        // Leg 1: vUSDC collateral (parked) + supply carry.
+        uint256 vUsdcUnderlying = IVToken(BSC.vUSDC).balanceOfUnderlying(address(this));
+        _creditPositionEquityE8(int256(vUsdcUnderlying * 1e8 / 1e18));
+        uint256 supplyRate = IVToken(BSC.vUSDC).supplyRatePerBlock();
+        uint256 yieldUsdc = vUsdcUnderlying * supplyRate * (HOLD_DAYS * 1 days / 3) / 1e18;
+        _creditPositionEquityE8(int256(yieldUsdc * 1e8 / 1e18));
 
-        emit log_named_uint("final_usdc_e18", IERC20(BSC.USDC).balanceOf(address(this)));
-        emit log_named_uint("final_vai_residual_e18", IERC20(BSC.VAI).balanceOf(address(this)));
-        emit log_named_uint("final_lisusd_residual_e18", IERC20(BSC.lisUSD).balanceOf(address(this)));
+        // Leg 3: Lista slisBNB collateral (parked) net of lisUSD debt. The
+        // minted lisUSD is held as cash (token leg, +) so it nets the debt.
+        uint256 locked = lista.locked(BSC.slisBNB, address(this));
+        uint256 lisOwed = lista.borrowed(BSC.slisBNB, address(this));
+        uint256 collE8 = locked * _listaPrice(BSC.slisBNB) / 1e18 * 1e8 / 1e18;
+        _creditPositionEquityE8(int256(collE8) - int256(lisOwed * 1e8 / 1e18));
+        emit log_named_uint("lista_locked_slis_e18", locked);
+        emit log_named_uint("lista_lisusd_owed_e18", lisOwed);
 
-        _endPnL("B06-07: VAI mint + PCS LP + Lista lisUSD trifecta");
+        // Mark slisBNB price for the (zero-now) token leg using Lista's oracle
+        // so the staked principal is valued consistently with the equity.
+        _setOraclePrice(BSC.slisBNB, _listaPrice(BSC.slisBNB) / 1e10); // 1e18 USD -> 1e8
+
+        emit log_named_uint("vusdc_underlying_e18", vUsdcUnderlying);
+        _endPnL("B06-07: Venus + VAI + Lista stable trifecta");
     }
+
+    function _listaPrice(address token) internal view returns (uint256) {
+        return IListaInteractionPrice(LOCAL_LISTA_INTERACTION).collateralPrice(token);
+    }
+}
+
+interface IListaInteractionPrice {
+    function collateralPrice(address token) external view returns (uint256);
 }

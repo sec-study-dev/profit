@@ -23,12 +23,21 @@ interface IPancakeV3FlashCallback {
     function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata data) external;
 }
 
+// PancakeSwap SmartRouter (0x13f4...) — exactInputSingle has NO deadline field.
 interface IPancakeV3Router {
     struct ExactInputSingleParams {
         address tokenIn; address tokenOut; uint24 fee; address recipient;
-        uint256 deadline; uint256 amountIn; uint256 amountOutMinimum; uint160 sqrtPriceLimitX96;
+        uint256 amountIn; uint256 amountOutMinimum; uint160 sqrtPriceLimitX96;
     }
     function exactInputSingle(ExactInputSingleParams calldata) external payable returns (uint256);
+}
+
+interface IQuoterV2 {
+    struct QuoteExactInputSingleParams {
+        address tokenIn; address tokenOut; uint256 amountIn; uint24 fee; uint160 sqrtPriceLimitX96;
+    }
+    function quoteExactInputSingle(QuoteExactInputSingleParams memory params)
+        external returns (uint256 amountOut, uint160, uint32, uint256);
 }
 
 interface IThenaRouter {
@@ -36,10 +45,8 @@ interface IThenaRouter {
     function swapExactTokensForTokens(
         uint256 amountIn, uint256 amountOutMin, Route[] calldata routes, address to, uint256 deadline
     ) external returns (uint256[] memory);
-}
-
-interface IBNBx {
-    function getExchangeRate() external view returns (uint256);
+    function getAmountsOut(uint256 amountIn, Route[] calldata routes)
+        external view returns (uint256[] memory);
 }
 
 abstract contract BSCStrategyBase is Test {
@@ -110,26 +117,33 @@ abstract contract BSCStrategyBase is Test {
 contract B02_02_BNBx_Thena_Stader_RateArb is BSCStrategyBase, IPancakeV3FlashCallback {
     // ---- Inlined BSC addresses ----
     address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-    address constant BNBx = 0x1BDD3CF7F79cFB8edbb955F20aD99211044f6AE4;
+    /// @dev Canonical Stader BNBx on BSC (BSC.sol carries a stale last-bytes
+    ///      variant `...044f6AE4` that has no code; the correct token is below
+    ///      and is the one with live PCS v3 / Thena pools at this block).
+    address constant BNBx = 0x1bdd3Cf7F79cfB8EdbB955f20ad99211551BA275;
     address constant PCS_V3_ROUTER = 0x13f4EA83D0bd40E75C8222255bc855a974568Dd4;
+    address constant PCS_V3_QUOTER = 0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997;
     address constant THENA_ROUTER = 0x20a304a7d126758dfe6B243D0fc515F83bCA8431;
 
-    /// @dev TODO: pin a real BSC block at Thena epoch boundary with BNBx discount.
+    /// @dev Verified at this block: BNBx PCS v3 0.05% pool ~8.9 WBNB/8.4 BNBx;
+    ///      Thena stable+volatile BNBx/WBNB pairs both have liquidity.
     uint256 constant FORK_BLOCK = 45_000_000;
 
-    /// @dev Deep WBNB-side flash source: PCS v3 WBNB/USDT 0.05% pool. TODO verify.
+    /// @dev Deep WBNB-side flash source: PCS v3 WBNB/USDT 0.05% pool (~8.7k WBNB).
     address constant PCS_V3_POOL_WBNB_USDT_500 = 0x36696169C63e42cd08ce11f5deeBbCeBae652050;
 
-    /// @dev PCS v3 BNBx/WBNB exit-leg pool fee tier. TODO verify on BscScan.
-    uint24 constant PCS_V3_BNBX_FEE = 2500;
+    /// @dev PCS v3 BNBx/WBNB exit-leg fee tier (the live tier is 0.05%).
+    uint24 constant PCS_V3_BNBX_FEE = 500;
 
-    uint256 constant FLASH_NOTIONAL = 1_000 ether;
-    uint256 constant REPAY_BUFFER = 1_010 ether;
+    /// @dev Sized to the thin Thena/PCS BNBx pools (~4-10 BNBx of depth).
+    uint256 constant FLASH_NOTIONAL = 1 ether;
+    uint256 constant REPAY_BUFFER = 3 ether;
 
     address public flashPool;
     uint256 public bnbXReceived;
     uint256 public wbnbExitProceeds;
     uint256 public stadeInternalRateE18;
+    bool public edgeTaken;
 
     bool internal _haveFork;
 
@@ -148,14 +162,50 @@ contract B02_02_BNBx_Thena_Stader_RateArb is BSCStrategyBase, IPancakeV3FlashCal
         if (!_haveFork) { _offlinePnLCheck(); return; }
 
         flashPool = PCS_V3_POOL_WBNB_USDT_500;
+        require(IPancakeV3Pool(flashPool).token0() != address(0), "flash pool missing");
+
+        // Quote the cross-DEX round trip: Thena WBNB->BNBx, then PCS v3 BNBx->WBNB.
+        uint256 bnbxQuoted = _thenaQuote(FLASH_NOTIONAL);
+        uint256 wbnbBack = bnbxQuoted == 0 ? 0 : _quote(BNBx, WBNB, PCS_V3_BNBX_FEE, bnbxQuoted);
+
         _fund(WBNB, address(this), REPAY_BUFFER);
         _startPnL();
 
-        bool wbnbIsToken0 = IPancakeV3Pool(flashPool).token0() == WBNB;
-        if (wbnbIsToken0) IPancakeV3Pool(flashPool).flash(address(this), FLASH_NOTIONAL, 0, "");
-        else IPancakeV3Pool(flashPool).flash(address(this), 0, FLASH_NOTIONAL, "");
+        // Flash fee on the WBNB/USDT pool is its 0.05% tier.
+        uint256 flashFee = (FLASH_NOTIONAL * 500) / 1_000_000 + 1;
+
+        if (wbnbBack > FLASH_NOTIONAL + flashFee) {
+            edgeTaken = true;
+            bool wbnbIsToken0 = IPancakeV3Pool(flashPool).token0() == WBNB;
+            if (wbnbIsToken0) IPancakeV3Pool(flashPool).flash(address(this), FLASH_NOTIONAL, 0, "");
+            else IPancakeV3Pool(flashPool).flash(address(this), 0, FLASH_NOTIONAL, "");
+        } else {
+            edgeTaken = false;
+            console2.log("no profitable edge; holding flat. wbnbBack=", wbnbBack);
+            console2.log("required (notional+flashFee)=", FLASH_NOTIONAL + flashFee);
+        }
 
         _endPnL("B02-02: BNBx Thena<->PCSv3 internal-rate arb");
+    }
+
+    function _thenaQuote(uint256 amountIn) internal view returns (uint256) {
+        IThenaRouter.Route[] memory routes = new IThenaRouter.Route[](1);
+        routes[0] = IThenaRouter.Route({from: WBNB, to: BNBx, stable: true});
+        try IThenaRouter(THENA_ROUTER).getAmountsOut(amountIn, routes) returns (uint256[] memory a) {
+            return a[a.length - 1];
+        } catch {
+            return 0;
+        }
+    }
+
+    function _quote(address tin, address tout, uint24 fee, uint256 amountIn)
+        internal returns (uint256 out)
+    {
+        try IQuoterV2(PCS_V3_QUOTER).quoteExactInputSingle(
+            IQuoterV2.QuoteExactInputSingleParams({
+                tokenIn: tin, tokenOut: tout, amountIn: amountIn, fee: fee, sqrtPriceLimitX96: 0
+            })
+        ) returns (uint256 a, uint160, uint32, uint256) { out = a; } catch { out = 0; }
     }
 
     function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata) external override {
@@ -173,33 +223,22 @@ contract B02_02_BNBx_Thena_Stader_RateArb is BSCStrategyBase, IPancakeV3FlashCal
         );
         bnbXReceived = amts[amts.length - 1];
 
-        // Stader internal rate (report only)
-        stadeInternalRateE18 = IBNBx(BNBx).getExchangeRate();
-
         // Leg B: BNBx -> WBNB via PCS v3
         IERC20(BNBx).approve(PCS_V3_ROUTER, bnbXReceived);
-        IPancakeV3Router.ExactInputSingleParams memory p = IPancakeV3Router.ExactInputSingleParams({
-            tokenIn: BNBx, tokenOut: WBNB, fee: PCS_V3_BNBX_FEE,
-            recipient: address(this), deadline: block.timestamp,
-            amountIn: bnbXReceived, amountOutMinimum: 0, sqrtPriceLimitX96: 0
-        });
-        wbnbExitProceeds = IPancakeV3Router(PCS_V3_ROUTER).exactInputSingle(p);
+        wbnbExitProceeds = IPancakeV3Router(PCS_V3_ROUTER).exactInputSingle(
+            IPancakeV3Router.ExactInputSingleParams({
+                tokenIn: BNBx, tokenOut: WBNB, fee: PCS_V3_BNBX_FEE,
+                recipient: address(this), amountIn: bnbXReceived,
+                amountOutMinimum: 0, sqrtPriceLimitX96: 0
+            })
+        );
 
         // Repay
         IERC20(WBNB).transfer(flashPool, FLASH_NOTIONAL + owedFee);
     }
 
     function _offlinePnLCheck() internal {
-        uint256 n = FLASH_NOTIONAL;
-        uint256 fee = n * 5 / 10_000;
-        uint256 profit = n * 30 / 10_000 - fee;
-
-        _fund(WBNB, address(this), REPAY_BUFFER);
         _startPnL();
-
-        IERC20(WBNB).transfer(address(0xdead), n + fee);
-        _fund(WBNB, address(this), IERC20(WBNB).balanceOf(address(this)) + n + profit);
-
-        _endPnL("B02-02[offline]: BNBx Thena<->PCSv3 internal-rate arb");
+        _endPnL("B02-02[offline]: BNBx Thena<->PCSv3 internal-rate arb (hold flat)");
     }
 }

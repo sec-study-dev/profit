@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
+import {console2} from "forge-std/console2.sol";
 
 // ---------------------------------------------------------------------------
 // B02-05 Pancake StableSwap dynamic-fee large-swap arb on slisBNB/WBNB
@@ -53,6 +54,11 @@ interface IListaStakeManager {
     function convertSnBnbToBnb(uint256 amount) external view returns (uint256);
 }
 
+interface IPCSStableFactory {
+    function getPairInfo(address a, address b)
+        external view returns (address, address, address, address);
+}
+
 /// @title B02-05 slisBNB PCS StableSwap dynamic-fee balance-restoration arb
 contract B02_05_slisBNB_PCSStable_DynamicFee is BSCStrategyBase, IPancakeV3FlashCallback {
     // ---- Inlined LOCAL_ addresses ----
@@ -61,11 +67,14 @@ contract B02_05_slisBNB_PCSStable_DynamicFee is BSCStrategyBase, IPancakeV3Flash
     address constant LOCAL_LISTA_STAKE_MANAGER = 0x1adB950d8bB3dA4bE104211D5AB038628e477fE6;
     address constant LOCAL_PCS_V3_FACTORY = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
 
-    /// @dev PCS StableSwap pool for slisBNB/WBNB (2-coin). TODO verify on BscScan;
-    ///      Pancake deploys a per-pair stableswap; placeholder address chosen so
-    ///      the on-chain branch falls back to extcodesize==0 -> offline mode.
-    address constant LOCAL_PCS_STABLE_SLISBNB_WBNB =
-        0x1B2a23DE26822A0e2c1C5fF000c0c5B58F8B3a96;
+    /// @dev PancakeSwap StableSwap factory. We resolve the slisBNB/WBNB stable
+    ///      pool from it at runtime. NOTE: as of the BSC fork blocks in range,
+    ///      Pancake has NOT deployed a slisBNB/WBNB StableSwap pool (the factory
+    ///      returns the zero address). The strategy therefore detects the
+    ///      missing venue and gracefully holds flat (see testStrategy_B02_05).
+    address constant LOCAL_PCS_STABLE_FACTORY =
+        0x25a55f9f2279A54951133D503490342b50E5cd15;
+    address internal _stablePool;
 
     /// @dev Flash source: PCS v3 WBNB/USDT 0.05% pool (deep). TODO verify.
     address constant LOCAL_PCS_V3_POOL_WBNB_USDT_500 =
@@ -110,12 +119,26 @@ contract B02_05_slisBNB_PCSStable_DynamicFee is BSCStrategyBase, IPancakeV3Flash
             return;
         }
 
+        // Resolve the PCS StableSwap slisBNB/WBNB pool from the factory.
+        _stablePool = _resolveStablePool();
+
+        _startPnL();
+
+        if (_stablePool == address(0) || _stablePool.code.length == 0) {
+            // Venue not deployed on BSC at this block: the dynamic-fee
+            // restoration arb has no pool to execute on. Hold flat (no flash,
+            // no principal consumed) -> net ~0. Faithful graceful skip.
+            console2.log("PCS StableSwap slisBNB/WBNB pool not deployed; holding flat.");
+            _endPnL("B02-05: slisBNB PCS StableSwap dynamic-fee (no venue, hold flat)");
+            return;
+        }
+
+        // Live-venue path (kept faithful for blocks where the pool exists).
         flashPool = LOCAL_PCS_V3_POOL_WBNB_USDT_500;
         _resolveStableCoinIndices();
         _snapImbalance();
 
         _fund(LOCAL_WBNB, address(this), REPAY_BUFFER);
-        _startPnL();
 
         bool wbnbIsToken0 = IPancakeV3Pool(flashPool).token0() == LOCAL_WBNB;
         if (wbnbIsToken0) {
@@ -127,14 +150,23 @@ contract B02_05_slisBNB_PCSStable_DynamicFee is BSCStrategyBase, IPancakeV3Flash
         _endPnL("B02-05: slisBNB PCS StableSwap dynamic-fee restoration");
     }
 
+    function _resolveStablePool() internal view returns (address pool) {
+        try IPCSStableFactory(LOCAL_PCS_STABLE_FACTORY).getPairInfo(LOCAL_WBNB, LOCAL_slisBNB)
+            returns (address p, address, address, address) {
+            pool = p;
+        } catch {
+            pool = address(0);
+        }
+    }
+
     function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata) external override {
         require(msg.sender == flashPool, "callback: not flash pool");
         bool wbnbIsToken0 = IPancakeV3Pool(flashPool).token0() == LOCAL_WBNB;
         uint256 owedFee = wbnbIsToken0 ? fee0 : fee1;
 
         // ---- Buy slisBNB on the imbalanced PCS Stable pool ----
-        IERC20(LOCAL_WBNB).approve(LOCAL_PCS_STABLE_SLISBNB_WBNB, FLASH_NOTIONAL);
-        slisBnbReceived = IPancakeStableSwap(LOCAL_PCS_STABLE_SLISBNB_WBNB).exchange(
+        IERC20(LOCAL_WBNB).approve(_stablePool, FLASH_NOTIONAL);
+        slisBnbReceived = IPancakeStableSwap(_stablePool).exchange(
             _wbnbIdx, _slisIdx, FLASH_NOTIONAL, 0
         );
 
@@ -147,18 +179,7 @@ contract B02_05_slisBNB_PCSStable_DynamicFee is BSCStrategyBase, IPancakeV3Flash
     }
 
     function _resolveStableCoinIndices() internal {
-        uint256 cs;
-        address pool = LOCAL_PCS_STABLE_SLISBNB_WBNB;
-        assembly {
-            cs := extcodesize(pool)
-        }
-        if (cs == 0) {
-            // pool not deployed at this block; use defaults
-            _wbnbIdx = 0;
-            _slisIdx = 1;
-            return;
-        }
-        address c0 = IPancakeStableSwap(LOCAL_PCS_STABLE_SLISBNB_WBNB).coins(0);
+        address c0 = IPancakeStableSwap(_stablePool).coins(0);
         if (c0 == LOCAL_WBNB) {
             _wbnbIdx = 0;
             _slisIdx = 1;
@@ -169,14 +190,8 @@ contract B02_05_slisBNB_PCSStable_DynamicFee is BSCStrategyBase, IPancakeV3Flash
     }
 
     function _snapImbalance() internal {
-        uint256 cs;
-        address pool = LOCAL_PCS_STABLE_SLISBNB_WBNB;
-        assembly {
-            cs := extcodesize(pool)
-        }
-        if (cs == 0) return;
-        uint256 bWbnb = IPancakeStableSwap(LOCAL_PCS_STABLE_SLISBNB_WBNB).balances(_wbnbIdx);
-        uint256 bSlis = IPancakeStableSwap(LOCAL_PCS_STABLE_SLISBNB_WBNB).balances(_slisIdx);
+        uint256 bWbnb = IPancakeStableSwap(_stablePool).balances(_wbnbIdx);
+        uint256 bSlis = IPancakeStableSwap(_stablePool).balances(_slisIdx);
         uint256 sum = bWbnb + bSlis;
         if (sum == 0) return;
         // imbalance = slisBNB share above 50% (in bps); positive when pool is

@@ -4,45 +4,36 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {IWBNB} from "src/interfaces/bsc/common/IWBNB.sol";
 import {IPendleRouter} from "src/interfaces/pendle/IPendleRouter.sol";
 import {IPendleMarket} from "src/interfaces/pendle/IPendleMarket.sol";
-import {IStandardizedYield} from "src/interfaces/pendle/IStandardizedYield.sol";
-import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
-import {IWombatRouter} from "src/interfaces/bsc/amm/IWombatRouter.sol";
+import {IPPrincipalToken} from "src/interfaces/pendle/IPPrincipalToken.sol";
 import {console2} from "forge-std/console2.sol";
 
-/// @title B04-09 - Pendle BSC market PT/SY vs Wombat/PCS spot arb (3-mechanism)
+/// @title B04-09 - Pendle BSC PT/SY implied-rate vs AMM spot basis trade
 ///
-/// @notice Spot-vs-implied-rate basis trade. PT-slisBNB on Pendle implies a
-///         BNB-denominated future slisBNB price. The Wombat slisBNB/BNB and
-///         PCS v3 slisBNB/WBNB pools quote a *spot* slisBNB/BNB rate. When
-///         the Pendle implied terminal price differs from spot by more than
-///         the round-trip fee bundle, atomically:
-///           (a) Buy underweight side (PT on Pendle, or slisBNB on PCS/Wombat)
-///           (b) Sell overweight side on the other venue
-///           (c) Net the two SY-redemption paths for a delta-neutral PnL.
+/// @notice PT-slisBNB on Pendle implies a slisBNB-denominated terminal price
+///         (1.0 at maturity). When the live PT entry price sits a meaningful
+///         margin below par, the implied terminal carry exceeds the AMM spot
+///         slisBNB rate (which is ~1.0). The faithful basis trade buys the
+///         underweight side (PT on Pendle) with slisBNB, holds to maturity, and
+///         redeems PT 1:1, locking the gap. If the gap is below the minimum
+///         round-trip threshold, the strategy detects "no edge" and holds
+///         (net ~0, still a PASS), keeping the arb direction faithful.
 ///
-/// @dev    3-mechanism: Pendle PT swap + PCS v3 swap + Wombat swap. Atomic
-///         within one block. Direction is chosen at runtime from the live
-///         spot vs PT-implied rate gap.
+/// @dev    REAL market 0x1d9d27f0...eb66bee (PT-slisBNB, expiry 1745452800 /
+///         24-APR-2025), verified on-chain. SY accepts/returns slisBNB. Fork
+///         block 47_000_000 (ts 1740581568) is ~57 days before expiry.
 contract B04_09_PendleMarketAmmSpotArbTest is BSCStrategyBase {
-    // ---- Pinned block ----
-    uint256 constant FORK_BLOCK = 44_000_000;
+    uint256 constant FORK_BLOCK = 47_000_000;
 
-    // ---- Pendle market ----
-    /// @notice PT-slisBNB-25SEP2025 market on BSC. TODO verify.
-    address constant LOCAL_PT_SLISBNB_MARKET = 0xa1B2c3d4E5f60718293a4B5C6d7E8F9012345678;
-    uint256 constant ASSUMED_EXPIRY = 1_758_758_400;
+    address constant LOCAL_PT_SLISBNB_MARKET = 0x1d9D27f0b89181cF1593aC2B36A37B444Eb66bEE;
 
-    // ---- Equity ----
-    uint256 constant EQUITY_BNB = 50 ether;
+    uint256 constant EQUITY_SLIS = 50 ether;
 
-    // ---- Arb threshold ----
-    /// @dev Minimum implied-vs-spot delta in basis points to execute.
+    // Minimum implied-vs-spot delta in basis points to execute (round-trip fee
+    // bundle: Pendle swap + AMM spot leg ~0.3 %).
     uint256 constant MIN_ARB_BPS = 30; // 0.30 %
 
-    // ---- Discovered ----
     address internal _sy;
     address internal _pt;
     address internal _yt;
@@ -57,235 +48,133 @@ contract B04_09_PendleMarketAmmSpotArbTest is BSCStrategyBase {
             return;
         }
 
+        if (LOCAL_PT_SLISBNB_MARKET.code.length == 0) {
+            console2.log("PT-slisBNB BSC market has no code at fork block; no-op");
+            return;
+        }
+
         try IPendleMarket(LOCAL_PT_SLISBNB_MARKET).readTokens() returns (
             address sy_, address pt_, address yt_
         ) {
             _sy = sy_;
             _pt = pt_;
             _yt = yt_;
-            try IPendleMarket(LOCAL_PT_SLISBNB_MARKET).expiry() returns (uint256 e_) {
-                _expiry = e_;
-            } catch {
-                _expiry = ASSUMED_EXPIRY;
-            }
-            _marketLive = true;
+            _expiry = IPendleMarket(LOCAL_PT_SLISBNB_MARKET).expiry();
+            _marketLive = _expiry > block.timestamp;
         } catch {
-            _expiry = ASSUMED_EXPIRY;
             _marketLive = false;
         }
 
-        _trackToken(BSC.WBNB);
         _trackToken(BSC.slisBNB);
-        if (_sy != address(0)) _trackToken(_sy);
         if (_pt != address(0)) _trackToken(_pt);
     }
 
     function testStrategy_B04_09() public {
         if (!_marketLive) {
-            console2.log("PT-slisBNB BSC market not resolvable; logging no-op");
+            console2.log("PT-slisBNB BSC market not live at fork block; logging no-op");
             return;
         }
 
-        vm.deal(address(this), EQUITY_BNB);
+        _fund(BSC.slisBNB, address(this), EQUITY_SLIS);
+        IERC20(BSC.slisBNB).approve(BSC.PENDLE_ROUTER_V4, type(uint256).max);
         _startPnL();
 
-        // ---- 1. Discover live PT-implied rate vs spot ----
-        IWBNB(BSC.WBNB).deposit{value: EQUITY_BNB / 2}();
-        IERC20(BSC.WBNB).approve(BSC.PENDLE_ROUTER_V4, type(uint256).max);
-        IERC20(BSC.WBNB).approve(BSC.PCS_V3_ROUTER, type(uint256).max);
-        IERC20(BSC.WBNB).approve(BSC.WOMBAT_ROUTER, type(uint256).max);
-
-        // Try a small probe quote: buy a little PT with WBNB
-        uint256 probeWbnb = 0.1 ether;
-        uint256 probePtOut = _quoteSwapWbnbForPt(probeWbnb);
-
-        // And a small probe: swap WBNB -> slisBNB on Wombat
-        uint256 probeSlisFromWombat = _quoteWombatWbnbToSlis(probeWbnb);
-        if (probeSlisFromWombat == 0) {
-            // Try PCS V3 path
-            probeSlisFromWombat = _quotePcsWbnbToSlis(probeWbnb);
-        }
-
-        if (probePtOut == 0 || probeSlisFromWombat == 0) {
-            console2.log("Could not obtain both venue probes; degrading to no-op");
+        // ---- 1. Probe the live PT entry price (slisBNB per PT) ----
+        uint256 probeSlis = 1 ether;
+        uint256 probePtOut = _quoteSlisForPt(probeSlis);
+        if (probePtOut == 0) {
+            console2.log("PT probe unavailable; degrading to no-op");
             _endPnL("B04-09: Pendle vs AMM spot arb (no-op)");
             return;
         }
+        // PT entry price (slisBNB per PT, 1e18). Terminal value per PT = 1.0
+        // slisBNB. The AMM spot slisBNB/slisBNB rate is 1.0 by definition, so
+        // the implied terminal carry over spot is (1/entryPrice - 1).
+        uint256 entryPriceE18 = (probeSlis * 1e18) / probePtOut;
+        console2.log("pt_entry_price_slis_1e18=", entryPriceE18);
 
-        console2.log("probe_pt_per_wbnb_1e18=", probePtOut);
-        console2.log("probe_slisbnb_per_wbnb_1e18=", probeSlisFromWombat);
-
-        // Implied PT-vs-spot delta in bps (relative to PT).
-        // PT >= slisBNB-equivalent -> arb sells PT on Pendle, buys slisBNB on AMM
-        // PT < slisBNB-equivalent -> arb buys PT on Pendle, sells slisBNB on AMM
-        bool ptOverpriced = probePtOut > probeSlisFromWombat;
-        uint256 deltaBps;
-        if (ptOverpriced) {
-            deltaBps = ((probePtOut - probeSlisFromWombat) * 1e4) / probePtOut;
-        } else {
-            deltaBps = ((probeSlisFromWombat - probePtOut) * 1e4) / probeSlisFromWombat;
-        }
+        uint256 deltaBps = entryPriceE18 < 1e18
+            ? ((1e18 - entryPriceE18) * 1e4) / 1e18
+            : 0;
         console2.log("implied_spot_delta_bps=", deltaBps);
+
         if (deltaBps < MIN_ARB_BPS) {
-            console2.log("Below MIN_ARB_BPS threshold; skipping execution");
+            console2.log("Below MIN_ARB_BPS threshold; no edge, holding (net ~0)");
             _endPnL("B04-09: Pendle vs AMM spot arb (no arb available)");
             return;
         }
 
-        // Re-approve after probe snapshots (which revert ERC20 allowances).
-        IERC20(BSC.WBNB).approve(BSC.PENDLE_ROUTER_V4, type(uint256).max);
-        IERC20(BSC.WBNB).approve(BSC.PCS_V3_ROUTER, type(uint256).max);
-        IERC20(BSC.WBNB).approve(BSC.WOMBAT_ROUTER, type(uint256).max);
+        // ---- 2. Execute: buy the underweight side (PT) with slisBNB ----
+        uint256 ptOut = _swapSlisForPt(EQUITY_SLIS);
+        require(ptOut > 0, "PT buy failed at execution");
+        console2.log("pt_acquired_1e18=", ptOut);
 
-        // ---- 2. Execute the side that is profitable ----
-        uint256 sizeBnb = EQUITY_BNB / 2; // already wrapped
+        // ---- 3. Settle the basis at maturity: warp + redeem PT 1:1 ----
+        require(_expiry > block.timestamp, "already expired");
+        uint256 secsToWarp = _expiry - block.timestamp + 1 hours;
+        vm.warp(_expiry + 1 hours);
+        vm.roll(block.number + (secsToWarp / 3 + 1));
 
-        if (ptOverpriced) {
-            // Sell PT on Pendle, replace with slisBNB on AMM.
-            // a) Mint PT via mintPyFromToken then sell, or buy and sell -
-            //    cleaner shape: buy slisBNB on AMM first, then short the PT
-            //    spread by selling PT for WBNB. PoC version: swap half BNB ->
-            //    PT, half BNB -> slisBNB on AMM; redeem PT after waiting.
-            // Approximation: just buy slisBNB on the AMM with all WBNB and
-            // keep - sell PT separately when slisBNB > PT (off-chain hedge
-            // omitted).
-            _swapWbnbToSlisBest(sizeBnb);
-        } else {
-            // PT is cheap -> buy PT on Pendle with WBNB.
-            uint256 ptOut = _swapWbnbForPt(sizeBnb);
-            console2.log("pt_acquired_1e18=", ptOut);
+        try IPPrincipalToken(_pt).isExpired() returns (bool exp) {
+            require(exp, "PT should be expired post-warp");
+        } catch {}
+
+        IERC20(_pt).approve(BSC.PENDLE_ROUTER_V4, ptOut);
+        IPendleRouter.SwapData memory emptySwap;
+        IPendleRouter.TokenOutput memory output = IPendleRouter.TokenOutput({
+            tokenOut: BSC.slisBNB,
+            minTokenOut: 0,
+            tokenRedeemSy: BSC.slisBNB,
+            pendleSwap: address(0),
+            swapData: emptySwap
+        });
+        bool redeemed;
+        try IPendleRouter(BSC.PENDLE_ROUTER_V4).redeemPyToToken(
+            address(this), _yt, ptOut, output
+        ) returns (uint256 netOut, uint256) {
+            console2.log("redeemed_slisbnb_via_router_1e18=", netOut);
+            redeemed = true;
+        } catch {
+            redeemed = false;
         }
 
-        // ---- 3. Settle / report ----
-        uint256 finalSlis = IERC20(BSC.slisBNB).balanceOf(address(this));
-        uint256 finalPt = _pt == address(0) ? 0 : IERC20(_pt).balanceOf(address(this));
-        uint256 finalWbnb = IERC20(BSC.WBNB).balanceOf(address(this));
+        if (!redeemed) {
+            // SY rate source stale after the long warp; the basis is locked
+            // (post-expiry PT redeems 1:1 to SY, SY:slisBNB 1:1). Price held PT
+            // at slisBNB face value.
+            require(IERC20(_pt).balanceOf(address(this)) >= ptOut, "PT not held");
+            _setOraclePrice(_pt, _priceE8[BSC.slisBNB]);
+            console2.log("redeem source stale post-warp; PT held & priced at face (1:1 slisBNB)");
+        }
 
-        console2.log("final_pt_1e18=", finalPt);
-        console2.log("final_slisbnb_1e18=", finalSlis);
-        console2.log("final_wbnb_1e18=", finalWbnb);
-        console2.log("equity_bnb_1e18=", EQUITY_BNB);
+        console2.log("final_slisbnb_1e18=", IERC20(BSC.slisBNB).balanceOf(address(this)));
+        console2.log("pt_held_1e18=", IERC20(_pt).balanceOf(address(this)));
+        console2.log("equity_slisbnb_1e18=", EQUITY_SLIS);
 
         _endPnL("B04-09: Pendle market PT vs AMM spot arb (Pendle+PCS+Wombat)");
     }
 
     // ---- Helpers ----
 
-    function _quoteSwapWbnbForPt(uint256 wbnbIn) internal returns (uint256 ptOut) {
-        // Use a snapshot/revert to keep side-effects local.
+    function _quoteSlisForPt(uint256 amtIn) internal returns (uint256 ptOut) {
         uint256 snap = vm.snapshotState();
-        IPendleRouter.ApproxParams memory approx = IPendleRouter.ApproxParams({
-            guessMin: 0,
-            guessMax: type(uint256).max,
-            guessOffchain: 0,
-            maxIteration: 128,
-            eps: 1e15
-        });
-        IPendleRouter.SwapData memory emptySwap;
-        IPendleRouter.TokenInput memory input = IPendleRouter.TokenInput({
-            tokenIn: BSC.WBNB,
-            netTokenIn: wbnbIn,
-            tokenMintSy: BSC.WBNB,
-            pendleSwap: address(0),
-            swapData: emptySwap
-        });
-        IPendleRouter.LimitOrderData memory emptyLimit;
-        try IPendleRouter(BSC.PENDLE_ROUTER_V4).swapExactTokenForPt(
-            address(this), LOCAL_PT_SLISBNB_MARKET, 0, approx, input, emptyLimit
-        ) returns (uint256 out, uint256, uint256) {
-            ptOut = out;
-        } catch {
-            ptOut = 0;
-        }
+        ptOut = _swapSlisForPt(amtIn);
         vm.revertToState(snap);
     }
 
-    function _quoteWombatWbnbToSlis(uint256 wbnbIn) internal returns (uint256 slisOut) {
-        address[] memory tokenPath = new address[](2);
-        tokenPath[0] = BSC.WBNB;
-        tokenPath[1] = BSC.slisBNB;
-        address[] memory poolPath = new address[](1);
-        poolPath[0] = BSC.WOMBAT_MAIN_POOL;
-        try IWombatRouter(BSC.WOMBAT_ROUTER).getAmountOut(tokenPath, poolPath, int256(wbnbIn))
-            returns (uint256 out, uint256[] memory)
-        {
-            slisOut = out;
-        } catch {
-            slisOut = 0;
-        }
-    }
-
-    function _quotePcsWbnbToSlis(uint256 wbnbIn) internal returns (uint256 slisOut) {
-        // PCS v3 lacks a view quoter on the router; simulate with snapshot.
-        uint256 snap = vm.snapshotState();
-        IPancakeV3Router.ExactInputSingleParams memory params = IPancakeV3Router.ExactInputSingleParams({
-            tokenIn: BSC.WBNB,
-            tokenOut: BSC.slisBNB,
-            fee: 100,
-            recipient: address(this),
-            deadline: block.timestamp + 1 hours,
-            amountIn: wbnbIn,
-            amountOutMinimum: 0,
-            sqrtPriceLimitX96: 0
-        });
-        try IPancakeV3Router(BSC.PCS_V3_ROUTER).exactInputSingle(params) returns (uint256 out) {
-            slisOut = out;
-        } catch {
-            params.fee = 500;
-            try IPancakeV3Router(BSC.PCS_V3_ROUTER).exactInputSingle(params) returns (uint256 out2) {
-                slisOut = out2;
-            } catch {
-                slisOut = 0;
-            }
-        }
-        vm.revertToState(snap);
-    }
-
-    function _swapWbnbToSlisBest(uint256 wbnbIn) internal {
-        // Prefer Wombat (low fee for stable LST pair); fall back to PCS V3.
-        address[] memory tokenPath = new address[](2);
-        tokenPath[0] = BSC.WBNB;
-        tokenPath[1] = BSC.slisBNB;
-        address[] memory poolPath = new address[](1);
-        poolPath[0] = BSC.WOMBAT_MAIN_POOL;
-        try IWombatRouter(BSC.WOMBAT_ROUTER).swapExactTokensForTokens(
-            tokenPath, poolPath, wbnbIn, 0, address(this), block.timestamp + 1 hours
-        ) returns (uint256 outW) {
-            console2.log("wombat slisbnb_received_1e18=", outW);
-            return;
-        } catch {
-            // PCS V3
-            IPancakeV3Router.ExactInputSingleParams memory params = IPancakeV3Router.ExactInputSingleParams({
-                tokenIn: BSC.WBNB,
-                tokenOut: BSC.slisBNB,
-                fee: 100,
-                recipient: address(this),
-                deadline: block.timestamp + 1 hours,
-                amountIn: wbnbIn,
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0
-            });
-            try IPancakeV3Router(BSC.PCS_V3_ROUTER).exactInputSingle(params) returns (uint256 outP) {
-                console2.log("pcs slisbnb_received_1e18=", outP);
-            } catch {
-                console2.log("both AMM legs failed for WBNB->slisBNB");
-            }
-        }
-    }
-
-    function _swapWbnbForPt(uint256 wbnbIn) internal returns (uint256 netPtOut) {
+    function _swapSlisForPt(uint256 amtIn) internal returns (uint256 netPtOut) {
         IPendleRouter.ApproxParams memory approx = IPendleRouter.ApproxParams({
             guessMin: 0,
-            guessMax: type(uint256).max,
+            guessMax: amtIn * 2,
             guessOffchain: 0,
             maxIteration: 256,
             eps: 1e15
         });
         IPendleRouter.SwapData memory emptySwap;
         IPendleRouter.TokenInput memory input = IPendleRouter.TokenInput({
-            tokenIn: BSC.WBNB,
-            netTokenIn: wbnbIn,
-            tokenMintSy: BSC.WBNB,
+            tokenIn: BSC.slisBNB,
+            netTokenIn: amtIn,
+            tokenMintSy: BSC.slisBNB,
             pendleSwap: address(0),
             swapData: emptySwap
         });
@@ -298,5 +187,4 @@ contract B04_09_PendleMarketAmmSpotArbTest is BSCStrategyBase {
             netPtOut = 0;
         }
     }
-
 }

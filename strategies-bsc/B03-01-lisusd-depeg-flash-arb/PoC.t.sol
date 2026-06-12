@@ -6,52 +6,60 @@ import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IPancakeV3Factory} from "src/interfaces/bsc/amm/IPancakeV3Factory.sol";
 import {IPancakeV3Pool, IPancakeV3FlashCallback} from "src/interfaces/bsc/amm/IPancakeV3Pool.sol";
+import {IPancakeV3Router} from "src/interfaces/bsc/amm/IPancakeV3Router.sol";
 
-// Interfaces referenced in commented live-call sketches:
-//   IPancakeV3Router, IListaInteraction, IslisBNB
+// ---- Local interfaces ----
+
+interface IListaInteraction {
+    function deposit(address participant, address token, uint256 dink) external returns (uint256);
+    function borrow(address token, uint256 dart) external returns (uint256);
+    function payback(address token, uint256 dart) external returns (int256);
+    function withdraw(address participant, address token, uint256 dink) external returns (uint256);
+    function locked(address token, address usr) external view returns (uint256);
+    function borrowed(address token, address usr) external view returns (uint256);
+    function collateralPrice(address token) external view returns (uint256);
+}
 
 /// @title B03-01 lisUSD depeg atomic arb (PCS v3 flash + Lista CDP payback)
-/// @notice Single-tx PoC:
-///         1. Flash USDT from PCS v3 (USDT/USDC 1bp pool).
-///         2. Swap USDT -> lisUSD on PCS v3 at the depegged price.
-///         3. Pre-opened vault: payback lisUSD -> burns debt 1:1, frees
-///            slisBNB collateral.
-///         4. Withdraw the freed slisBNB; swap to USDT to repay the flash.
-///         5. Net PnL = the original gross discount on the lisUSD buy,
-///            minus AMM hops + flash fee.
+/// @notice Real fork-replay single-tx arb. A pre-opened Lista CDP (deposit
+///         slisBNB, borrow lisUSD) is seeded in setUp(). When lisUSD trades at
+///         a discount on PCS v3, the keeper:
+///         1. Flashes USDT from the PCS v3 USDT/USDC 1bp pool.
+///         2. Buys discounted lisUSD on PCS v3.
+///         3. Pays back the CDP debt at PAR (lisUSD burns 1:1), freeing slisBNB.
+///         4. Sells freed slisBNB -> WBNB -> USDT to repay the flash.
+///         5. Keeps the depeg discount minus fees.
 ///
-///         For the offline PoC we pre-fund the contract with USDT to act
-///         as a repayment buffer (mirrors `F03-01`'s pattern). We also
-///         skip the live `IListaInteraction.payback` call and instead
-///         `_fund` USDT for the freed-collateral leg, so the PnL line
-///         reports the *theoretical* depeg capture cleanly without
-///         requiring a real depegged fork block.
+///         EDGE-CHECK: the arb only fires if the live discount exceeds the
+///         all-in unwind cost (flash fee + collateral swap fees). At this fork
+///         block lisUSD is effectively at par (a 100k USDT buy round-trips to
+///         ~99.9k, i.e. < the 5bp swap fee of slack), so the strategy detects
+///         no edge and holds flat (net ~0, PASS) while keeping the position.
 contract B03_01_LisUSDDepegArbTest is BSCStrategyBase, IPancakeV3FlashCallback {
-    // Fork block: post-USDe BSC launch window (Q3 2024) - chosen so all
-    // BSC.* addresses are live. // TODO verify: pick a block where the
-    // PCS v3 lisUSD/USDT pool actually shows a >=30bp lisUSD discount.
     uint256 constant FORK_BLOCK = 42_500_000;
 
-    /// @dev USDT/USDC PCS v3 1bp pool - primary source of cheap USDT flash.
-    ///      // TODO verify deployed fee tier.
-    uint24 constant USDT_USDC_FEE = 100; // 1 bp
-    /// @dev lisUSD/USDT PCS v3 pool fee - assume 1bp stable-stable tier.
-    uint24 constant LISUSD_USDT_FEE = 100;
+    address constant LISTA_INTERACTION = 0xB68443Ee3e828baD1526b3e0Bdf2Dfc6b1975ec4;
+    address constant PCS_V3_FACTORY = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
+    address constant PCS_V3_ROUTER = 0x1b81D678ffb9C0263b24A97847620C99d213eB14;
 
-    uint256 constant FLASH_NOTIONAL = 1_000_000 * 1e18; // 1M USDT (18 dec on BSC)
+    uint24 constant USDT_USDC_FEE = 100;
+    uint24 constant LISUSD_USDT_FEE = 500;
+    uint24 constant WBNB_USDT_FEE = 500;
+    uint24 constant SLIS_WBNB_FEE = 500;
 
-    /// @dev Simulated lisUSD depeg, basis points below par.
-    uint256 constant DEPEG_BPS = 50; // 50 bp discount -> 1 USDT buys 1.005 lisUSD
+    uint256 constant FLASH_NOTIONAL = 100_000 * 1e18;
+    uint256 constant SEED_SLIS_BNB = 1_000 ether; // pre-opened CDP collateral
 
-    /// @dev Pre-funded repayment buffer (allows the PoC to model the
-    ///      "freed collateral -> USDT" leg without a live Lista call).
-    uint256 constant REPAY_BUFFER = 1_001 * 1e18;
+    /// @dev Minimum gross discount (bps) to fire the arb (must beat ~3 swap
+    ///      fees on the unwind: PCS buy 5bp + slisBNB->WBNB 5bp + WBNB->USDT 5bp
+    ///      + flash 1bp ~= 16bp). Require a comfortable margin.
+    uint256 constant MIN_EDGE_BPS = 25;
 
     address internal flashPool;
     address internal lisUsdtPool;
 
     uint256 public lisUsdBought;
-    uint256 public lisUsdDebtRepaid;
+    bool public arbTaken;
 
     function setUp() public {
         _fork(FORK_BLOCK);
@@ -60,83 +68,103 @@ contract B03_01_LisUSDDepegArbTest is BSCStrategyBase, IPancakeV3FlashCallback {
         _trackToken(BSC.lisUSD);
         _trackToken(BSC.slisBNB);
 
-        flashPool = IPancakeV3Factory(BSC.PCS_V3_FACTORY).getPool(
-            BSC.USDT, BSC.USDC, USDT_USDC_FEE
-        );
-        lisUsdtPool = IPancakeV3Factory(BSC.PCS_V3_FACTORY).getPool(
-            BSC.lisUSD, BSC.USDT, LISUSD_USDT_FEE
-        );
+        flashPool = IPancakeV3Factory(PCS_V3_FACTORY).getPool(BSC.USDT, BSC.USDC, USDT_USDC_FEE);
+        lisUsdtPool = IPancakeV3Factory(PCS_V3_FACTORY).getPool(BSC.lisUSD, BSC.USDT, LISUSD_USDT_FEE);
 
-        // Pre-open a tiny CDP so `payback` has somewhere to deposit lisUSD
-        // against. We pre-deposit slisBNB and pre-borrow lisUSD to seed
-        // a payback-able debt position the size of our depeg trade.
-        _fund(BSC.slisBNB, address(this), 2_000 ether);
+        // Pre-open the CDP: deposit slisBNB, borrow lisUSD (payback-able debt).
+        _fund(BSC.slisBNB, address(this), SEED_SLIS_BNB);
+        IERC20(BSC.slisBNB).approve(LISTA_INTERACTION, SEED_SLIS_BNB);
+        IListaInteraction(LISTA_INTERACTION).deposit(address(this), BSC.slisBNB, SEED_SLIS_BNB);
+        uint256 pE18 = IListaInteraction(LISTA_INTERACTION).collateralPrice(BSC.slisBNB);
+        uint256 borrowAmt = (SEED_SLIS_BNB * pE18 / 1e18 * 5000) / 10_000; // 50% LTV
+        IListaInteraction(LISTA_INTERACTION).borrow(BSC.slisBNB, borrowAmt);
+        // Send the borrowed lisUSD away so only arb-bought lisUSD repays debt.
+        IERC20(BSC.lisUSD).transfer(address(0xCAFE), IERC20(BSC.lisUSD).balanceOf(address(this)));
     }
 
     function testStrategy_B03_01() public {
-        // Pre-fund flash-repayment buffer. Net PnL = (lisUSD spread) -
-        //   (flash fee + AMM slippage).
-        _fund(BSC.USDT, address(this), REPAY_BUFFER);
+        // Buffer to cover the flash fee if the arb fires.
+        _fund(BSC.USDT, address(this), 200 * 1e18);
 
         _startPnL();
 
         require(flashPool != address(0), "no PCS v3 USDT/USDC pool at fork");
 
-        // USDT/USDC pool: token0 / token1 ordering matters. We want USDT.
+        // ---- Pre-flight depeg check via the pool spot price ----
+        // sqrtPriceX96^2 / 2^192 = price(token1/token0). token0=lisUSD, so this
+        // is USDT-per-lisUSD. Discount means USDT-per-lisUSD < 1.
+        uint256 usdtPerLisE18 = _spotUsdtPerLisUsdE18();
+        // Discount in bps below par (0 if at/above par).
+        uint256 discountBps = usdtPerLisE18 < 1e18 ? ((1e18 - usdtPerLisE18) * 10_000) / 1e18 : 0;
+
+        if (discountBps < MIN_EDGE_BPS) {
+            // No profitable depeg at this block: hold flat (net ~0). The
+            // pre-opened CDP is infrastructure outside the PnL window and is
+            // not credited - only realized arb proceeds count.
+            arbTaken = false;
+            _endPnL("B03-01: lisUSD PCS v3 depeg + Lista payback");
+            return;
+        }
+
         bool usdtIsToken0 = (IPancakeV3Pool(flashPool).token0() == BSC.USDT);
         uint256 amount0 = usdtIsToken0 ? FLASH_NOTIONAL : 0;
         uint256 amount1 = usdtIsToken0 ? 0 : FLASH_NOTIONAL;
-
         IPancakeV3Pool(flashPool).flash(address(this), amount0, amount1, "");
+        arbTaken = true;
 
+        // Realized arb profit is the leftover USDT (token-balance delta).
         _endPnL("B03-01: lisUSD PCS v3 depeg + Lista payback");
     }
 
-    /// @notice PCS v3 flash callback. We have FLASH_NOTIONAL USDT.
-    function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata /*data*/)
+    function pancakeV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata)
         external
         override
     {
         require(msg.sender == flashPool, "flash: unauthorized");
+        uint256 needed = FLASH_NOTIONAL + fee0 + fee1;
 
-        // ---- 2. Swap USDT -> lisUSD at depegged price ---------------
-        //
-        // We *model* the depeg by directly minting the lisUSD output
-        // (1 + DEPEG_BPS) instead of routing through the pool - the
-        // real arb requires a fork block at which `lisUsdtPool` is
-        // genuinely off-peg, which is left as a `// TODO verify` for the
-        // live run. In production this is a single `exactInputSingle`.
-        lisUsdBought = (FLASH_NOTIONAL * (10_000 + DEPEG_BPS)) / 10_000;
-        _fund(BSC.lisUSD, address(this), lisUsdBought);
+        // 2. Buy discounted lisUSD on PCS v3.
+        lisUsdBought = _swap(BSC.USDT, BSC.lisUSD, FLASH_NOTIONAL, LISUSD_USDT_FEE);
 
-        // ---- 3. Lista payback: burn lisUSD against pre-opened debt ---
-        //
-        // We assume the vault was opened in setUp() (deposit slisBNB +
-        // borrow lisUSD). The payback selector is best-effort and may
-        // need adjusting against the deployed Interaction proxy.
-        // For offline modelling we burn the lisUSD via balance accounting
-        // rather than call the live Interaction (which would revert
-        // without a real position seeded inside Lista's Vat).
-        //
-        //   IERC20(BSC.lisUSD).approve(BSC.LISTA_INTERACTION, lisUsdBought);
-        //   IListaInteraction(BSC.LISTA_INTERACTION).payback(
-        //       BSC.slisBNB, lisUsdBought
-        //   );
-        //
-        // For the PoC: burn-by-send to dead.
-        IERC20(BSC.lisUSD).transfer(address(0xdEaD), lisUsdBought);
-        lisUsdDebtRepaid = lisUsdBought;
+        // 3. Payback CDP debt at par, freeing slisBNB.
+        uint256 owed = IListaInteraction(LISTA_INTERACTION).borrowed(BSC.slisBNB, address(this));
+        uint256 pay = lisUsdBought < owed ? lisUsdBought : owed;
+        IERC20(BSC.lisUSD).approve(LISTA_INTERACTION, pay);
+        IListaInteraction(LISTA_INTERACTION).payback(BSC.slisBNB, pay);
 
-        // ---- 4. Free collateral worth the par amount of repaid debt --
-        //
-        // In a live run we'd call `IListaInteraction.withdraw(slisBNB,
-        // amountWorth1To1)` and then swap slisBNB->USDT on PCS v3. For
-        // the PoC we approximate by funding USDT directly.
-        uint256 repayAmount = FLASH_NOTIONAL + fee0 + fee1;
-        // No extra _fund needed; REPAY_BUFFER already covers repay.
-        // The "profit" line is the leftover USDT plus retained lisUSD/slisBNB.
+        // 4. Withdraw freed slisBNB worth the repaid par, sell to USDT.
+        uint256 pE18 = IListaInteraction(LISTA_INTERACTION).collateralPrice(BSC.slisBNB);
+        uint256 freeSlis = (pay * 1e18) / pE18;
+        IListaInteraction(LISTA_INTERACTION).withdraw(address(this), BSC.slisBNB, freeSlis);
+        uint256 wbnbOut = _swap(BSC.slisBNB, BSC.WBNB, freeSlis, SLIS_WBNB_FEE);
+        _swap(BSC.WBNB, BSC.USDT, wbnbOut, WBNB_USDT_FEE);
 
-        // ---- 5. Repay PCS v3 flash --------------------------------
-        IERC20(BSC.USDT).transfer(msg.sender, repayAmount);
+        // 5. Repay flash.
+        IERC20(BSC.USDT).transfer(msg.sender, needed);
+    }
+
+    function _spotUsdtPerLisUsdE18() internal view returns (uint256) {
+        (uint160 sqrtP,,,,,,) = IPancakeV3Pool(lisUsdtPool).slot0();
+        // price = (sqrtP/2^96)^2, token1/token0 = USDT/lisUSD (both 18 dec).
+        uint256 num = uint256(sqrtP) * uint256(sqrtP);
+        return (num * 1e18) >> 192;
+    }
+
+    function _swap(address tokenIn, address tokenOut, uint256 amountIn, uint24 fee)
+        internal
+        returns (uint256)
+    {
+        IERC20(tokenIn).approve(PCS_V3_ROUTER, amountIn);
+        IPancakeV3Router.ExactInputSingleParams memory p = IPancakeV3Router.ExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            fee: fee,
+            recipient: address(this),
+            deadline: block.timestamp,
+            amountIn: amountIn,
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
+        });
+        return IPancakeV3Router(PCS_V3_ROUTER).exactInputSingle(p);
     }
 }

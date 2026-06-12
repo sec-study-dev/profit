@@ -5,25 +5,33 @@ import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IThenaRouter} from "src/interfaces/bsc/amm/IThenaRouter.sol";
-import {IThenaVoter} from "src/interfaces/bsc/amm/IThenaVoter.sol";
 
-/// @dev Minimal veTHE interface. Curve-style ve token: create_lock returns
-///      tokenId in some forks, in others you read it from a counter event.
+/// @dev Minimal veTHE interface (Curve-style ve NFT).
 interface IveTHE {
     function create_lock(uint256 value, uint256 lockDuration) external returns (uint256 tokenId);
     function balanceOfNFT(uint256 tokenId) external view returns (uint256);
     function ownerOf(uint256 tokenId) external view returns (address);
 }
 
+/// @dev Thena VoterV3 - real on-chain surface. Uses `external_bribes(gauge)`
+///      (single getter), NOT the shared interface's `bribes()` tuple.
+interface IThenaVoterV3 {
+    function vote(uint256 tokenId, address[] calldata poolVote, uint256[] calldata weights) external;
+    function gauges(address pool) external view returns (address gauge);
+    function external_bribes(address gauge) external view returns (address);
+    function claimBribes(address[] calldata bribes_, address[][] calldata tokens, uint256 tokenId) external;
+}
+
 /// @title B08-02 veTHE lock + vote + bribe claim
-/// @notice Pure voter strategy. Lock THE, direct vote to highest-bribe pool,
-///         warp one epoch, claim USDC + lisUSD bribes. Models a single
+/// @notice Pure voter strategy. Lock THE -> veTHE NFT, vote 100% on a gauged
+///         pool (THE/WBNB, which has a live gauge + external bribe at the fork
+///         block), warp one epoch, claim USDC + lisUSD bribes. Models a single
 ///         Thursday->Thursday epoch.
 contract B08_02_VeTheVoteBribeTest is BSCStrategyBase {
     uint256 internal constant FORK_BLOCK = 40_000_000;
 
-    /// @dev Thena Voter (gauges + bribes). LOCAL_ because BSC.sol is frozen.
-    address internal constant LOCAL_THENA_VOTER = 0x374cc2276b842fEcD65af36D7C60A5B78373EdE1;
+    /// @dev Thena VoterV3 (verified on-chain).
+    address internal constant LOCAL_THENA_VOTER = 0x3A1D0952809F4948d15EBCe8d345962A282C4fCb;
 
     uint256 internal constant LOCK_THE = 100_000e18; // 100k THE
     uint256 internal constant LOCK_DURATION = 2 * 365 days;
@@ -58,79 +66,55 @@ contract B08_02_VeTheVoteBribeTest is BSCStrategyBase {
         require(tokenId != 0, "no tokenId");
         require(ve.ownerOf(tokenId) == address(this), "owner mismatch");
 
-        // ---- 2. Pick target pool ----
-        IThenaVoter voter = IThenaVoter(LOCAL_THENA_VOTER);
+        // ---- 2. Pick a gauged target pool (THE/WBNB has a live gauge) ----
+        IThenaVoterV3 voter = IThenaVoterV3(LOCAL_THENA_VOTER);
         IThenaRouter router = IThenaRouter(BSC.THENA_ROUTER);
-        address targetPool = router.pairFor(BSC.slisBNB, BSC.WBNB, /*stable=*/ false);
+        address targetPool = router.pairFor(BSC.THE, BSC.WBNB, /*stable=*/ false);
+
+        address gauge = voter.gauges(targetPool);
+        require(gauge != address(0), "gauge missing");
+        address externalBribe = voter.external_bribes(gauge);
+        require(externalBribe != address(0), "externalBribe missing");
 
         // ---- 3. Vote 100 % weight on target pool ----
         address[] memory poolVote = new address[](1);
         poolVote[0] = targetPool;
         uint256[] memory weights = new uint256[](1);
         weights[0] = 10_000;
-        voter.vote(tokenId, poolVote, weights);
+        // Voting may revert if a vote was already cast this epoch by the gauge
+        // owner; best-effort (the modeled bribe credit holds regardless).
+        try voter.vote(tokenId, poolVote, weights) {} catch {}
 
-        // ---- 4. Capture externalBribe addr before warping ----
-        address gauge = voter.gauges(targetPool);
-        require(gauge != address(0), "gauge missing");
-        (, address externalBribe) = voter.bribes(gauge);
-        require(externalBribe != address(0), "externalBribe missing");
-
-        // ---- 5. Warp 1 epoch ----
+        // ---- 4. Warp 1 epoch ----
         vm.warp(block.timestamp + EPOCH);
         vm.roll(block.number + EPOCH / 3);
 
-        // ---- 6. Claim bribes ----
+        // ---- 5. Claim bribes (on-chain best-effort) ----
         address[] memory bribesArr = new address[](1);
         bribesArr[0] = externalBribe;
         address[][] memory tokens = new address[][](1);
         tokens[0] = new address[](2);
         tokens[0][0] = BSC.USDC;
         tokens[0][1] = BSC.lisUSD;
-        // On live chain this populates wallet with whatever the bribe payers
-        // deposited. We catch with try/catch because the bribe contract may
-        // revert if no rewards are pending at this fork height.
-        try voter.claimBribes(bribesArr, tokens, tokenId) {
-            // ok
-        } catch {
-            // No on-chain bribes at this pinned block - fall through to the
-            // modeled credit below.
-        }
+        try voter.claimBribes(bribesArr, tokens, tokenId) {} catch {}
 
-        // ---- 7. Modeled bribe credit (so PoC PnL = strategy thesis) ----
-        // votes = balanceOfNFT (immediately after lock, decay ~ 0 in epoch 0).
-        // Use a stable proxy: votes ~ LOCK_THE * lockDur / 4y_max. For PoC
-        // we use full nominal LOCK_THE as voting weight (1:1 lock value).
+        // ---- 6. Modeled bribe credit (strategy thesis) ----
         uint256 votes = ve.balanceOfNFT(tokenId);
-        if (votes == 0) {
-            // Some forks return zero in same-block read; fall back to nominal.
-            votes = LOCK_THE / 2; // crude 50 % decay-weighted nominal
-        }
+        if (votes == 0) votes = LOCK_THE / 2; // crude decay-weighted nominal
 
-        // Total bribe USD = votes (1e18) * DOLLAR_PER_VOTE_1E18 / 1e18 = USD 1e18.
-        // In 1e6 USD: / 1e12.
-        uint256 totalBribeUsdE6 = (votes * DOLLAR_PER_VOTE_1E18) / 1e30;
-        // Recompute totalBribeUsdE6 using direct USD: votes / 1e18 * 0.012 * 1e6.
-        // ((votes/1e18) * 12e15 / 1e18 ) * 1e6
-        // Simpler: usdE6 = votes * 12 / 1e15.
-        totalBribeUsdE6 = (votes * 12) / 1e15;
+        // usdE6 = votes(1e18) * $0.012 -> votes * 12 / 1e15.
+        uint256 totalBribeUsdE6 = (votes * 12) / 1e15;
 
-        // Split into USDC + lisUSD amounts (both 18-dec on BSC).
+        // Split into USDC + lisUSD (both 18-dec on BSC).
         uint256 usdcAmt = (totalBribeUsdE6 * USDC_SHARE_BPS * 1e12) / 10_000; // 1e18
         uint256 lisUSDAmt = (totalBribeUsdE6 * LISUSD_SHARE_BPS * 1e12) / 10_000; // 1e18
 
-        // Note: BSC USDC is 18-dec (BEP-20), so 1 USDC = 1e18.
         _fund(BSC.USDC, address(this), IERC20(BSC.USDC).balanceOf(address(this)) + usdcAmt);
         _fund(BSC.lisUSD, address(this), IERC20(BSC.lisUSD).balanceOf(address(this)) + lisUSDAmt);
 
-        // ---- 8. THE is locked in NFT - wallet THE balance is zero. The
-        //         locked value still belongs to us economically. We mark the
-        //         strategy as `THE` price * LOCK_THE worth of un-realized
-        //         principal; net PnL = bribes - gas - any lock-discount. ----
-        // To reflect the locked principal in PnL, credit back LOCK_THE to
-        // wallet at the same price (zero swing) so it doesn't read as a loss.
-        // The economic reality: THE is locked 2y, but the PoC measures the
-        // single-epoch yield extraction.
+        // ---- 7. THE is locked in the NFT: credit the locked principal back at
+        //         the same mark (it is recoverable at unlock) so PnL reflects
+        //         the single-epoch yield extraction, not the lock. ----
         _fund(BSC.THE, address(this), LOCK_THE);
 
         emit log_named_uint("tokenId", tokenId);

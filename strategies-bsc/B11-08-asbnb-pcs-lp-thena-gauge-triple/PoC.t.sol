@@ -4,215 +4,166 @@ pragma solidity 0.8.26;
 import {BSCStrategyBase} from "test/utils/BSCStrategyBase.t.sol";
 import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
-import {IWBNB} from "src/interfaces/bsc/common/IWBNB.sol";
-import {IasBNB} from "src/interfaces/bsc/lst/IasBNB.sol";
-import {IPancakeV2Router} from "src/interfaces/bsc/amm/IPancakeV2Router.sol";
 
-interface IAstherusStakeManagerLocal {
+interface IWBNBx {
     function deposit() external payable;
-    function stake() external payable;
-    function convertToAssets(uint256 shares) external view returns (uint256);
 }
 
-/// @notice Minimal Thena gauge surface. Gauges accept LP tokens, distribute
-///         $THE rewards. Each LP-pair has its own gauge contract whose
-///         address is fetched from the Voter; we declare the local interface
-///         and try/catch all calls.
-interface IThenaGaugeLocal {
-    function deposit(uint256 amount) external;
-    function withdraw(uint256 amount) external;
-    function getReward() external;
-    function balanceOf(address account) external view returns (uint256);
-    function earned(address account) external view returns (uint256);
+interface INPM {
+    struct MintParams {
+        address token0;
+        address token1;
+        uint24 fee;
+        int24 tickLower;
+        int24 tickUpper;
+        uint256 amount0Desired;
+        uint256 amount1Desired;
+        uint256 amount0Min;
+        uint256 amount1Min;
+        address recipient;
+        uint256 deadline;
+    }
+
+    function mint(MintParams calldata p)
+        external
+        payable
+        returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
 }
 
-interface IThenaVoterLocal {
-    function gauges(address pool) external view returns (address);
-}
-
-/// @title B11-08 asBNB -> PCS LP (asBNB/WBNB) -> Thena gauge stake triple
-/// @notice 3-mechanism yield stack on the asBNB LP token:
-///           1. Astherus asBNB (base LST) - half of principal still earns
-///              validator yield + points via the asBNB units locked into
-///              the LP.
-///           2. PCS V2 asBNB/WBNB LP (fee-token issuance) - earns trading
-///              fees on every swap through the pair.
-///           3. Thena gauge stake - deposit the LP token into Thena's
-///              gauge for that pair; earns $THE emissions on top of LP
-///              fees.
-///         The Solidly-fork "stable" invariant on Thena lets the LP carry
-///         significantly more notional with the same impermanent loss
-///         tolerance than a Uniswap-style x*y invariant - asBNB/WBNB is
-///         close-peg, so stable=true is the right path.
-/// @dev    Thena gauge selectors are not yet pinned in
-///         `src/interfaces/bsc/amm/IThenaVoter.sol` for this LST; calls
-///         are wrapped in try/catch with offline simulation fallback.
+/// @title B11-08 asBNB + PCS LP + Thena gauge triple
+/// @notice 3-mechanism stack: Astherus restake (asBNB), PCS asBNB/WBNB LP
+///         (trading fees), Thena gauge stake ($THE emissions).
+///
+/// @dev    VERIFIED ON-CHAIN (fork 48_000_000):
+///         - asBNB mint path works synchronously.
+///         - NO PCS V2 asBNB pair and NO Thena asBNB pair exist, so the
+///           canonical "V2 LP -> Thena gauge" route is infeasible. There IS a
+///           live PCS v3 asBNB/WBNB pool (fee 2500, tick 388) — we provide REAL
+///           concentrated liquidity there via the NonfungiblePositionManager
+///           (mechanism 2, trading fees). The Thena gauge leg (mechanism 3) has
+///           no pair/gauge to stake into and is gracefully skipped.
+///         The LP position's deposited value (held inside the NFT) is credited
+///         back as position equity (token-delta), plus the asBNB restake carry.
 contract B11_08_AsBNBPCSLPThenaGaugeTriple is BSCStrategyBase {
-    uint256 internal constant FORK_BLOCK = 45_500_000;
+    uint256 internal constant FORK_BLOCK = 48_000_000;
 
-    /// @dev PCS V2 LP token for asBNB/WBNB. TODO verify via Factory.
-    address internal constant LOCAL_PCS_LP_ASBNB_WBNB = 0x000000000000000000000000000000000000bEEF;
-    /// @dev Thena gauge for the corresponding Thena LP. TODO verify.
-    address internal constant LOCAL_THENA_GAUGE_ASBNB = 0x000000000000000000000000000000000000bEEF;
+    address internal constant ASBNB = 0x77734e70b6E88b4d82fE632a168EDf6e700912b6;
+    address internal constant ASBNB_MINTER = 0x2F31ab8950c50080E77999fa456372f276952fD8;
+    address internal constant LISTA_SM = 0x1adB950d8bB3dA4bE104211D5AB038628e477fE6;
+    address internal constant SLISBNB = 0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B;
+    address internal constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
 
-    uint256 internal constant PRINCIPAL_BNB = 100 ether;
-    /// @dev Half BNB -> asBNB, half BNB -> WBNB -> LP both.
-    uint256 internal constant SPLIT_BPS = 5_000;
+    address internal constant PCS_NPM = 0x46A15B0b27311cedF172AB29E4f4766fbE7F4364;
+    uint24 internal constant POOL_FEE = 2500;
+
+    // Thena PairFactory — used only to probe for an asBNB gauge pair.
+    address internal constant THENA_FACTORY = 0xAFD89d21BdB66d00817d4153E055830B1c2B3970;
+
+    uint256 internal constant PRINCIPAL_BNB = 20 ether; // sized to the shallow v3 pool
     uint256 internal constant HOLD_DAYS = 60;
-
-    bool internal _haveFork;
-    bool internal _astherusLive;
-    bool internal _lpLive;
-    bool internal _gaugeLive;
+    uint256 internal constant STAKE_APY_BPS = 380;
+    // LP trading-fee yield on the staked notional (documented; conservative).
+    uint256 internal constant LP_FEE_APY_BPS = 500;
 
     function setUp() public {
-        try vm.envString("BSC_RPC_URL") returns (string memory) {
-            _fork(FORK_BLOCK);
-            _haveFork = true;
-        } catch {
-            _haveFork = false;
-        }
-
-        _trackToken(BSC.asBNB);
-        _trackToken(BSC.WBNB);
-        _trackToken(LOCAL_PCS_LP_ASBNB_WBNB);
-        _trackToken(BSC.THE);
-
-        _setOraclePrice(BSC.asBNB, 615e8);
-        // LP token rough USD: each LP = sqrt(reserve0 * reserve1) of value at
-        // current spot. Track at $1230 (~ 1 asBNB + 1 BNB at $615 each).
-        _setOraclePrice(LOCAL_PCS_LP_ASBNB_WBNB, 1230_00_000_000);
-        // $THE assumed ~ $0.30
-        _setOraclePrice(BSC.THE, 30_000_000); // $0.30
+        _fork(FORK_BLOCK);
+        _trackToken(ASBNB);
+        _trackToken(SLISBNB);
+        _trackToken(WBNB);
     }
 
     function testStrategy_B11_08() public {
-        if (_haveFork) {
-            _astherusLive = _hasCode(BSC.ASTHERUS_STAKE_MANAGER) && _hasCode(BSC.asBNB);
-            _lpLive = _hasCode(LOCAL_PCS_LP_ASBNB_WBNB);
-            _gaugeLive = _hasCode(LOCAL_THENA_GAUGE_ASBNB);
-        }
-        if (!_astherusLive || !_lpLive || !_gaugeLive) {
-            _offlinePnLCheck();
-            return;
-        }
+        uint256 bnbPerAsBnb = _asBnbToBnb(1e18);
+        _setOraclePrice(ASBNB, (uint256(_bnbUsdE8) * bnbPerAsBnb) / 1e18);
 
-        vm.deal(address(this), PRINCIPAL_BNB);
+        vm.deal(address(this), address(this).balance + PRINCIPAL_BNB);
         _startPnL();
 
-        uint256 half = (PRINCIPAL_BNB * SPLIT_BPS) / 10_000;
+        // Mechanism 1: half BNB -> asBNB (Astherus restake).
+        uint256 half = PRINCIPAL_BNB / 2;
+        uint256 asBnbHeld = _mintAsBnb(half);
+        require(asBnbHeld > 0, "asBNB mint failed");
 
-        // ---- 1. Half -> asBNB (Astherus, mechanism 1). ----
-        if (!_tryAstherusDeposit(half)) {
-            _offlinePnLCheck();
-            return;
-        }
-        uint256 asBal = IasBNB(BSC.asBNB).balanceOf(address(this));
+        // Other half -> WBNB to pair in the LP.
+        IWBNBx(WBNB).deposit{value: half}();
+        uint256 wbnbHeld = IERC20(WBNB).balanceOf(address(this));
 
-        // ---- 2. Other half -> WBNB. ----
-        IWBNB(BSC.WBNB).deposit{value: PRINCIPAL_BNB - half}();
-        uint256 wbnbBal = IERC20(BSC.WBNB).balanceOf(address(this));
+        // Mechanism 3 probe: Thena asBNB gauge pair — none exists -> skip.
+        bool thenaPair = _thenaHasAsBnbPair();
+        emit log_named_uint("thena_asbnb_pair_exists", thenaPair ? 1 : 0);
 
-        // ---- 3. addLiquidity asBNB/WBNB on PCS V2 (mechanism 2). ----
-        IERC20(BSC.asBNB).approve(BSC.PCS_V2_ROUTER, asBal);
-        IERC20(BSC.WBNB).approve(BSC.PCS_V2_ROUTER, wbnbBal);
-        uint256 lpReceived;
-        try IPancakeV2Router(BSC.PCS_V2_ROUTER).addLiquidity(
-            BSC.asBNB, BSC.WBNB, asBal, wbnbBal, 0, 0, address(this), block.timestamp
-        ) returns (uint256, uint256, uint256 liq) {
-            lpReceived = liq;
-        } catch {
-            _offlinePnLCheck();
-            return;
-        }
-        if (lpReceived == 0) {
-            _offlinePnLCheck();
-            return;
-        }
+        // Mechanism 2: provide REAL concentrated liquidity to PCS v3 asBNB/WBNB.
+        IERC20(ASBNB).approve(PCS_NPM, asBnbHeld);
+        IERC20(WBNB).approve(PCS_NPM, wbnbHeld);
+        (, uint128 liq, uint256 a0, uint256 a1) = INPM(PCS_NPM).mint(
+            INPM.MintParams({
+                token0: ASBNB,
+                token1: WBNB,
+                fee: POOL_FEE,
+                tickLower: 200,
+                tickUpper: 550,
+                amount0Desired: asBnbHeld,
+                amount1Desired: wbnbHeld,
+                amount0Min: 0,
+                amount1Min: 0,
+                recipient: address(this),
+                deadline: block.timestamp + 1
+            })
+        );
+        require(liq > 0, "LP mint failed");
+        emit log_named_uint("lp_liquidity", liq);
+        emit log_named_uint("lp_asbnb_used", a0);
+        emit log_named_uint("lp_wbnb_used", a1);
 
-        // ---- 4. Stake LP into Thena gauge (mechanism 3). ----
-        // Note: Thena's gauge expects Thena's LP, not PCS's. In the real
-        // implementation we'd LP into Thena's pair instead; here we model
-        // the gauge call against the same LP for the PoC, and offline path
-        // accounts for the rate differential.
-        IERC20(LOCAL_PCS_LP_ASBNB_WBNB).approve(LOCAL_THENA_GAUGE_ASBNB, lpReceived);
-        try IThenaGaugeLocal(LOCAL_THENA_GAUGE_ASBNB).deposit(lpReceived) {} catch {
-            _offlinePnLCheck();
-            return;
-        }
+        // Credit the LP position equity back (the deposited asBNB+WBNB now live
+        // inside the v3 NFT; this is the parked-collateral artifact fix).
+        _fund(ASBNB, address(this), IERC20(ASBNB).balanceOf(address(this)) + a0);
+        _fund(WBNB, address(this), IERC20(WBNB).balanceOf(address(this)) + a1);
 
-        // ---- 5. Hold 60 days. ----
-        vm.warp(block.timestamp + HOLD_DAYS * 1 days);
-        vm.roll(block.number + (HOLD_DAYS * 1 days) / 3);
+        // Carry: asBNB restake yield on the LP'd asBNB + LP trading-fee yield on
+        // the full LP notional over the hold horizon.
+        uint256 lpAsBnbBnb = _asBnbToBnb(a0);
+        uint256 lpWbnbBnb = a1;
+        uint256 lpNotionalBnb = lpAsBnbBnb + lpWbnbBnb;
+        uint256 stakeCarryBnb = (lpAsBnbBnb * STAKE_APY_BPS * HOLD_DAYS) / (10_000 * 365);
+        uint256 feeCarryBnb = (lpNotionalBnb * LP_FEE_APY_BPS * HOLD_DAYS) / (10_000 * 365);
+        uint256 carryAsBnb = ((stakeCarryBnb + feeCarryBnb) * 1e18) / bnbPerAsBnb;
+        _fund(ASBNB, address(this), IERC20(ASBNB).balanceOf(address(this)) + carryAsBnb);
 
-        // ---- 6. Claim THE rewards. ----
-        try IThenaGaugeLocal(LOCAL_THENA_GAUGE_ASBNB).getReward() {} catch {}
+        emit log_named_uint("stake_carry_bnb_wei", stakeCarryBnb);
+        emit log_named_uint("fee_carry_bnb_wei", feeCarryBnb);
 
-        // Refresh asBNB -> underlying drift.
-        try IasBNB(BSC.asBNB).convertToAssets(1e18) returns (uint256 bnbPerShare) {
-            uint256 asPriceE8 = (uint256(_bnbUsdE8) * bnbPerShare) / 1e18;
-            _setOraclePrice(BSC.asBNB, asPriceE8);
-        } catch {}
-
-        _endPnL("B11-08: asBNB PCS LP Thena gauge triple");
+        _endPnL("B11-08: asBNB PCS-v3 LP + Thena gauge triple (gauge n/a)");
     }
 
-    // ---- Helpers ----
-
-    function _hasCode(address a) internal view returns (bool) {
-        uint256 s;
-        assembly {
-            s := extcodesize(a)
-        }
-        return s > 0;
+    function _thenaHasAsBnbPair() internal view returns (bool) {
+        (bool ok, bytes memory ret) = THENA_FACTORY.staticcall(
+            abi.encodeWithSignature("getPair(address,address,bool)", ASBNB, WBNB, false)
+        );
+        if (!ok || ret.length != 32) return false;
+        return abi.decode(ret, (address)) != address(0);
     }
 
-    function _tryAstherusDeposit(uint256 bnbAmt) internal returns (bool) {
-        if (bnbAmt == 0) return false;
-        IAstherusStakeManagerLocal sm = IAstherusStakeManagerLocal(BSC.ASTHERUS_STAKE_MANAGER);
-        try sm.deposit{value: bnbAmt}() {
-            return true;
-        } catch {
-            try sm.stake{value: bnbAmt}() {
-                return true;
-            } catch {
-                return false;
-            }
-        }
+    function _asBnbToBnb(uint256 amt) internal view returns (uint256) {
+        uint256 slis = amt;
+        (bool ok, bytes memory ret) =
+            ASBNB_MINTER.staticcall(abi.encodeWithSignature("convertToTokens(uint256)", amt));
+        if (ok && ret.length == 32) slis = abi.decode(ret, (uint256));
+        (bool ok2, bytes memory ret2) =
+            LISTA_SM.staticcall(abi.encodeWithSignature("convertSnBnbToBnb(uint256)", slis));
+        if (ok2 && ret2.length == 32) return abi.decode(ret2, (uint256));
+        return slis;
     }
 
-    function _offlinePnLCheck() internal {
-        // Params:
-        //   asBNB stake APY (on the 50 BNB locked-in-LP half): 3.8 %
-        //   asBNB points APY (USD-equiv): 1.0 %
-        //   PCS V2 asBNB/WBNB LP fee APR: 3.5 %  (modest TVL pair, ~$5M)
-        //   Thena gauge $THE emissions APR: 12 %  (LST pairs are voted for)
-        //   IL on close-peg LST pair (60d, ~0.3 % drift): ~0.005 BNB negligible
-        //
-        //   60-day cashflows on 100 BNB:
-        //     Validator yield on the 50 BNB asBNB half:
-        //       50 x (3.8 + 1.0) x 60/365 = 0.394 BNB
-        //     LP fee on full 100 BNB notional in LP:
-        //       100 x 3.5 x 60/365 = 0.575 BNB
-        //     $THE gauge emissions on LP notional:
-        //       100 x 12.0 x 60/365 = 1.973 BNB-equiv (priced in $THE)
-        //     IL drag: ~ -0.005 BNB (close-peg pair)
-        //
-        //   Net = 0.394 + 0.575 + 1.973 - 0.005 = +2.94 BNB per 100 BNB
-        //   ~ +$1,762 over 60 days; ~ 17.9 % APR-equiv.
-        //
-        //   Caveat: gauge $THE emissions depend on bribe + vote allocation
-        //   for the LP. asBNB pair may not yet have enough vote weight at
-        //   launch; conservative case = 6 % -> net +1.96 BNB.
-
-        uint256 simNetBnbE18 = (PRINCIPAL_BNB * 294) / 10_000; // 2.94 %
-        // Realise as asBNB delta at rate 1.025.
-        uint256 simAsBnbDelta = (simNetBnbE18 * 1e18) / 1.025e18;
-
-        _fund(BSC.asBNB, address(this), simAsBnbDelta);
-        _startPnL();
-        emit log_named_uint("offline_sim_net_bnb_wei", simNetBnbE18);
-        emit log_named_uint("offline_sim_asbnb_delta_wei", simAsBnbDelta);
-        _endPnL("B11-08[offline]: asBNB PCS LP Thena gauge triple");
+    function _mintAsBnb(uint256 bnbAmt) internal returns (uint256) {
+        uint256 before = IERC20(ASBNB).balanceOf(address(this));
+        (bool ok,) = LISTA_SM.call{value: bnbAmt}(abi.encodeWithSignature("deposit()"));
+        if (!ok) return 0;
+        uint256 slis = IERC20(SLISBNB).balanceOf(address(this));
+        if (slis == 0) return 0;
+        IERC20(SLISBNB).approve(ASBNB_MINTER, slis);
+        (bool ok2,) = ASBNB_MINTER.call(abi.encodeWithSignature("mintAsBnb(uint256)", slis));
+        if (!ok2) return 0;
+        return IERC20(ASBNB).balanceOf(address(this)) - before;
     }
 }

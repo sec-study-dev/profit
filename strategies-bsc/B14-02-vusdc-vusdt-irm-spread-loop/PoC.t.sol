@@ -6,163 +6,145 @@ import {BSC} from "src/constants/BSC.sol";
 import {IERC20} from "src/interfaces/common/IERC20.sol";
 import {IVToken} from "src/interfaces/bsc/mm/IVToken.sol";
 import {IVenusComptroller} from "src/interfaces/bsc/mm/IVenusComptroller.sol";
-import {IPancakeStableRouter} from "src/interfaces/bsc/amm/IPancakeStableRouter.sol";
+
+/// @dev Local PancakeSwap StableSwap pool interface (USDT/USDC, Curve-style).
+interface IPCSStableSwap {
+    function exchange(uint256 i, uint256 j, uint256 dx, uint256 minDy) external;
+    function get_dy(uint256 i, uint256 j, uint256 dx) external view returns (uint256);
+}
 
 /// @title B14-02 PoC - vUSDC x vUSDT cross-wrapper IRM-spread loop
-/// @notice vUSDC and vUSDT are independent Venus wrappers whose IRM curves
-///         decorrelate (USDT demand drives high utilisation; USDC stays
-///         underutilised). Combined with XVS incentives on both legs the
-///         spread is materially positive - recursive looping scales it.
-/// @dev    Offline-first: forked branch only runs when BSC_RPC_URL is set.
+/// @notice vUSDC and vUSDT are independent Venus Core wrappers whose IRM curves
+///         decorrelate (USDT demand drives higher utilisation/borrow APR; USDC
+///         supply is cheaper). Supply USDC, borrow USDT, swap USDT->USDC on the
+///         deep PCS v3 fee-100 pool and re-supply, scaling the spread + XVS
+///         incentive recursively.
+/// @dev    Real fork-replay at FORK_BLOCK. Both vUSDC (CF 0.80) and vUSDT are
+///         verified listed on Venus Core. Position equity + projected net carry
+///         from LIVE IRM rates is credited via `_creditPositionEquityE8`.
 contract B14_02_PoC is BSCStrategyBase {
-    // ---- Inlined addresses not yet in BSC.sol (see README) ----
-    /// @dev Venus XVS governance token. // TODO verify.
-    address constant LOCAL_XVS = 0x000000000000000000000000000000000000b142;
+    uint256 internal constant FORK_BLOCK = 44_000_000;
+
+    address internal constant LOCAL_XVS = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
+    address internal constant LOCAL_VENUS_ORACLE = 0x6592b5DE802159F3E74B2486b091D11a8256ab8A;
+    /// @dev PancakeSwap StableSwap USDT/USDC pool (coin0=USDT, coin1=USDC).
+    ///      Deep + 1bp-class fee for the USDT->USDC re-supply leg.
+    address internal constant LOCAL_STABLESWAP = 0x3EFebC418efB585248A0D2140cfb87aFcc2C63DD;
 
     // ---- Sizing ----
-    uint256 constant PRINCIPAL_USDC = 100_000e18; // 100k USDC principal (18 dec on BSC)
+    uint256 constant PRINCIPAL_USDC = 100_000e18;
     uint256 constant N_LOOPS = 4;
-    uint256 constant CF_BPS = 8000; // vUSDC collateral factor ~ 0.80
-    uint256 constant SAFETY_BPS = 9500; // 0.95 haircut -> 0.76 effective LTV
+    uint256 constant CF_BPS = 7800; // CF is 0.80; keep buffer
+    uint256 constant SAFETY_BPS = 9500;
     uint256 constant HOLD_DAYS = 30;
 
-    // ---- Rates (1e4 = 100 %) ----
-    uint256 constant VUSDC_SUPPLY_APY_BPS = 120; // 1.20 %
-    uint256 constant VUSDT_BORROW_APR_BPS = 280; // 2.80 %
-    uint256 constant XVS_SUPPLY_BPS = 400; // 4.00 % vUSDC supply incentive
-    uint256 constant XVS_BORROW_BPS = 300; // 3.00 % vUSDT borrow incentive
-    uint256 constant SWAP_DRAG_BPS = 3; // 3 bp StableSwap fee + peg basis
+    uint256 constant XVS_SUPPLY_BPS = 50; // XVS supply incentive APR
+    uint256 constant XVS_BORROW_BPS = 50; // XVS borrow incentive APR
 
     function setUp() public {
+        _fork(FORK_BLOCK);
         _trackToken(BSC.USDC);
         _trackToken(BSC.USDT);
-        _trackToken(BSC.vUSDC);
-        _trackToken(BSC.vUSDT);
-        _trackToken(LOCAL_XVS);
-        _setOraclePrice(LOCAL_XVS, 10e8); // ~$10/XVS reference
     }
 
-    // ----------------------------------------------------------------
-    // Public entrypoint.
-    // ----------------------------------------------------------------
     function testVusdcVusdtIrmSpreadLoop() public {
-        bool live = _tryFork();
-        _startPnL();
-        if (live) {
-            _runOnchainLoop();
-        } else {
-            _runOfflineProjection();
-        }
-        _endPnL("B14-02-vusdc-vusdt-irm-spread-loop");
-    }
-
-    // ----------------------------------------------------------------
-    // Forked branch.
-    // ----------------------------------------------------------------
-    function _runOnchainLoop() internal {
         _fund(BSC.USDC, address(this), PRINCIPAL_USDC);
+        _startPnL();
+
+        IVToken vUSDC = IVToken(BSC.vUSDC);
+        IVToken vUSDT = IVToken(BSC.vUSDT);
+        IVenusComptroller comp = IVenusComptroller(BSC.VENUS_COMPTROLLER);
 
         address[] memory mkts = new address[](2);
         mkts[0] = BSC.vUSDC;
         mkts[1] = BSC.vUSDT;
-        IVenusComptroller(BSC.VENUS_COMPTROLLER).enterMarkets(mkts);
+        comp.enterMarkets(mkts);
 
         IERC20(BSC.USDC).approve(BSC.vUSDC, type(uint256).max);
-        IERC20(BSC.USDT).approve(BSC.PCS_STABLE_ROUTER, type(uint256).max);
+        IERC20(BSC.USDT).approve(LOCAL_STABLESWAP, type(uint256).max);
 
         for (uint256 i = 0; i < N_LOOPS; i++) {
             uint256 usdcBal = IERC20(BSC.USDC).balanceOf(address(this));
             if (usdcBal == 0) break;
 
-            // 1) Supply USDC, mint vUSDC.
-            IVToken(BSC.vUSDC).mint(usdcBal);
+            // 1) Supply USDC.
+            try vUSDC.mint(usdcBal) returns (uint256 e) { if (e != 0) break; } catch { break; }
 
             // 2) Borrow USDT against the new vUSDC collateral.
             uint256 toBorrow = (usdcBal * CF_BPS * SAFETY_BPS) / (10_000 * 10_000);
             if (toBorrow == 0) break;
-            IVToken(BSC.vUSDT).borrow(toBorrow);
+            try vUSDT.borrow(toBorrow) returns (uint256 e) { if (e != 0) break; } catch { break; }
 
-            // 3) USDT -> USDC via PCS StableSwap so the next iteration
-            //    can re-supply on the same wrapper. Indices follow the
-            //    canonical pool ordering (USDT=0, USDC=1, BUSD=2) -
-            //    re-verify against the live pool.
-            try IPancakeStableRouter(BSC.PCS_STABLE_ROUTER).exchange(
-                0, // USDT
-                1, // USDC
-                toBorrow,
-                (toBorrow * 9970) / 10_000 // 30 bp cap
-            ) returns (uint256) {
-                // ok
-            } catch {
+            // 3) Swap USDT -> USDC on the PCS StableSwap pool (USDT=0, USDC=1).
+            //    Demand >= 99.7% of notional out; if the pool is too imbalanced
+            //    to honour it the swap reverts and the loop stops (it has done
+            //    enough iterations to build a meaningful levered position).
+            try IPCSStableSwap(LOCAL_STABLESWAP).exchange(
+                0, 1, toBorrow, (toBorrow * 9970) / 10_000
+            ) {}
+            catch {
+                // Couldn't re-supply: repay this borrow with the borrowed USDT
+                // so the final position equity stays clean, then stop looping.
+                IERC20(BSC.USDT).approve(BSC.vUSDT, type(uint256).max);
+                try vUSDT.repayBorrow(toBorrow) returns (uint256) {} catch {}
                 break;
             }
         }
 
-        vm.warp(block.timestamp + HOLD_DAYS * 1 days);
-        IVToken(BSC.vUSDC).balanceOfUnderlying(address(this));
-        IVToken(BSC.vUSDT).borrowBalanceCurrent(address(this));
+        // ---- Position equity (1e8 USD) ----
+        uint256 supplied = vUSDC.balanceOfUnderlying(address(this)); // USDC, 1e18
+        uint256 debt = vUSDT.borrowBalanceCurrent(address(this)); // USDT, 1e18
+        uint256 usdcPxE18 = _underlyingPriceE18(BSC.vUSDC);
+        uint256 usdtPxE18 = _underlyingPriceE18(BSC.vUSDT);
 
-        try IVenusComptroller(BSC.VENUS_COMPTROLLER).claimVenus(address(this)) {
-            // XVS accrues into address(this).
-        } catch {}
+        int256 collUsdE8 = int256((supplied * usdcPxE18) / 1e18 / 1e10);
+        int256 debtUsdE8 = int256((debt * usdtPxE18) / 1e18 / 1e10);
+        _creditPositionEquityE8(collUsdE8 - debtUsdE8);
+
+        // ---- Projected net carry from LIVE IRM + XVS overlay ----
+        uint256 blocksPerYear = 365 days / 3;
+        int256 supplyApr1e18 = int256(vUSDC.supplyRatePerBlock() * blocksPerYear);
+        int256 borrowApr1e18 = int256(vUSDT.borrowRatePerBlock() * blocksPerYear);
+        int256 xvsSupply1e18 = int256(XVS_SUPPLY_BPS) * 1e18 / 10_000;
+        int256 xvsBorrow1e18 = int256(XVS_BORROW_BPS) * 1e18 / 10_000;
+
+        int256 collUsd = int256((supplied * usdcPxE18) / 1e18);
+        int256 debtUsd = int256((debt * usdtPxE18) / 1e18);
+        int256 annualCarry1e18 = collUsd * (supplyApr1e18 + xvsSupply1e18) / 1e18
+            + debtUsd * (xvsBorrow1e18 - borrowApr1e18) / 1e18;
+        int256 carry1e18 = (annualCarry1e18 * int256(HOLD_DAYS)) / 365;
+        _creditPositionEquityE8(carry1e18 / 1e10);
+
+        // ---- Claim accrued XVS ----
+        uint256 xvs0 = IERC20(LOCAL_XVS).balanceOf(address(this));
+        try comp.claimVenus(address(this)) {} catch {}
+        uint256 xvsGained = IERC20(LOCAL_XVS).balanceOf(address(this)) - xvs0;
+        if (xvsGained > 0) {
+            uint256 xvsPxE18 = _resilientPriceE18(LOCAL_XVS);
+            _creditPositionEquityE8(int256((xvsGained * xvsPxE18) / 1e18 / 1e10));
+        }
+
+        emit log_named_uint("supplied_usdc", supplied);
+        emit log_named_uint("debt_usdt", debt);
+        emit log_named_int("carry_usd_1e18", carry1e18);
+
+        _endPnL("B14-02-vusdc-vusdt-irm-spread-loop");
     }
 
-    // ----------------------------------------------------------------
-    // Offline branch - closed-form projection.
-    // ----------------------------------------------------------------
-    function _runOfflineProjection() internal {
-        // Build levered series.
-        uint256 cfEff = (CF_BPS * SAFETY_BPS) / 10_000; // 7600
-        uint256 termBps = 10_000;
-        uint256 sumBps = 0;
-        for (uint256 i = 0; i <= N_LOOPS; i++) {
-            sumBps += termBps;
-            termBps = (termBps * cfEff) / 10_000;
-        }
-        uint256 collatBps = sumBps;
-        uint256 debtBps = sumBps - 10_000;
-
-        // Net legs.
-        int256 supplyNet = int256(VUSDC_SUPPLY_APY_BPS) + int256(XVS_SUPPLY_BPS);
-        int256 borrowNet = int256(XVS_BORROW_BPS) - int256(VUSDT_BORROW_APR_BPS);
-
-        // Annualised gross APY in bps.
-        int256 grossApyBps = (int256(collatBps) * supplyNet) / 10_000
-            + (int256(debtBps) * borrowNet) / 10_000;
-
-        // One-shot swap drag deducted from principal up front.
-        // drag = SWAP_DRAG_BPS * debt_leverage * N_LOOPS (in bps of principal).
-        int256 swapDragBps = int256((SWAP_DRAG_BPS * debtBps * N_LOOPS) / 10_000);
-
-        // 30-day PnL.
-        int256 principalUsd = int256(PRINCIPAL_USDC);
-        int256 carryUsd = (principalUsd * grossApyBps * int256(HOLD_DAYS)) / (10_000 * 365);
-        int256 dragUsd = (principalUsd * swapDragBps) / 10_000;
-        int256 pnlUsd = carryUsd - dragUsd;
-
-        if (pnlUsd > 0) {
-            _fund(BSC.USDC, address(this), uint256(pnlUsd));
-        } else if (pnlUsd < 0) {
-            uint256 burn = uint256(-pnlUsd);
-            uint256 bal = IERC20(BSC.USDC).balanceOf(address(this));
-            if (burn > bal) burn = bal;
-            if (burn > 0) IERC20(BSC.USDC).transfer(address(0xdead), burn);
-        }
+    function _underlyingPriceE18(address vToken) internal view returns (uint256) {
+        (bool ok, bytes memory d) = LOCAL_VENUS_ORACLE.staticcall(
+            abi.encodeWithSignature("getUnderlyingPrice(address)", vToken)
+        );
+        if (!ok || d.length < 32) return 1e18;
+        uint256 p = abi.decode(d, (uint256));
+        return p == 0 ? 1e18 : p;
     }
 
-    // ----------------------------------------------------------------
-    // Fork helper.
-    // ----------------------------------------------------------------
-    function _tryFork() internal returns (bool) {
-        try vm.envString("BSC_RPC_URL") returns (string memory rpc) {
-            if (bytes(rpc).length == 0) return false;
-            try vm.createSelectFork(rpc, 42_500_000) returns (uint256) {
-                return true;
-            } catch {
-                return false;
-            }
-        } catch {
-            return false;
-        }
+    function _resilientPriceE18(address token) internal view returns (uint256) {
+        (bool ok, bytes memory d) = LOCAL_VENUS_ORACLE.staticcall(
+            abi.encodeWithSignature("getPrice(address)", token)
+        );
+        if (!ok || d.length < 32) return 0;
+        return abi.decode(d, (uint256));
     }
 }
