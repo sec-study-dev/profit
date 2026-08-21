@@ -40,4 +40,4 @@ Uniswap v3 pays swap fees pro-rata to in-range liquidity at the moment of the sw
 
 ## 6. Disclosure timeline & publication plan
 - We intend to publish an academic paper cataloguing these cross-protocol strategies. We propose a **90-day embargo** from your acknowledgement before public release and will include any context you provide.
-- Please confirm receipt and whether 90 days is acceptable. Contact: <your email>.
+- Please confirm receipt and whether 90 days is acceptable. Contact: luofeng7777@gmail.com.

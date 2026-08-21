@@ -44,4 +44,4 @@ No Curve contract behaves incorrectly. Profit arises because: (i) LLAMMA is *des
 
 ## 6. Disclosure timeline & publication plan
 - We intend to publish an academic paper cataloguing these cross-protocol strategies. We propose a **90-day embargo** from your acknowledgement before public release and will incorporate any correction or context you provide.
-- Please confirm receipt and whether the 90-day window is acceptable, or propose an alternative. Contact: <your email>.
+- Please confirm receipt and whether the 90-day window is acceptable, or propose an alternative. Contact: luofeng7777@gmail.com.

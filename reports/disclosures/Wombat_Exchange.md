@@ -32,4 +32,4 @@
 
 ## 6. Disclosure timeline & publication plan
 - We intend to publish an academic paper. We propose a **90-day embargo** from acknowledgement before public release and will include any context you provide.
-- Please confirm receipt. Contact: <your email>.
+- Please confirm receipt. Contact: luofeng7777@gmail.com.

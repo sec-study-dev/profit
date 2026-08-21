@@ -18,5 +18,5 @@
 - **Attached PoC & pinned block:** `CrvUsdLpVsLlammaBasis` @ 19_643_500. Ethereum mainnet fork, `RPC_URL` = archive endpoint.
 
 ## 6. Disclosure timeline & publication plan
-- Same academic publication as the Curve notice; **90-day embargo** from acknowledgement proposed. Please confirm receipt. Contact: <your email>.
+- Same academic publication as the Curve notice; **90-day embargo** from acknowledgement proposed. Please confirm receipt. Contact: luofeng7777@gmail.com.
 - Note: send to Convex Finance's own security contact (docs.convexfinance.com bug-bounty page). Do **not** use `security@convex.dev`, which belongs to an unrelated company (Convex, the backend platform).
