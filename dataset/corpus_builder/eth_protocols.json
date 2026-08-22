@@ -1,0 +1,506 @@
+[
+  {
+    "slug": "lido-steth",
+    "name": "Lido stETH",
+    "category": "LST",
+    "address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+  },
+  {
+    "slug": "lido-wsteth",
+    "name": "Lido wstETH",
+    "category": "LST",
+    "address": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
+  },
+  {
+    "slug": "rocketpool-reth",
+    "name": "Rocket Pool rETH",
+    "category": "LST",
+    "address": "0xae78736Cd615f374D3085123A210448E74Fc6393"
+  },
+  {
+    "slug": "frax-frxeth",
+    "name": "Frax frxETH",
+    "category": "LST",
+    "address": "0x5E8422345238F34275888049021821E8E08CAa1f"
+  },
+  {
+    "slug": "frax-sfrxeth",
+    "name": "Frax sfrxETH",
+    "category": "LST",
+    "address": "0xac3E018457B222d93114458476f3E3416Abbe38F"
+  },
+  {
+    "slug": "coinbase-cbeth",
+    "name": "Coinbase cbETH",
+    "category": "LST",
+    "address": "0xBe9895146f7AF43049ca1c1AE358B0541Ea49704"
+  },
+  {
+    "slug": "mantle-meth",
+    "name": "Mantle mETH",
+    "category": "LST",
+    "address": "0xd5F7838F5C461fefF7FE49ea5ebaF7728bB0ADfa"
+  },
+  {
+    "slug": "swell-sweth",
+    "name": "Swell swETH",
+    "category": "LST",
+    "address": "0xf951E335afb289353dc249e82926178EaC7DEd78"
+  },
+  {
+    "slug": "binance-wbeth",
+    "name": "Binance WBETH",
+    "category": "LST",
+    "address": "0xa2E3356610840701BDf5611a53974510Ae27E2e1"
+  },
+  {
+    "slug": "stader-ethx",
+    "name": "Stader ETHx",
+    "category": "LST",
+    "address": "0xA35b1B31Ce002FBF2058D22F30f95D405200A15b"
+  },
+  {
+    "slug": "etherfi-eeth",
+    "name": "EtherFi eETH",
+    "category": "LRT",
+    "address": "0x35fA164735182de50811E8e2E824cFb9B6118ac2"
+  },
+  {
+    "slug": "etherfi-weeth",
+    "name": "EtherFi weETH",
+    "category": "LRT",
+    "address": "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee"
+  },
+  {
+    "slug": "etherfi-liquidity-pool",
+    "name": "EtherFi LiquidityPool",
+    "category": "LRT",
+    "address": "0x308861A430be4cce5502d0A12724771Fc6DaF216"
+  },
+  {
+    "slug": "renzo-ezeth",
+    "name": "Renzo ezETH",
+    "category": "LRT",
+    "address": "0xbf5495Efe5DB9ce00f80364C8B423567e58d2110"
+  },
+  {
+    "slug": "renzo-restake-manager",
+    "name": "Renzo RestakeManager",
+    "category": "LRT",
+    "address": "0x74a09653A083691711cF8215a6ab074BB4e99ef5"
+  },
+  {
+    "slug": "kelp-rseth",
+    "name": "Kelp DAO rsETH",
+    "category": "LRT",
+    "address": "0xA1290d69c65A6Fe4DF752f95823fae25cB99e5A7"
+  },
+  {
+    "slug": "puffer-pufeth",
+    "name": "Puffer pufETH",
+    "category": "LRT",
+    "address": "0xD9A442856C234a39a81a089C06451EBAa4306a72"
+  },
+  {
+    "slug": "swell-rsweth",
+    "name": "Swell rswETH",
+    "category": "LRT",
+    "address": "0xFAe103DC9cf190eD75350761e95403b7b8aFa6c0"
+  },
+  {
+    "slug": "mellow-restaking",
+    "name": "Mellow Restaking (steakLRT vault)",
+    "category": "LRT",
+    "address": "0xBEEF69Ac7870777598A04B2bd4771c71212E6aBc"
+  },
+  {
+    "slug": "eigenlayer-strategy-manager",
+    "name": "EigenLayer StrategyManager",
+    "category": "Restaking",
+    "address": "0x858646372CC42E1A627fcE94aa7A7033e7CF075A"
+  },
+  {
+    "slug": "eigenlayer-delegation-manager",
+    "name": "EigenLayer DelegationManager",
+    "category": "Restaking",
+    "address": "0x39053D51B77DC0d36036Fc1fCc8Cb819df8Ef37A"
+  },
+  {
+    "slug": "symbiotic-default-collateral",
+    "name": "Symbiotic DefaultCollateral (wstETH)",
+    "category": "Restaking",
+    "address": "0xC329400492c6ff2438472D4651Ad17389fCb843a"
+  },
+  {
+    "slug": "eigenlayer-avs-directory",
+    "name": "EigenLayer AVSDirectory",
+    "category": "Restaking",
+    "address": "0x135DDa560e946695d6f155dACaFC6f1F25C1F5AF"
+  },
+  {
+    "slug": "maker-dss-flash",
+    "name": "Maker DssFlash",
+    "category": "CDP",
+    "address": "0x60744434d6339a6B27d73d9Eda62b6F66a0a04FA"
+  },
+  {
+    "slug": "maker-psm-usdc",
+    "name": "Maker DssPsm USDC",
+    "category": "CDP",
+    "address": "0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A"
+  },
+  {
+    "slug": "maker-pot",
+    "name": "Maker Pot (DSR)",
+    "category": "CDP",
+    "address": "0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7"
+  },
+  {
+    "slug": "maker-dsr-manager",
+    "name": "Maker DsrManager",
+    "category": "CDP",
+    "address": "0x373238337Bfe1146fb49989fc222523f83081dDb"
+  },
+  {
+    "slug": "sky-sdai",
+    "name": "Sky sDAI",
+    "category": "CDP",
+    "address": "0x83F20F44975D03b1b09e64809B757c47f942BEeA"
+  },
+  {
+    "slug": "sky-usds",
+    "name": "Sky USDS",
+    "category": "CDP",
+    "address": "0xdC035D45d973E3EC169d2276DDab16f1e407384F"
+  },
+  {
+    "slug": "sky-susds",
+    "name": "Sky sUSDS",
+    "category": "CDP",
+    "address": "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD"
+  },
+  {
+    "slug": "liquity-v1-lusd",
+    "name": "Liquity v1 LUSD",
+    "category": "CDP",
+    "address": "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0"
+  },
+  {
+    "slug": "liquity-v2-bold",
+    "name": "Liquity v2 BOLD",
+    "category": "CDP",
+    "address": "0x6440f144b7e50D6a8439336510312d2F54beB01D"
+  },
+  {
+    "slug": "curve-crvusd",
+    "name": "Curve crvUSD",
+    "category": "CDP",
+    "address": "0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E"
+  },
+  {
+    "slug": "reflexer-rai",
+    "name": "Reflexer RAI",
+    "category": "CDP",
+    "address": "0x03ab458634910AaD20eF5f1C8ee96F1D6ac54919"
+  },
+  {
+    "slug": "inverse-dola",
+    "name": "Inverse DOLA",
+    "category": "CDP",
+    "address": "0x865377367054516e17014CcdED1e7d814EDC9ce4"
+  },
+  {
+    "slug": "aave-gho",
+    "name": "Aave GHO",
+    "category": "CDP",
+    "address": "0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f"
+  },
+  {
+    "slug": "prisma-mkusd",
+    "name": "Prisma mkUSD",
+    "category": "CDP",
+    "address": "0x4591DBfF62656E7859Afe5e45f6f47D3669fBB28"
+  },
+  {
+    "slug": "ethena-usde",
+    "name": "Ethena USDe",
+    "category": "YieldStable",
+    "address": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3"
+  },
+  {
+    "slug": "ethena-susde",
+    "name": "Ethena sUSDe",
+    "category": "YieldStable",
+    "address": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497"
+  },
+  {
+    "slug": "ethena-minting",
+    "name": "Ethena Minting",
+    "category": "YieldStable",
+    "address": "0xE3490297a08d6fC8Da46Edb7B6142E4F461b62D3"
+  },
+  {
+    "slug": "mountain-usdm",
+    "name": "Mountain USDM",
+    "category": "YieldStable",
+    "address": "0x59D9356E565Ab3A36dD77763Fc0d87fEaf85508C"
+  },
+  {
+    "slug": "ondo-usdy",
+    "name": "Ondo USDY",
+    "category": "YieldStable",
+    "address": "0x96F6eF951840721AdBF46Ac996b59E0235CB985C"
+  },
+  {
+    "slug": "maple-syrupusdc",
+    "name": "Maple syrupUSDC",
+    "category": "YieldStable",
+    "address": "0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b"
+  },
+  {
+    "slug": "origin-ousd",
+    "name": "Origin OUSD",
+    "category": "YieldStable",
+    "address": "0x2A8e1E676Ec238d8A992307B495b45B3fEAa5e86"
+  },
+  {
+    "slug": "origin-oeth",
+    "name": "Origin OETH",
+    "category": "YieldStable",
+    "address": "0x856c4Efb76C1D1AE02e20CEB03A2A6a08b0b8dC3"
+  },
+  {
+    "slug": "pendle-router-v4",
+    "name": "Pendle Router V4",
+    "category": "Pendle",
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946"
+  },
+  {
+    "slug": "pendle-token",
+    "name": "Pendle Token",
+    "category": "Pendle",
+    "address": "0x808507121B80c02388fAd14726482e061B8da827"
+  },
+  {
+    "slug": "penpie",
+    "name": "Penpie (mPendle Convertor)",
+    "category": "Pendle",
+    "address": "0x16296859C15289731521F199F0a5f762dF6347d0"
+  },
+  {
+    "slug": "equilibria",
+    "name": "Equilibria (ePendle Convertor)",
+    "category": "Pendle",
+    "address": "0x64627901dAdb46eD7f275fD4fc87d086cfF1e6E3"
+  },
+  {
+    "slug": "alchemix-alusd",
+    "name": "Alchemix alUSD",
+    "category": "Pendle",
+    "address": "0xBC6DA0FE9aD5f3b0d58160288917AA56653660E9"
+  },
+  {
+    "slug": "aave-v3-pool",
+    "name": "Aave v3 Pool",
+    "category": "MoneyMarket",
+    "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2"
+  },
+  {
+    "slug": "spark-pool",
+    "name": "Spark Pool",
+    "category": "MoneyMarket",
+    "address": "0xC13e21B648A5Ee794902342038FF3aDAB66BE987"
+  },
+  {
+    "slug": "compound-v3-usdc",
+    "name": "Compound v3 USDC Comet",
+    "category": "MoneyMarket",
+    "address": "0xc3d688B66703497DAA19211EEdff47f25384cdc3"
+  },
+  {
+    "slug": "compound-v3-weth",
+    "name": "Compound v3 WETH Comet",
+    "category": "MoneyMarket",
+    "address": "0xA17581A9E3356d9A858b789D68B4d866e593aE94"
+  },
+  {
+    "slug": "morpho-blue",
+    "name": "Morpho Blue",
+    "category": "MoneyMarket",
+    "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb"
+  },
+  {
+    "slug": "metamorpho-factory",
+    "name": "MetaMorpho Factory",
+    "category": "MoneyMarket",
+    "address": "0xA9c3D3a366466Fa809d1Ae982Fb2c46E5fC41101"
+  },
+  {
+    "slug": "fluid-liquidity",
+    "name": "Fluid Liquidity",
+    "category": "MoneyMarket",
+    "address": "0x52aa899454998be5b000ad077a46bbe360f4e497"
+  },
+  {
+    "slug": "euler-evc",
+    "name": "Euler v2 EVC",
+    "category": "MoneyMarket",
+    "address": "0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383"
+  },
+  {
+    "slug": "euler-usdc-prime",
+    "name": "Euler USDC Prime EVault",
+    "category": "MoneyMarket",
+    "address": "0x797DD80692c3b2dAdabCe8e30C07fDE5307D48a9"
+  },
+  {
+    "slug": "euler-usdc-yield",
+    "name": "Euler USDC Yield EVault",
+    "category": "MoneyMarket",
+    "address": "0xcBC9B61177444A793B85442D3a953B90f6170b7D"
+  },
+  {
+    "slug": "frax-frax-token",
+    "name": "Frax FRAX",
+    "category": "MoneyMarket",
+    "address": "0x853d955aCEf822Db058eb8505911ED77F175b99e"
+  },
+  {
+    "slug": "silo-finance",
+    "name": "Silo Finance Repository",
+    "category": "MoneyMarket",
+    "address": "0xd998C35B7900b344bbBe6555cc11576942Cf309d"
+  },
+  {
+    "slug": "curve-3pool",
+    "name": "Curve 3Pool",
+    "category": "AMM",
+    "address": "0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7"
+  },
+  {
+    "slug": "curve-steth-pool",
+    "name": "Curve stETH Pool",
+    "category": "AMM",
+    "address": "0xDC24316b9AE028F1497c275EB9192a3Ea0f67022"
+  },
+  {
+    "slug": "curve-tricrypto2",
+    "name": "Curve TriCrypto2",
+    "category": "AMM",
+    "address": "0xD51a44d3FaE010294C616388b506AcdA1bfAAE46"
+  },
+  {
+    "slug": "balancer-vault",
+    "name": "Balancer Vault",
+    "category": "AMM",
+    "address": "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+  },
+  {
+    "slug": "uniswap-v2-router",
+    "name": "Uniswap V2 Router",
+    "category": "AMM",
+    "address": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+  },
+  {
+    "slug": "uniswap-v3-factory",
+    "name": "Uniswap V3 Factory",
+    "category": "AMM",
+    "address": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+  },
+  {
+    "slug": "uniswap-v3-router",
+    "name": "Uniswap V3 SwapRouter",
+    "category": "AMM",
+    "address": "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+  },
+  {
+    "slug": "uniswap-v4-pool-manager",
+    "name": "Uniswap V4 PoolManager",
+    "category": "AMM",
+    "address": "0x000000000004444c5dc75cB358380D2e3dE08A90"
+  },
+  {
+    "slug": "sushiswap-v2-factory",
+    "name": "Sushiswap V2 Factory",
+    "category": "AMM",
+    "address": "0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"
+  },
+  {
+    "slug": "convex-booster",
+    "name": "Convex Booster",
+    "category": "Bribe",
+    "address": "0xF403C135812408BFbE8713b5A23a04b3D48AAE31"
+  },
+  {
+    "slug": "convex-vlcvx",
+    "name": "Convex vlCVX",
+    "category": "Bribe",
+    "address": "0x72a19342e8F1838460eBFCCEf09F6585e32db86E"
+  },
+  {
+    "slug": "convex-cvx",
+    "name": "Convex CVX",
+    "category": "Bribe",
+    "address": "0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B"
+  },
+  {
+    "slug": "aura-booster",
+    "name": "Aura Booster",
+    "category": "Bribe",
+    "address": "0xA57b8d98dAE62B26Ec3bcC4a365338157060B234"
+  },
+  {
+    "slug": "curve-gauge-controller",
+    "name": "Curve GaugeController",
+    "category": "Bribe",
+    "address": "0x2F50D538606Fa9EDD2B11E2446BEb18C9D5846bB"
+  },
+  {
+    "slug": "vecrv",
+    "name": "veCRV",
+    "category": "Bribe",
+    "address": "0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2"
+  },
+  {
+    "slug": "vependle",
+    "name": "vePENDLE",
+    "category": "Bribe",
+    "address": "0x4f30A9D41B80ecC5B94306AB4364951AE3170210"
+  },
+  {
+    "slug": "votium",
+    "name": "Votium MultiMerkleStash",
+    "category": "Bribe",
+    "address": "0x378Ba9B73309bE80BF4C2c027aAD799766a7ED5A"
+  },
+  {
+    "slug": "hidden-hand",
+    "name": "Hidden Hand RewardDistributor",
+    "category": "Bribe",
+    "address": "0xa9b08B4CeEC1EF29EdEC7F9C94583270337D6416"
+  },
+  {
+    "slug": "synthetix-address-resolver",
+    "name": "Synthetix V2x AddressResolver",
+    "category": "Derivatives",
+    "address": "0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83"
+  },
+  {
+    "slug": "synthetix-susd",
+    "name": "Synthetix sUSD",
+    "category": "Derivatives",
+    "address": "0x57Ab1ec28D129707052df4dF418D58a2D46d5f51"
+  },
+  {
+    "slug": "synthetix-seth",
+    "name": "Synthetix sETH",
+    "category": "Derivatives",
+    "address": "0x5e74C9036fb86BD7eCdcb084a0673EFc32eA31cb"
+  },
+  {
+    "slug": "synthetix-v3-core",
+    "name": "Synthetix V3 CoreProxy",
+    "category": "Derivatives",
+    "address": "0xffffffaEff0B96Ea8e4f94b2253f31abdD875847"
+  }
+]

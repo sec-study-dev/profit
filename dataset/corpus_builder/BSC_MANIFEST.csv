@@ -1,0 +1,58 @@
+chain_id,slug,name,category,address,status,source_files,contract_or_error
+56,lista-slisbnb,Lista slisBNB,LST,0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B,verified,13,TransparentUpgradeableProxy
+56,lista-stake-manager,Lista StakeManager,LST,0x1adB950d8bB3dA4bE104211D5AB038628e477fE6,verified,13,TransparentUpgradeableProxy
+56,stader-bnbx,Stader BNBx,LST,0x1bdd3Cf7F79cfB8EdbB955f20ad99211551BA275,verified,13,TransparentUpgradeableProxy
+56,ankr-ankrbnb,Ankr ankrBNB,LST,0x52F24a5e03aee338Da5fd9Df68D2b6FAe1178827,verified,13,TransparentUpgradeableProxy
+56,pstake-stkbnb,pSTAKE stkBNB,LST,0xc2E9d07F66A89c44062459A47a0D2Dc038E4fb16,verified,14,StakedBNBToken
+56,binance-wbeth-bsc,Binance WBETH (BSC),LST,0xa2E3356610840701BDf5611a53974510Ae27E2e1,verified,1,FiatTokenProxy
+56,astherus-asbnb,Astherus asBNB,LST,0x77734e70b6E88b4d82fE632a168EDf6e700912b6,verified,21,AsBNB
+56,lista-lisusd,Lista lisUSD,CDP,0x0782b6d8c4551B9760e74c0545a9bCD90bdc41E5,verified,1,TransparentUpgradeableProxy
+56,lista-interaction,Lista Interaction,CDP,0xB68443Ee3e828baD1526b3e0Bdf2Dfc6b1975ec4,verified,1,TransparentUpgradeableProxy
+56,alpaca-alpaca-token,Alpaca ALPACA token,CDP,0x8F0528cE5eF7B51152A59745bEfDD91D97091d2F,verified_substituted,1,sub_from=lista-clipper;cname=AlpacaToken
+56,helio-helio-token,Helio (Lista) HAY,CDP,0x0782b6d8c4551B9760e74c0545a9bCD90bdc41E5,verified_substituted,1,sub_from=lista-lending;cname=TransparentUpgradeableProxy
+56,ethena-usde-bsc,Ethena USDe (BSC OFT),CDP,0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34,verified,41,USDeOFT
+56,ethena-susde-bsc,Ethena sUSDe (BSC OFT),CDP,0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2,verified,42,StakedUSDeOFT
+56,usd1,USD1 (World Liberty),CDP,0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d,verified,8,TransparentUpgradeableProxy
+56,fdusd,FDUSD,CDP,0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409,verified,8,TransparentUpgradeableProxy
+56,venus-comptroller,Venus Comptroller,MoneyMarket,0xfD36E2c2a6789Db23113685031d7F16329158384,verified,1,Unitroller
+56,venus-vbnb,Venus vBNB,MoneyMarket,0xA07c5b74C9B40447a954e1466938b865b6BBea36,verified,1,VBNB
+56,venus-vusdt,Venus vUSDT,MoneyMarket,0xfD5840Cd36d94D7229439859C0112a4185BC0255,verified,1,VBep20Delegator
+56,venus-vusdc,Venus vUSDC,MoneyMarket,0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8,verified,1,VBep20Delegator
+56,venus-vbusd,Venus vBUSD,MoneyMarket,0x95c78222B3D6e262426483D42CfA53685A67Ab9D,verified,1,VBep20Delegator
+56,venus-vbtcb,Venus vBTCB,MoneyMarket,0x882C173bC7Ff3b7786CA16dfeD3DFFfb9Ee7847B,verified,1,VBep20Delegator
+56,venus-vai,Venus VAI,MoneyMarket,0x4BD17003473389A42DAF6a0a729f6Fdb328BbBd7,verified,1,VAI
+56,biswap-router,Biswap Router V2,MoneyMarket,0x3a6d8cA21D1CF76F653A67577FA0D27453350dD8,verified_substituted,1,sub_from=venus-isolated-lsd;cname=BiswapRouter02
+56,venus-isolated-defi,Venus Isolated Pool DeFi,MoneyMarket,0x3344417c9360b963ca93A4e8305361AEde340Ab9,verified,8,BeaconProxy
+56,pancakeswap-v2-router,PancakeSwap V2 Router,AMM,0x10ED43C718714eb63d5aA57B78B54704E256024E,verified,1,PancakeRouter
+56,pancakeswap-v2-factory,PancakeSwap V2 Factory,AMM,0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73,verified,1,PancakeFactory
+56,pancakeswap-v3-swaprouter,PancakeSwap V3 SwapRouter,AMM,0x13f4EA83D0bd40E75C8222255bc855a974568Dd4,verified,70,SmartRouter
+56,pancakeswap-v3-factory,PancakeSwap V3 Factory,AMM,0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865,verified,10,PancakeV3Factory
+56,pancakeswap-v3-nonfungiblemgr,PancakeSwap V3 NFTPositionManager,AMM,0x46A15B0b27311cedF172AB29E4f4766fbE7F4364,verified,55,NonfungiblePositionManager
+56,pancakeswap-masterchef-v3,PancakeSwap MasterChef V3,AMM,0x556B9306565093C855AEA9AE92A594704c2Cd59e,verified,21,MasterChefV3
+56,pancakeswap-stableswap-factory,PancakeSwap StableSwap Factory,AMM,0x25a55f9f2279A54951133D503490342b50E5cd15,verified,7,PancakeStableSwapFactory
+56,pancakeswap-cake,PancakeSwap CAKE,AMM,0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82,verified,1,CakeToken
+56,thena-router,Thena Router,AMM,0x20a304a7d126758dfe6B243D0fc515F83bCA8431,verified,7,Router
+56,thena-pairfactory,Thena PairFactory,AMM,0xAFD89d21BdB66d00817d4153E055830B1c2B3970,verified,13,TransparentUpgradeableProxy
+56,thena-vethe,veTHE,AMM,0xfBBF371C9B0B994EebFcC977CEf603F7f31c070D,verified,9,VotingEscrow
+56,thena-the,THE,AMM,0xF4C8E32EaDEC4BFe97E0F595AdD0f4450a863a11,verified,2,Thena
+56,thena-voter,Thena Voter,AMM,0x374cc2276b842fEcD65af36D7C60a5b78373eDe1,verified,20,VoterV3
+56,wombat-mainpool,Wombat MainPool,AMM,0x312Bc7eAAF93f1C60Dc5AfC115FcCDE161055fb0,verified,1,OptimizedTransparentUpgradeableProxy
+56,wombat-router,Wombat Router,AMM,0x19609B03C976CCA288fbDae5c21d4290e9a4aDD7,verified,8,WombatRouter
+56,wombat-vewom,veWOM,AMM,0x3DA62816dD31c56D9CdF22C6771ddb892cB5b0Cc,verified,4,OptimizedTransparentUpgradeableProxy
+56,wombat-masterwombat,MasterWombat,AMM,0x489833311676B566f888119c29bd997Dc6C95830,verified,4,OptimizedTransparentUpgradeableProxy
+56,wombat-wom,WOM,AMM,0xAD6742A35fB341A9Cc6ad674738Dd8da98b94Fb1,verified,10,WombatERC20
+56,pendle-router-v4-bsc,Pendle Router V4 (BSC),Pendle,0x888888888889758F76e7103c6CbF23ABbF58F946,verified,4,PendleRouterV4
+56,pendle-token-bsc,Pendle Token (BSC),Pendle,0xb3Ed0A426155B79B898849803E3B36552f7ED507,verified,1,BridgeToken
+56,avalon-lendingpool,Avalon Labs LendingPool,BTC-LSD,0xf9278C7c4AEfAC4dDfd0D496f7a1C39cA6BcA6d4,verified,6,InitializableImmutableAdminUpgradeabilityProxy
+56,avalon-usdx,Avalon USDX,BTC-LSD,0xf3527ef8dE265eAa3716FB312c12847bFBA66Cef,verified,25,USDX
+56,solv-solvbtc,Solv solvBTC,BTC-LSD,0x4aae823a6a0b376De6A78e74eCC5b079d38cBCf7,verified,1,BeaconProxy
+56,solv-solvbtc-bbn,Solv solvBTC.BBN,BTC-LSD,0x1346b618dC92810EC74163e4c27004c921D446a5,verified,1,BeaconProxy
+56,pumpbtc,pumpBTC,BTC-LSD,0x1fCca65fb6Ae3b2758b9b2B394CB227eAE404e1E,verified,13,TransparentUpgradeableProxy
+56,bakerybtc,BakerySwap BAKE token,BTC-LSD,0xE02dF9e3e622DeBdD69fb838bB799E3F168902c5,verified_substituted,1,sub_from=enzobtc;cname=BakeryToken
+56,layerzero-endpoint-v2-bsc,LayerZero V2 Endpoint (BSC),Bridge,0x1a44076050125825900e736c501f859c50fE728c,verified,27,EndpointV2
+56,usdc-bsc,USDC (BSC),Bridge,0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d,verified_substituted,1,sub_from=usdt-oft-adapter-bsc;cname=BEP20UpgradeableProxy
+56,stargate-router-bsc,Stargate Router (BSC),Bridge,0x8731d54E9D02c286767d56ac03e8037C07e01e98,verified,14,LPStaking
+56,wbnb,WBNB,Base,0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c,verified,1,WBNB
+56,btcb,BTCB,Base,0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c,verified,1,BEP20Token
+56,venus-xvs,Venus XVS,MoneyMarket,0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63,verified,1,XVS
+56,alpaca-ibusdt,Alpaca ibUSDT Vault,MoneyMarket,0x158Da805682BdC8ee32d52833aD41E74bb951E59,verified_substituted,1,sub_from=venus-isolated-gamefi;cname=AdminUpgradeabilityProxy

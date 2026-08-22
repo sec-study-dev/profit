@@ -1,0 +1,142 @@
+chain_id,slug,name,category,address,status,source_files,contract_or_error
+1,lido-steth,Lido stETH,LST,0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84,verified,1,AppProxyUpgradeable
+1,lido-wsteth,Lido wstETH,LST,0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0,verified,1,WstETH
+1,rocketpool-reth,Rocket Pool rETH,LST,0xae78736Cd615f374D3085123A210448E74Fc6393,verified,11,RocketTokenRETH
+1,frax-frxeth,Frax frxETH,LST,0x5E8422345238F34275888049021821E8E08CAa1f,verified,1,frxETH
+1,frax-sfrxeth,Frax sfrxETH,LST,0xac3E018457B222d93114458476f3E3416Abbe38F,verified,1,sfrxETH
+1,coinbase-cbeth,Coinbase cbETH,LST,0xBe9895146f7AF43049ca1c1AE358B0541Ea49704,verified,5,FiatTokenProxy
+1,mantle-meth,Mantle mETH,LST,0xd5F7838F5C461fefF7FE49ea5ebaF7728bB0ADfa,verified,9,TransparentUpgradeableProxy
+1,swell-sweth,Swell swETH,LST,0xf951E335afb289353dc249e82926178EaC7DEd78,verified,13,TransparentUpgradeableProxy
+1,binance-wbeth,Binance WBETH,LST,0xa2E3356610840701BDf5611a53974510Ae27E2e1,verified,1,FiatTokenProxy
+1,stader-ethx,Stader ETHx,LST,0xA35b1B31Ce002FBF2058D22F30f95D405200A15b,verified,14,TransparentUpgradeableProxy
+1,etherfi-eeth,EtherFi eETH,LRT,0x35fA164735182de50811E8e2E824cFb9B6118ac2,verified,8,UUPSProxy
+1,etherfi-weeth,EtherFi weETH,LRT,0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee,verified,8,UUPSProxy
+1,etherfi-liquidity-pool,EtherFi LiquidityPool,LRT,0x308861A430be4cce5502d0A12724771Fc6DaF216,verified,8,UUPSProxy
+1,renzo-ezeth,Renzo ezETH,LRT,0xbf5495Efe5DB9ce00f80364C8B423567e58d2110,verified,8,TransparentUpgradeableProxy
+1,renzo-restake-manager,Renzo RestakeManager,LRT,0x74a09653A083691711cF8215a6ab074BB4e99ef5,verified,8,TransparentUpgradeableProxy
+1,kelp-rseth,Kelp DAO rsETH,LRT,0xA1290d69c65A6Fe4DF752f95823fae25cB99e5A7,verified,9,TransparentUpgradeableProxy
+1,puffer-pufeth,Puffer pufETH,LRT,0xD9A442856C234a39a81a089C06451EBAa4306a72,verified,6,ERC1967Proxy
+1,swell-rsweth,Swell rswETH,LRT,0xFAe103DC9cf190eD75350761e95403b7b8aFa6c0,verified,13,TransparentUpgradeableProxy
+1,mellow-restaking,Mellow Restaking (steakLRT vault),LRT,0xBEEF69Ac7870777598A04B2bd4771c71212E6aBc,verified,11,TransparentUpgradeableProxy
+1,eigenlayer-strategy-manager,EigenLayer StrategyManager,Restaking,0x858646372CC42E1A627fcE94aa7A7033e7CF075A,verified,8,TransparentUpgradeableProxy
+1,eigenlayer-delegation-manager,EigenLayer DelegationManager,Restaking,0x39053D51B77DC0d36036Fc1fCc8Cb819df8Ef37A,verified,8,TransparentUpgradeableProxy
+1,symbiotic-default-collateral,Symbiotic DefaultCollateral (wstETH),Restaking,0xC329400492c6ff2438472D4651Ad17389fCb843a,verified,18,DefaultCollateral
+1,eigenlayer-avs-directory,EigenLayer AVSDirectory,Restaking,0x135DDa560e946695d6f155dACaFC6f1F25C1F5AF,verified_substituted,8,sub_from=karak-supervisor;cname=TransparentUpgradeableProxy
+1,maker-dss-flash,Maker DssFlash,CDP,0x60744434d6339a6B27d73d9Eda62b6F66a0a04FA,verified,1,DssFlash
+1,maker-psm-usdc,Maker DssPsm USDC,CDP,0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A,verified,1,DssPsm
+1,maker-pot,Maker Pot (DSR),CDP,0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7,verified,1,Pot
+1,maker-dsr-manager,Maker DsrManager,CDP,0x373238337Bfe1146fb49989fc222523f83081dDb,verified,1,DsrManager
+1,sky-sdai,Sky sDAI,CDP,0x83F20F44975D03b1b09e64809B757c47f942BEeA,verified,1,SavingsDai
+1,sky-usds,Sky USDS,CDP,0xdC035D45d973E3EC169d2276DDab16f1e407384F,verified,6,ERC1967Proxy
+1,sky-susds,Sky sUSDS,CDP,0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD,verified,6,ERC1967Proxy
+1,liquity-v1-lusd,Liquity v1 LUSD,CDP,0x5f98805A4E8be255a32880FDeC7F6728C6568bA0,verified,7,LUSDToken
+1,liquity-v2-bold,Liquity v2 BOLD,CDP,0x6440f144b7e50D6a8439336510312d2F54beB01D,verified,1,BoldToken
+1,curve-crvusd,Curve crvUSD,CDP,0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E,verified,1,crvUSD Stablecoin
+1,reflexer-rai,Reflexer RAI,CDP,0x03ab458634910AaD20eF5f1C8ee96F1D6ac54919,verified,1,Coin
+1,inverse-dola,Inverse DOLA,CDP,0x865377367054516e17014CcdED1e7d814EDC9ce4,verified,2,ERC20
+1,aave-gho,Aave GHO,CDP,0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f,verified,12,GhoToken
+1,prisma-mkusd,Prisma mkUSD,CDP,0x4591DBfF62656E7859Afe5e45f6f47D3669fBB28,verified,21,DebtToken
+1,ethena-usde,Ethena USDe,YieldStable,0x4c9EDD5852cd905f086C759E8383e09bff1E68B3,verified,20,USDe
+1,ethena-susde,Ethena sUSDe,YieldStable,0x9D39A5DE30e57443BfF2A8307A4256c8797A3497,verified,33,StakedUSDeV2
+1,ethena-minting,Ethena Minting,YieldStable,0xE3490297a08d6fC8Da46Edb7B6142E4F461b62D3,verified,25,EthenaMinting
+1,mountain-usdm,Mountain USDM,YieldStable,0x59D9356E565Ab3A36dD77763Fc0d87fEaf85508C,verified,14,ERC1967Proxy
+1,ondo-usdy,Ondo USDY,YieldStable,0x96F6eF951840721AdBF46Ac996b59E0235CB985C,verified,9,TokenProxy
+1,maple-syrupusdc,Maple syrupUSDC,YieldStable,0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b,verified,1,MaplePool
+1,origin-ousd,Origin OUSD,YieldStable,0x2A8e1E676Ec238d8A992307B495b45B3fEAa5e86,verified,1,InitializeGovernedUpgradeabilityProxy
+1,origin-oeth,Origin OETH,YieldStable,0x856c4Efb76C1D1AE02e20CEB03A2A6a08b0b8dC3,verified,4,OETHProxy
+1,pendle-router-v4,Pendle Router V4,Pendle,0x888888888889758F76e7103c6CbF23ABbF58F946,verified,4,PendleRouterV4
+1,pendle-token,Pendle Token,Pendle,0x808507121B80c02388fAd14726482e061B8da827,verified,1,PENDLE
+1,penpie,Penpie (mPendle Convertor),Pendle,0x16296859C15289731521F199F0a5f762dF6347d0,verified,8,TransparentUpgradeableProxy
+1,equilibria,Equilibria (ePendle Convertor),Pendle,0x64627901dAdb46eD7f275fD4fc87d086cfF1e6E3,verified,13,TransparentUpgradeableProxy
+1,alchemix-alusd,Alchemix alUSD,Pendle,0xBC6DA0FE9aD5f3b0d58160288917AA56653660E9,verified_substituted,11,sub_from=spectra;cname=AlToken
+1,aave-v3-pool,Aave v3 Pool,MoneyMarket,0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2,verified,6,InitializableImmutableAdminUpgradeabilityProxy
+1,spark-pool,Spark Pool,MoneyMarket,0xC13e21B648A5Ee794902342038FF3aDAB66BE987,verified,6,InitializableImmutableAdminUpgradeabilityProxy
+1,compound-v3-usdc,Compound v3 USDC Comet,MoneyMarket,0xc3d688B66703497DAA19211EEdff47f25384cdc3,verified,8,TransparentUpgradeableProxy
+1,compound-v3-weth,Compound v3 WETH Comet,MoneyMarket,0xA17581A9E3356d9A858b789D68B4d866e593aE94,verified,8,TransparentUpgradeableProxy
+1,morpho-blue,Morpho Blue,MoneyMarket,0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb,verified,14,Morpho
+1,metamorpho-factory,MetaMorpho Factory,MoneyMarket,0xA9c3D3a366466Fa809d1Ae982Fb2c46E5fC41101,verified,43,MetaMorphoFactory
+1,fluid-liquidity,Fluid Liquidity,MoneyMarket,0x52aa899454998be5b000ad077a46bbe360f4e497,verified,6,FluidLiquidityProxy
+1,euler-evc,Euler v2 EVC,MoneyMarket,0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383,verified,9,EthereumVaultConnector
+1,euler-usdc-prime,Euler USDC Prime EVault,MoneyMarket,0x797DD80692c3b2dAdabCe8e30C07fDE5307D48a9,verified,1,BeaconProxy
+1,euler-usdc-yield,Euler USDC Yield EVault,MoneyMarket,0xcBC9B61177444A793B85442D3a953B90f6170b7D,verified,1,BeaconProxy
+1,frax-frax-token,Frax FRAX,MoneyMarket,0x853d955aCEf822Db058eb8505911ED77F175b99e,verified_substituted,1,sub_from=fraxlend-pair;cname=FRAXStablecoin
+1,silo-finance,Silo Finance Repository,MoneyMarket,0xd998C35B7900b344bbBe6555cc11576942Cf309d,verified,33,SiloRepository
+1,curve-3pool,Curve 3Pool,AMM,0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7,verified,1,Vyper_contract
+1,curve-steth-pool,Curve stETH Pool,AMM,0xDC24316b9AE028F1497c275EB9192a3Ea0f67022,verified,1,Vyper_contract
+1,curve-tricrypto2,Curve TriCrypto2,AMM,0xD51a44d3FaE010294C616388b506AcdA1bfAAE46,verified,1,Vyper_contract
+1,balancer-vault,Balancer Vault,AMM,0xBA12222222228d8Ba445958a75a0704d566BF2C8,verified,45,Vault
+1,uniswap-v2-router,Uniswap V2 Router,AMM,0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D,verified,1,UniswapV2Router02
+1,uniswap-v3-factory,Uniswap V3 Factory,AMM,0x1F98431c8aD98523631AE4a59f267346ea31F984,verified,33,UniswapV3Factory
+1,uniswap-v3-router,Uniswap V3 SwapRouter,AMM,0xE592427A0AEce92De3Edee1F18E0157C05861564,verified,34,SwapRouter
+1,uniswap-v4-pool-manager,Uniswap V4 PoolManager,AMM,0x000000000004444c5dc75cB358380D2e3dE08A90,verified,44,PoolManager
+1,sushiswap-v2-factory,Sushiswap V2 Factory,AMM,0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac,verified_substituted,1,sub_from=maverick-v2-factory;cname=UniswapV2Factory
+1,convex-booster,Convex Booster,Bribe,0xF403C135812408BFbE8713b5A23a04b3D48AAE31,verified,1,Booster
+1,convex-vlcvx,Convex vlCVX,Bribe,0x72a19342e8F1838460eBFCCEf09F6585e32db86E,verified,1,CvxLockerV2
+1,convex-cvx,Convex CVX,Bribe,0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B,verified,1,ConvexToken
+1,aura-booster,Aura Booster,Bribe,0xA57b8d98dAE62B26Ec3bcC4a365338157060B234,verified,34,Booster
+1,curve-gauge-controller,Curve GaugeController,Bribe,0x2F50D538606Fa9EDD2B11E2446BEb18C9D5846bB,verified,1,Vyper_contract
+1,vecrv,veCRV,Bribe,0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2,verified,1,Vyper_contract
+1,vependle,vePENDLE,Bribe,0x4f30A9D41B80ecC5B94306AB4364951AE3170210,verified,21,VotingEscrowPendleMainchain
+1,votium,Votium MultiMerkleStash,Bribe,0x378Ba9B73309bE80BF4C2c027aAD799766a7ED5A,verified,7,MultiMerkleStash
+1,hidden-hand,Hidden Hand RewardDistributor,Bribe,0xa9b08B4CeEC1EF29EdEC7F9C94583270337D6416,verified,18,RewardDistributor
+1,synthetix-address-resolver,Synthetix V2x AddressResolver,Derivatives,0x823bE81bbF96BEc0e25CA13170F5AaCb5B79ba83,verified,1,AddressResolver
+1,synthetix-susd,Synthetix sUSD,Derivatives,0x57Ab1ec28D129707052df4dF418D58a2D46d5f51,verified,1,ProxyERC20
+1,synthetix-seth,Synthetix sETH,Derivatives,0x5e74C9036fb86BD7eCdcb084a0673EFc32eA31cb,verified,1,ProxyERC20
+1,synthetix-v3-core,Synthetix V3 CoreProxy,Derivatives,0xffffffaEff0B96Ea8e4f94b2253f31abdD875847,verified_substituted,133,sub_from=gmx-v2-datastore;cname=Proxy
+56,lista-slisbnb,Lista slisBNB,LST,0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B,verified,13,TransparentUpgradeableProxy
+56,lista-stake-manager,Lista StakeManager,LST,0x1adB950d8bB3dA4bE104211D5AB038628e477fE6,verified,13,TransparentUpgradeableProxy
+56,stader-bnbx,Stader BNBx,LST,0x1bdd3Cf7F79cfB8EdbB955f20ad99211551BA275,verified,13,TransparentUpgradeableProxy
+56,ankr-ankrbnb,Ankr ankrBNB,LST,0x52F24a5e03aee338Da5fd9Df68D2b6FAe1178827,verified,13,TransparentUpgradeableProxy
+56,pstake-stkbnb,pSTAKE stkBNB,LST,0xc2E9d07F66A89c44062459A47a0D2Dc038E4fb16,verified,14,StakedBNBToken
+56,binance-wbeth-bsc,Binance WBETH (BSC),LST,0xa2E3356610840701BDf5611a53974510Ae27E2e1,verified,1,FiatTokenProxy
+56,astherus-asbnb,Astherus asBNB,LST,0x77734e70b6E88b4d82fE632a168EDf6e700912b6,verified,21,AsBNB
+56,lista-lisusd,Lista lisUSD,CDP,0x0782b6d8c4551B9760e74c0545a9bCD90bdc41E5,verified,1,TransparentUpgradeableProxy
+56,lista-interaction,Lista Interaction,CDP,0xB68443Ee3e828baD1526b3e0Bdf2Dfc6b1975ec4,verified,1,TransparentUpgradeableProxy
+56,alpaca-alpaca-token,Alpaca ALPACA token,CDP,0x8F0528cE5eF7B51152A59745bEfDD91D97091d2F,verified_substituted,1,sub_from=lista-clipper;cname=AlpacaToken
+56,helio-helio-token,Helio (Lista) HAY,CDP,0x0782b6d8c4551B9760e74c0545a9bCD90bdc41E5,verified_substituted,1,sub_from=lista-lending;cname=TransparentUpgradeableProxy
+56,ethena-usde-bsc,Ethena USDe (BSC OFT),CDP,0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34,verified,41,USDeOFT
+56,ethena-susde-bsc,Ethena sUSDe (BSC OFT),CDP,0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2,verified,42,StakedUSDeOFT
+56,usd1,USD1 (World Liberty),CDP,0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d,verified,8,TransparentUpgradeableProxy
+56,fdusd,FDUSD,CDP,0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409,verified,8,TransparentUpgradeableProxy
+56,venus-comptroller,Venus Comptroller,MoneyMarket,0xfD36E2c2a6789Db23113685031d7F16329158384,verified,1,Unitroller
+56,venus-vbnb,Venus vBNB,MoneyMarket,0xA07c5b74C9B40447a954e1466938b865b6BBea36,verified,1,VBNB
+56,venus-vusdt,Venus vUSDT,MoneyMarket,0xfD5840Cd36d94D7229439859C0112a4185BC0255,verified,1,VBep20Delegator
+56,venus-vusdc,Venus vUSDC,MoneyMarket,0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8,verified,1,VBep20Delegator
+56,venus-vbusd,Venus vBUSD,MoneyMarket,0x95c78222B3D6e262426483D42CfA53685A67Ab9D,verified,1,VBep20Delegator
+56,venus-vbtcb,Venus vBTCB,MoneyMarket,0x882C173bC7Ff3b7786CA16dfeD3DFFfb9Ee7847B,verified,1,VBep20Delegator
+56,venus-vai,Venus VAI,MoneyMarket,0x4BD17003473389A42DAF6a0a729f6Fdb328BbBd7,verified,1,VAI
+56,biswap-router,Biswap Router V2,MoneyMarket,0x3a6d8cA21D1CF76F653A67577FA0D27453350dD8,verified_substituted,1,sub_from=venus-isolated-lsd;cname=BiswapRouter02
+56,venus-isolated-defi,Venus Isolated Pool DeFi,MoneyMarket,0x3344417c9360b963ca93A4e8305361AEde340Ab9,verified,8,BeaconProxy
+56,pancakeswap-v2-router,PancakeSwap V2 Router,AMM,0x10ED43C718714eb63d5aA57B78B54704E256024E,verified,1,PancakeRouter
+56,pancakeswap-v2-factory,PancakeSwap V2 Factory,AMM,0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73,verified,1,PancakeFactory
+56,pancakeswap-v3-swaprouter,PancakeSwap V3 SwapRouter,AMM,0x13f4EA83D0bd40E75C8222255bc855a974568Dd4,verified,70,SmartRouter
+56,pancakeswap-v3-factory,PancakeSwap V3 Factory,AMM,0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865,verified,10,PancakeV3Factory
+56,pancakeswap-v3-nonfungiblemgr,PancakeSwap V3 NFTPositionManager,AMM,0x46A15B0b27311cedF172AB29E4f4766fbE7F4364,verified,55,NonfungiblePositionManager
+56,pancakeswap-masterchef-v3,PancakeSwap MasterChef V3,AMM,0x556B9306565093C855AEA9AE92A594704c2Cd59e,verified,21,MasterChefV3
+56,pancakeswap-stableswap-factory,PancakeSwap StableSwap Factory,AMM,0x25a55f9f2279A54951133D503490342b50E5cd15,verified,7,PancakeStableSwapFactory
+56,pancakeswap-cake,PancakeSwap CAKE,AMM,0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82,verified,1,CakeToken
+56,thena-router,Thena Router,AMM,0x20a304a7d126758dfe6B243D0fc515F83bCA8431,verified,7,Router
+56,thena-pairfactory,Thena PairFactory,AMM,0xAFD89d21BdB66d00817d4153E055830B1c2B3970,verified,13,TransparentUpgradeableProxy
+56,thena-vethe,veTHE,AMM,0xfBBF371C9B0B994EebFcC977CEf603F7f31c070D,verified,9,VotingEscrow
+56,thena-the,THE,AMM,0xF4C8E32EaDEC4BFe97E0F595AdD0f4450a863a11,verified,2,Thena
+56,thena-voter,Thena Voter,AMM,0x374cc2276b842fEcD65af36D7C60a5b78373eDe1,verified,20,VoterV3
+56,wombat-mainpool,Wombat MainPool,AMM,0x312Bc7eAAF93f1C60Dc5AfC115FcCDE161055fb0,verified,1,OptimizedTransparentUpgradeableProxy
+56,wombat-router,Wombat Router,AMM,0x19609B03C976CCA288fbDae5c21d4290e9a4aDD7,verified,8,WombatRouter
+56,wombat-vewom,veWOM,AMM,0x3DA62816dD31c56D9CdF22C6771ddb892cB5b0Cc,verified,4,OptimizedTransparentUpgradeableProxy
+56,wombat-masterwombat,MasterWombat,AMM,0x489833311676B566f888119c29bd997Dc6C95830,verified,4,OptimizedTransparentUpgradeableProxy
+56,wombat-wom,WOM,AMM,0xAD6742A35fB341A9Cc6ad674738Dd8da98b94Fb1,verified,10,WombatERC20
+56,pendle-router-v4-bsc,Pendle Router V4 (BSC),Pendle,0x888888888889758F76e7103c6CbF23ABbF58F946,verified,4,PendleRouterV4
+56,pendle-token-bsc,Pendle Token (BSC),Pendle,0xb3Ed0A426155B79B898849803E3B36552f7ED507,verified,1,BridgeToken
+56,avalon-lendingpool,Avalon Labs LendingPool,BTC-LSD,0xf9278C7c4AEfAC4dDfd0D496f7a1C39cA6BcA6d4,verified,6,InitializableImmutableAdminUpgradeabilityProxy
+56,avalon-usdx,Avalon USDX,BTC-LSD,0xf3527ef8dE265eAa3716FB312c12847bFBA66Cef,verified,25,USDX
+56,solv-solvbtc,Solv solvBTC,BTC-LSD,0x4aae823a6a0b376De6A78e74eCC5b079d38cBCf7,verified,1,BeaconProxy
+56,solv-solvbtc-bbn,Solv solvBTC.BBN,BTC-LSD,0x1346b618dC92810EC74163e4c27004c921D446a5,verified,1,BeaconProxy
+56,pumpbtc,pumpBTC,BTC-LSD,0x1fCca65fb6Ae3b2758b9b2B394CB227eAE404e1E,verified,13,TransparentUpgradeableProxy
+56,bakerybtc,BakerySwap BAKE token,BTC-LSD,0xE02dF9e3e622DeBdD69fb838bB799E3F168902c5,verified_substituted,1,sub_from=enzobtc;cname=BakeryToken
+56,layerzero-endpoint-v2-bsc,LayerZero V2 Endpoint (BSC),Bridge,0x1a44076050125825900e736c501f859c50fE728c,verified,27,EndpointV2
+56,usdc-bsc,USDC (BSC),Bridge,0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d,verified_substituted,1,sub_from=usdt-oft-adapter-bsc;cname=BEP20UpgradeableProxy
+56,stargate-router-bsc,Stargate Router (BSC),Bridge,0x8731d54E9D02c286767d56ac03e8037C07e01e98,verified,14,LPStaking
+56,wbnb,WBNB,Base,0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c,verified,1,WBNB
+56,btcb,BTCB,Base,0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c,verified,1,BEP20Token
+56,venus-xvs,Venus XVS,MoneyMarket,0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63,verified,1,XVS
+56,alpaca-ibusdt,Alpaca ibUSDT Vault,MoneyMarket,0x158Da805682BdC8ee32d52833aD41E74bb951E59,verified_substituted,1,sub_from=venus-isolated-gamefi;cname=AdminUpgradeabilityProxy

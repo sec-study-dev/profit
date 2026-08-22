@@ -1,0 +1,344 @@
+[
+  {
+    "slug": "lista-slisbnb",
+    "name": "Lista slisBNB",
+    "category": "LST",
+    "address": "0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B"
+  },
+  {
+    "slug": "lista-stake-manager",
+    "name": "Lista StakeManager",
+    "category": "LST",
+    "address": "0x1adB950d8bB3dA4bE104211D5AB038628e477fE6"
+  },
+  {
+    "slug": "stader-bnbx",
+    "name": "Stader BNBx",
+    "category": "LST",
+    "address": "0x1bdd3Cf7F79cfB8EdbB955f20ad99211551BA275"
+  },
+  {
+    "slug": "ankr-ankrbnb",
+    "name": "Ankr ankrBNB",
+    "category": "LST",
+    "address": "0x52F24a5e03aee338Da5fd9Df68D2b6FAe1178827"
+  },
+  {
+    "slug": "pstake-stkbnb",
+    "name": "pSTAKE stkBNB",
+    "category": "LST",
+    "address": "0xc2E9d07F66A89c44062459A47a0D2Dc038E4fb16"
+  },
+  {
+    "slug": "binance-wbeth-bsc",
+    "name": "Binance WBETH (BSC)",
+    "category": "LST",
+    "address": "0xa2E3356610840701BDf5611a53974510Ae27E2e1"
+  },
+  {
+    "slug": "astherus-asbnb",
+    "name": "Astherus asBNB",
+    "category": "LST",
+    "address": "0x77734e70b6E88b4d82fE632a168EDf6e700912b6"
+  },
+  {
+    "slug": "lista-lisusd",
+    "name": "Lista lisUSD",
+    "category": "CDP",
+    "address": "0x0782b6d8c4551B9760e74c0545a9bCD90bdc41E5"
+  },
+  {
+    "slug": "lista-interaction",
+    "name": "Lista Interaction",
+    "category": "CDP",
+    "address": "0xB68443Ee3e828baD1526b3e0Bdf2Dfc6b1975ec4"
+  },
+  {
+    "slug": "alpaca-alpaca-token",
+    "name": "Alpaca ALPACA token",
+    "category": "CDP",
+    "address": "0x8F0528cE5eF7B51152A59745bEfDD91D97091d2F"
+  },
+  {
+    "slug": "helio-helio-token",
+    "name": "Helio (Lista) HAY",
+    "category": "CDP",
+    "address": "0x0782b6d8c4551B9760e74c0545a9bCD90bdc41E5"
+  },
+  {
+    "slug": "ethena-usde-bsc",
+    "name": "Ethena USDe (BSC OFT)",
+    "category": "CDP",
+    "address": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34"
+  },
+  {
+    "slug": "ethena-susde-bsc",
+    "name": "Ethena sUSDe (BSC OFT)",
+    "category": "CDP",
+    "address": "0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2"
+  },
+  {
+    "slug": "usd1",
+    "name": "USD1 (World Liberty)",
+    "category": "CDP",
+    "address": "0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d"
+  },
+  {
+    "slug": "fdusd",
+    "name": "FDUSD",
+    "category": "CDP",
+    "address": "0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409"
+  },
+  {
+    "slug": "venus-comptroller",
+    "name": "Venus Comptroller",
+    "category": "MoneyMarket",
+    "address": "0xfD36E2c2a6789Db23113685031d7F16329158384"
+  },
+  {
+    "slug": "venus-vbnb",
+    "name": "Venus vBNB",
+    "category": "MoneyMarket",
+    "address": "0xA07c5b74C9B40447a954e1466938b865b6BBea36"
+  },
+  {
+    "slug": "venus-vusdt",
+    "name": "Venus vUSDT",
+    "category": "MoneyMarket",
+    "address": "0xfD5840Cd36d94D7229439859C0112a4185BC0255"
+  },
+  {
+    "slug": "venus-vusdc",
+    "name": "Venus vUSDC",
+    "category": "MoneyMarket",
+    "address": "0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8"
+  },
+  {
+    "slug": "venus-vbusd",
+    "name": "Venus vBUSD",
+    "category": "MoneyMarket",
+    "address": "0x95c78222B3D6e262426483D42CfA53685A67Ab9D"
+  },
+  {
+    "slug": "venus-vbtcb",
+    "name": "Venus vBTCB",
+    "category": "MoneyMarket",
+    "address": "0x882C173bC7Ff3b7786CA16dfeD3DFFfb9Ee7847B"
+  },
+  {
+    "slug": "venus-vai",
+    "name": "Venus VAI",
+    "category": "MoneyMarket",
+    "address": "0x4BD17003473389A42DAF6a0a729f6Fdb328BbBd7"
+  },
+  {
+    "slug": "biswap-router",
+    "name": "Biswap Router V2",
+    "category": "MoneyMarket",
+    "address": "0x3a6d8cA21D1CF76F653A67577FA0D27453350dD8"
+  },
+  {
+    "slug": "venus-isolated-defi",
+    "name": "Venus Isolated Pool DeFi",
+    "category": "MoneyMarket",
+    "address": "0x3344417c9360b963ca93A4e8305361AEde340Ab9"
+  },
+  {
+    "slug": "pancakeswap-v2-router",
+    "name": "PancakeSwap V2 Router",
+    "category": "AMM",
+    "address": "0x10ED43C718714eb63d5aA57B78B54704E256024E"
+  },
+  {
+    "slug": "pancakeswap-v2-factory",
+    "name": "PancakeSwap V2 Factory",
+    "category": "AMM",
+    "address": "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73"
+  },
+  {
+    "slug": "pancakeswap-v3-swaprouter",
+    "name": "PancakeSwap V3 SwapRouter",
+    "category": "AMM",
+    "address": "0x13f4EA83D0bd40E75C8222255bc855a974568Dd4"
+  },
+  {
+    "slug": "pancakeswap-v3-factory",
+    "name": "PancakeSwap V3 Factory",
+    "category": "AMM",
+    "address": "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865"
+  },
+  {
+    "slug": "pancakeswap-v3-nonfungiblemgr",
+    "name": "PancakeSwap V3 NFTPositionManager",
+    "category": "AMM",
+    "address": "0x46A15B0b27311cedF172AB29E4f4766fbE7F4364"
+  },
+  {
+    "slug": "pancakeswap-masterchef-v3",
+    "name": "PancakeSwap MasterChef V3",
+    "category": "AMM",
+    "address": "0x556B9306565093C855AEA9AE92A594704c2Cd59e"
+  },
+  {
+    "slug": "pancakeswap-stableswap-factory",
+    "name": "PancakeSwap StableSwap Factory",
+    "category": "AMM",
+    "address": "0x25a55f9f2279A54951133D503490342b50E5cd15"
+  },
+  {
+    "slug": "pancakeswap-cake",
+    "name": "PancakeSwap CAKE",
+    "category": "AMM",
+    "address": "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82"
+  },
+  {
+    "slug": "thena-router",
+    "name": "Thena Router",
+    "category": "AMM",
+    "address": "0x20a304a7d126758dfe6B243D0fc515F83bCA8431"
+  },
+  {
+    "slug": "thena-pairfactory",
+    "name": "Thena PairFactory",
+    "category": "AMM",
+    "address": "0xAFD89d21BdB66d00817d4153E055830B1c2B3970"
+  },
+  {
+    "slug": "thena-vethe",
+    "name": "veTHE",
+    "category": "AMM",
+    "address": "0xfBBF371C9B0B994EebFcC977CEf603F7f31c070D"
+  },
+  {
+    "slug": "thena-the",
+    "name": "THE",
+    "category": "AMM",
+    "address": "0xF4C8E32EaDEC4BFe97E0F595AdD0f4450a863a11"
+  },
+  {
+    "slug": "thena-voter",
+    "name": "Thena Voter",
+    "category": "AMM",
+    "address": "0x374cc2276b842fEcD65af36D7C60a5b78373eDe1"
+  },
+  {
+    "slug": "wombat-mainpool",
+    "name": "Wombat MainPool",
+    "category": "AMM",
+    "address": "0x312Bc7eAAF93f1C60Dc5AfC115FcCDE161055fb0"
+  },
+  {
+    "slug": "wombat-router",
+    "name": "Wombat Router",
+    "category": "AMM",
+    "address": "0x19609B03C976CCA288fbDae5c21d4290e9a4aDD7"
+  },
+  {
+    "slug": "wombat-vewom",
+    "name": "veWOM",
+    "category": "AMM",
+    "address": "0x3DA62816dD31c56D9CdF22C6771ddb892cB5b0Cc"
+  },
+  {
+    "slug": "wombat-masterwombat",
+    "name": "MasterWombat",
+    "category": "AMM",
+    "address": "0x489833311676B566f888119c29bd997Dc6C95830"
+  },
+  {
+    "slug": "wombat-wom",
+    "name": "WOM",
+    "category": "AMM",
+    "address": "0xAD6742A35fB341A9Cc6ad674738Dd8da98b94Fb1"
+  },
+  {
+    "slug": "pendle-router-v4-bsc",
+    "name": "Pendle Router V4 (BSC)",
+    "category": "Pendle",
+    "address": "0x888888888889758F76e7103c6CbF23ABbF58F946"
+  },
+  {
+    "slug": "pendle-token-bsc",
+    "name": "Pendle Token (BSC)",
+    "category": "Pendle",
+    "address": "0xb3Ed0A426155B79B898849803E3B36552f7ED507"
+  },
+  {
+    "slug": "avalon-lendingpool",
+    "name": "Avalon Labs LendingPool",
+    "category": "BTC-LSD",
+    "address": "0xf9278C7c4AEfAC4dDfd0D496f7a1C39cA6BcA6d4"
+  },
+  {
+    "slug": "avalon-usdx",
+    "name": "Avalon USDX",
+    "category": "BTC-LSD",
+    "address": "0xf3527ef8dE265eAa3716FB312c12847bFBA66Cef"
+  },
+  {
+    "slug": "solv-solvbtc",
+    "name": "Solv solvBTC",
+    "category": "BTC-LSD",
+    "address": "0x4aae823a6a0b376De6A78e74eCC5b079d38cBCf7"
+  },
+  {
+    "slug": "solv-solvbtc-bbn",
+    "name": "Solv solvBTC.BBN",
+    "category": "BTC-LSD",
+    "address": "0x1346b618dC92810EC74163e4c27004c921D446a5"
+  },
+  {
+    "slug": "pumpbtc",
+    "name": "pumpBTC",
+    "category": "BTC-LSD",
+    "address": "0x1fCca65fb6Ae3b2758b9b2B394CB227eAE404e1E"
+  },
+  {
+    "slug": "bakerybtc",
+    "name": "BakerySwap BAKE token",
+    "category": "BTC-LSD",
+    "address": "0xE02dF9e3e622DeBdD69fb838bB799E3F168902c5"
+  },
+  {
+    "slug": "layerzero-endpoint-v2-bsc",
+    "name": "LayerZero V2 Endpoint (BSC)",
+    "category": "Bridge",
+    "address": "0x1a44076050125825900e736c501f859c50fE728c"
+  },
+  {
+    "slug": "usdc-bsc",
+    "name": "USDC (BSC)",
+    "category": "Bridge",
+    "address": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"
+  },
+  {
+    "slug": "stargate-router-bsc",
+    "name": "Stargate Router (BSC)",
+    "category": "Bridge",
+    "address": "0x8731d54E9D02c286767d56ac03e8037C07e01e98"
+  },
+  {
+    "slug": "wbnb",
+    "name": "WBNB",
+    "category": "Base",
+    "address": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"
+  },
+  {
+    "slug": "btcb",
+    "name": "BTCB",
+    "category": "Base",
+    "address": "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c"
+  },
+  {
+    "slug": "venus-xvs",
+    "name": "Venus XVS",
+    "category": "MoneyMarket",
+    "address": "0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63"
+  },
+  {
+    "slug": "alpaca-ibusdt",
+    "name": "Alpaca ibUSDT Vault",
+    "category": "MoneyMarket",
+    "address": "0x158Da805682BdC8ee32d52833aD41E74bb951E59"
+  }
+]
